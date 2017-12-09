@@ -18,6 +18,14 @@ enum class ZnpSubsystem {
   APP = 9
 };
 
+enum class ZnpStatus : uint8_t {
+	Success = 0x00,
+	Failure = 0x01,
+	InvalidParameter = 0x02,
+	MemError = 0x03,
+	BufferFull = 0x11
+};
+
 std::ostream& operator<<(std::ostream& stream, const ZnpSubsystem& subsys);
 std::ostream& operator<<(std::ostream& stream, const ZnpCommandType& type);
 }  // namespace znp

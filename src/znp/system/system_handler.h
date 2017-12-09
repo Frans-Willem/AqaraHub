@@ -1,6 +1,9 @@
 #ifndef _ZNP_SYSTEM_SYSTEM_HANDLER_H_
 #define _ZNP_SYSTEM_SYSTEM_HANDLER_H_
 #include "znp/system/system.h"
+#include "znp/znp_port.h"
+#include "znp/znp_sreq_handler.h"
+#include <boost/signals2/signal.hpp>
 
 namespace znp {
 namespace system {

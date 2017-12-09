@@ -1,8 +1,6 @@
 #ifndef _ZNP_SYSTEM_SYSTEM_H_
 #define _ZNP_SYSTEM_SYSTEM_H_
 #include <iostream>
-#include <stlab/concurrency/future.hpp>
-#include "znp/znp_sreq_handler.h"
 
 namespace znp {
 namespace system {

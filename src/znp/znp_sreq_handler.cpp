@@ -1,5 +1,6 @@
 #include "znp/znp_sreq_handler.h"
 #include "asio_executor.h"
+#include "logging.h"
 
 namespace znp {
 ZnpSreqHandler::ZnpSreqHandler(boost::asio::io_service& io_service,
@@ -26,6 +27,21 @@ stlab::future<std::vector<uint8_t>> ZnpSreqHandler::SReq(
   port_->SendFrame(ZnpCommandType::SREQ, subsys, (unsigned int)command,
                    boost::asio::const_buffer(payload.data(), payload.size()));
   return package.second;
+}
+
+stlab::future<std::vector<uint8_t>> ZnpSreqHandler::SReqStatus(
+    ZnpSubsystem subsys, uint8_t command, const std::vector<uint8_t>& payload) {
+  return SReq(subsys, command, payload).then([](const std::vector<uint8_t>& v) {
+    if (v.size() < 1) {
+      throw std::runtime_error("Status byte missing");
+    }
+    if ((ZnpStatus)v[0] != ZnpStatus::Success) {
+      LOG("Main", warning) << "Status was not success :(";
+      throw std::runtime_error("Status was not success");
+    }
+
+    return std::vector<uint8_t>(v.begin() + 1, v.end());
+  });
 }
 
 void ZnpSreqHandler::OnFrame(ZnpCommandType type, ZnpSubsystem subsys,

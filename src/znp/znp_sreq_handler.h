@@ -12,8 +12,17 @@ class ZnpSreqHandler {
                  std::shared_ptr<ZnpPort> port);
   ~ZnpSreqHandler() = default;
 
+  /**
+   * Sends a raw SREQ, and waits for a matching SRSP.
+   * The raw payload of the SRSP is returned in the future.
+   */
   stlab::future<std::vector<uint8_t>> SReq(ZnpSubsystem subsys, uint8_t command,
                                            const std::vector<uint8_t>& payload);
+  /**
+   * Similar to SReq, but the first byte of the response is checked against ZnpStatus::Success.
+   * The raw payload, minus the first byte, is returned in the future.
+   */
+  stlab::future<std::vector<uint8_t>> SReqStatus(ZnpSubsystem subsys, uint8_t command, const std::vector<uint8_t>& payload);
 
  private:
   boost::asio::io_service& io_service_;

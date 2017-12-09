@@ -22,6 +22,7 @@ add_executable(AqaraHub
 	src/znp/znp_sreq_handler.cpp
 	src/znp/system/system.cpp
 	src/znp/system/system_handler.cpp
+	src/znp/simpleapi/simpleapi_handler.cpp
 	src/asio_executor.cpp
 	src/logging.cpp
 	)
