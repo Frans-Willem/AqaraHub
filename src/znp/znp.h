@@ -26,6 +26,9 @@ enum class ZnpStatus : uint8_t {
 	BufferFull = 0x11
 };
 
+typedef uint64_t IEEEAddress;
+typedef uint16_t ShortAddress;
+
 std::ostream& operator<<(std::ostream& stream, const ZnpSubsystem& subsys);
 std::ostream& operator<<(std::ostream& stream, const ZnpCommandType& type);
 }  // namespace znp

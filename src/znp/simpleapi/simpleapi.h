@@ -38,18 +38,36 @@ enum class ConfigurationOption : uint16_t {
   APS_FRAME_RETRIES = 0x0043,
   APS_ACK_WAIT_DURATION = 0x0044,
   BINDING_TIME = 0x0046,
-  USERDESC = 0x0081,
-  PANID = 0x0083,
-  CHANLIST = 0x0084,
   PRECFGKEY = 0x0062,
   PRECFGKEYS_ENABLE = 0x0063,
   SECURITY_MODE = 0x0064,
+  USERDESC = 0x0081,
+  PANID = 0x0083,
+  CHANLIST = 0x0084,
   LOGICAL_TYPE = 0x0087,
+  ZDO_DIRECT_CB = 0x008F
+};
+
+enum class LogicalType : uint8_t {
+	Coordinator = 0,
+	Router = 1,
+	EndDevice = 2
 };
 
 enum class StartupOption : uint8_t {
 	ClearConfig = 1,
 	ClearState = 2
+};
+
+enum class DeviceInfo : uint8_t {
+	DeviceState = 0,
+	DeviceIEEEAddress = 1,
+	DeviceShortAddress = 2,
+	ParentDeviceShortAddress = 3,
+	ParentDeviceIEEEAddress = 4,
+	Channel = 5,
+	PanId = 6,
+	ExtendedPanId = 7
 };
 
 }  // namespace simpleapi
