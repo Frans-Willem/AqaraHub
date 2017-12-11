@@ -6,7 +6,7 @@
 
 namespace znp {
 ZnpPort::ZnpPort(boost::asio::io_service& io_service, const std::string& port)
-    : io_service_(io_service),
+    : 
       port_(io_service, port),
       send_in_progress_(false),
       send_queue_() {

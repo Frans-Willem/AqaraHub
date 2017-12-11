@@ -20,7 +20,6 @@ class ZnpPort {
       on_frame_;
 
  private:
-  boost::asio::io_service& io_service_;
   boost::asio::serial_port port_;
   bool send_in_progress_;
   std::queue<std::vector<uint8_t>> send_queue_;

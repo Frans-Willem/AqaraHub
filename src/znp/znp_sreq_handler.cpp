@@ -21,7 +21,7 @@ stlab::future<std::vector<uint8_t>> ZnpSreqHandler::SReq(
         if (exc != nullptr) {
           std::rethrow_exception(exc);
         }
-        return std::move(retval);
+        return retval;
       });
   srsp_queue_[std::make_pair(subsys, command)].push(package.first);
   port_->SendFrame(ZnpCommandType::SREQ, subsys, (unsigned int)command,
