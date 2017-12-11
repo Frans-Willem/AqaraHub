@@ -1,6 +1,8 @@
 #ifndef _ZNP_ZDO_ZDO_H_
 #define _ZNP_ZDO_ZDO_H_
 #include <cstdint>
+#include <iostream>
+
 namespace znp {
 namespace zdo {
 enum class ZdoCommand : uint8_t {
@@ -60,8 +62,13 @@ enum class ZdoCommand : uint8_t {
   MATCH_DESC_RSP_SENT = 0xC2,
   STATUS_ERROR_RSP = 0xC3,
   SRC_RTG_IND = 0xC4,
+  LEAVE_IND = 0xC9,
+  TC_DEV_IND = 0xCA,
+  PERMIT_JOIN_IND = 0xCB,
   MSG_CB_INCOMING = 0xFF
 };
+
+std::ostream& operator<<(std::ostream& stream, ZdoCommand command);
 
 enum StartupFromAppResponse : uint8_t {
 	Restored = 0,

@@ -23,7 +23,7 @@ stlab::future<StartupFromAppResponse> ZdoHandler::StartupFromApp(
 
 stlab::future<DeviceState> ZdoHandler::WaitForState(
     std::set<DeviceState> end_states, std::set<DeviceState> allowed_states) {
-	auto port = port_;
+  auto port = port_;
   return simpleapi_handler_->GetDeviceState().then([end_states, allowed_states,
                                                     port](DeviceState state) {
     if (end_states.count(state) != 0) {
@@ -83,5 +83,27 @@ stlab::future<DeviceState> ZdoHandler::WaitForState(
   });
 }
 
+stlab::future<uint16_t> ZdoHandler::PermitJoin(AddrMode addr_mode,
+                                               uint16_t dst_address,
+                                               uint8_t duration,
+                                               uint8_t tc_significance) {
+  auto sreq_handler = sreq_handler_;
+  return sreq_handler
+      ->SReqStatus(ZnpSubsystem::ZDO, (uint8_t)ZdoCommand::MGMT_PERMIT_JOIN_REQ,
+                   znp::EncodeT<AddrMode, uint16_t, uint8_t, uint8_t>(
+                       addr_mode, dst_address, duration, tc_significance))
+      .then(znp::Decode<void>)
+      .then([sreq_handler]() {
+        return sreq_handler->WaitForAReq(
+            ZnpSubsystem::ZDO, (uint8_t)ZdoCommand::MGMT_PERMIT_JOIN_RSP);
+      })
+      .then(znp::DecodeT<uint16_t, ZnpStatus>)
+      .then([](std::tuple<uint16_t, ZnpStatus> retval) {
+        if (std::get<1>(retval) != ZnpStatus::Success) {
+          throw std::runtime_error("PermitJoin returned non-success status");
+        }
+        return std::get<0>(retval);
+      });
+}
 }  // namespace zdo
 }  // namespace znp

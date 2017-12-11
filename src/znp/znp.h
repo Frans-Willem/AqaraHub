@@ -29,6 +29,14 @@ enum class ZnpStatus : uint8_t {
 typedef uint64_t IEEEAddress;
 typedef uint16_t ShortAddress;
 
+enum class AddrMode : uint8_t {
+	NotPresent = 0,
+	Group = 1,
+	ShortAddress = 2,
+	IEEEAddress = 3,
+	Broadcast = 0xFF
+};
+
 std::ostream& operator<<(std::ostream& stream, const ZnpSubsystem& subsys);
 std::ostream& operator<<(std::ostream& stream, const ZnpCommandType& type);
 }  // namespace znp

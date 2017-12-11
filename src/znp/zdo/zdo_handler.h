@@ -14,6 +14,7 @@ class ZdoHandler {
 	 ~ZdoHandler() = default;
 	 stlab::future<StartupFromAppResponse> StartupFromApp(uint16_t start_delay);
 	 stlab::future<DeviceState> WaitForState(std::set<DeviceState> end_states, std::set<DeviceState> allowed_states);
+	 stlab::future<uint16_t> PermitJoin(AddrMode addr_mode, uint16_t dst_address, uint8_t duration, uint8_t tc_significance);
  private:
 	 std::shared_ptr<ZnpPort> port_;
 	 std::shared_ptr<ZnpSreqHandler> sreq_handler_;

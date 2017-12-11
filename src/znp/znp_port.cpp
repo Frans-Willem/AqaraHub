@@ -42,10 +42,9 @@ void ZnpPort::SendFrame(ZnpCommandType type, ZnpSubsystem subsystem,
     crc ^= buffer[i];
   }
   buffer[buffer.size() - 1] = crc;
-  LOG("ZnpPort", debug) << "Sending: "
-                        << boost::log::dump(buffer.data(), buffer.size());
   send_queue_.emplace(std::move(buffer));
   TrySend();
+  on_sent_(type, subsystem, command, payload);
 }
 
 void ZnpPort::TrySend() {
@@ -129,6 +128,7 @@ void ZnpPort::FrameHandler(std::shared_ptr<std::vector<uint8_t>> frame,
 	  LOG("ZnpPort", critical) << "Error while reading frame";
     return;
   }
+  StartReceive();
   uint8_t crc = 0;
   crc ^= frame->size() - 3;  // Length byte
   for (std::size_t i = 0; i < frame->size() - 1; i++) {
@@ -138,13 +138,10 @@ void ZnpPort::FrameHandler(std::shared_ptr<std::vector<uint8_t>> frame,
 	  LOG("ZnpPort", warning) << "CRC does not match, dropping frame";
     return;
   }
-  uint8_t prefix[] = {0xfe, (uint8_t)(frame->size()-3)};
-  LOG("ZnpPort", debug) << "Received: " << boost::log::dump(prefix, 2) << " " << boost::log::dump(frame->data(), frame->size());
   ZnpCommandType type = (ZnpCommandType)((*frame)[0] >> 4);
   ZnpSubsystem subsystem = (ZnpSubsystem)((*frame)[0] & 0xF);
   unsigned int command = (*frame)[1];
   on_frame_(type, subsystem, command,
             boost::asio::const_buffer(&(*frame)[2], frame->size() - 3));
-  StartReceive();
 }
 }  // namespace znp

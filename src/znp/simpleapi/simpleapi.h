@@ -1,6 +1,7 @@
 #ifndef _ZNP_SIMPLEAPI_SIMPLEAPI_H_
 #define _ZNP_SIMPLEAPI_SIMPLEAPI_H_
 #include <cstdint>
+#include <iostream>
 
 namespace znp {
 namespace simpleapi {
@@ -22,6 +23,8 @@ enum class SimpleAPICommand : uint8_t {
   FIND_DEVICE_CONFIRM = 0x85,
   RECEIVE_DATA_INDICATION = 0x87,
 };
+
+std::ostream& operator<<(std::ostream& stream, SimpleAPICommand command);
 
 enum class ConfigurationOption : uint16_t {
   STARTUP_OPTION = 0x0003,
@@ -58,6 +61,10 @@ enum class StartupOption : uint8_t {
 	ClearConfig = 1,
 	ClearState = 2
 };
+
+inline StartupOption operator|(StartupOption a, StartupOption b) {
+	return (StartupOption)(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));
+}
 
 enum class DeviceInfo : uint8_t {
 	DeviceState = 0,

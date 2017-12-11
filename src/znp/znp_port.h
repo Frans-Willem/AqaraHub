@@ -12,12 +12,15 @@ class ZnpPort {
  public:
   ZnpPort(boost::asio::io_service& io_service, const std::string& port);
   ~ZnpPort() = default;
-  void SendFrame(ZnpCommandType type, ZnpSubsystem subsystem,
-                 uint8_t command, boost::asio::const_buffer payload);
+  void SendFrame(ZnpCommandType type, ZnpSubsystem subsystem, uint8_t command,
+                 boost::asio::const_buffer payload);
 
   boost::signals2::signal<void(ZnpCommandType, ZnpSubsystem, uint8_t,
                                boost::asio::const_buffer)>
       on_frame_;
+  boost::signals2::signal<void(ZnpCommandType, ZnpSubsystem, uint8_t,
+                               boost::asio::const_buffer)>
+      on_sent_;
 
  private:
   boost::asio::serial_port port_;

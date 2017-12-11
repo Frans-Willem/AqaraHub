@@ -1,7 +1,7 @@
 #include "znp/znp_sreq_handler.h"
+#include <stlab/concurrency/immediate_executor.hpp>
 #include "asio_executor.h"
 #include "logging.h"
-#include <stlab/concurrency/immediate_executor.hpp>
 
 namespace znp {
 ZnpSreqHandler::ZnpSreqHandler(std::shared_ptr<ZnpPort> port)
@@ -43,24 +43,52 @@ stlab::future<std::vector<uint8_t>> ZnpSreqHandler::SReqStatus(
   });
 }
 
+stlab::future<std::vector<uint8_t>> ZnpSreqHandler::WaitForAReq(
+    ZnpSubsystem subsys, uint8_t command) {
+  auto package = stlab::package<std::vector<uint8_t>(std::exception_ptr,
+                                                     std::vector<uint8_t>)>(
+      stlab::immediate_executor,
+      [](std::exception_ptr exc, std::vector<uint8_t> retval) {
+        if (exc != nullptr) {
+          std::rethrow_exception(exc);
+        }
+        return retval;
+      });
+  areq_queue_[std::make_pair(subsys, command)].push(package.first);
+  return package.second;
+}
+
 void ZnpSreqHandler::OnFrame(ZnpCommandType type, ZnpSubsystem subsys,
                              uint8_t command,
                              boost::asio::const_buffer payload) {
-  if (type != ZnpCommandType::SRSP) {
-    return;
+  if (type == ZnpCommandType::SRSP) {
+    std::queue<SreqCallback>& callback_queue(
+        srsp_queue_[std::make_pair(subsys, command)]);
+    if (callback_queue.empty()) {
+      LOG("ZnpSreqHandler", warning)
+          << "SRSP received for an empty queue" << std::endl;
+      return;
+    }
+    SreqCallback callback = std::move(callback_queue.front());
+    callback_queue.pop();
+    std::vector<uint8_t> payload_vector(boost::asio::buffer_size(payload));
+    std::memcpy(&payload_vector[0],
+                boost::asio::buffer_cast<const uint8_t*>(payload),
+                boost::asio::buffer_size(payload));
+    callback(nullptr, std::move(payload_vector));
+  } else if (type == ZnpCommandType::AREQ) {
+    std::queue<AreqCallback>& callback_queue(
+        areq_queue_[std::make_pair(subsys, command)]);
+    if (callback_queue.empty()) {
+      return;
+    }
+    AreqCallback callback = std::move(callback_queue.front());
+    callback_queue.pop();
+    std::vector<uint8_t> payload_vector(boost::asio::buffer_size(payload));
+    std::memcpy(&payload_vector[0],
+                boost::asio::buffer_cast<const uint8_t*>(payload),
+                boost::asio::buffer_size(payload));
+    callback(nullptr, std::move(payload_vector));
   }
-  std::queue<SreqCallback>& callback_queue(
-      srsp_queue_[std::make_pair(subsys, command)]);
-  if (callback_queue.empty()) {
-    std::cout << "SRSP received for an empty queue" << std::endl;
-    return;
-  }
-  SreqCallback callback = std::move(callback_queue.front());
-  callback_queue.pop();
-  std::vector<uint8_t> payload_vector(boost::asio::buffer_size(payload));
-  std::memcpy(&payload_vector[0],
-              boost::asio::buffer_cast<const uint8_t*>(payload),
-              boost::asio::buffer_size(payload));
-  callback(nullptr, std::move(payload_vector));
 }
 }  // namespace znp
