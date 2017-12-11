@@ -7,6 +7,7 @@
 #include <stlab/concurrency/immediate_executor.hpp>
 #include <stlab/concurrency/utility.hpp>
 #include "asio_executor.h"
+#include "coroutines.h"
 #include "logging.h"
 #include "znp/encoding.h"
 #include "znp/simpleapi/simpleapi_handler.h"
@@ -15,14 +16,33 @@
 #include "znp/znp_port.h"
 #include "znp/znp_sreq_handler.h"
 
-stlab::future<void> chain(
-    boost::asio::io_service& io_service,
-    std::vector<std::function<stlab::future<void>()>> functions) {
-  auto current = stlab::make_ready_future(AsioExecutor(io_service));
-  for (auto function : functions) {
-    current = current.then(function);
-  }
-  return current;
+stlab::future<void> Initialize(
+    std::shared_ptr<znp::system::SystemHandler> system_handler,
+    std::shared_ptr<znp::simpleapi::SimpleAPIHandler> simpleapi_handler) {
+  std::ignore = co_await system_handler->Reset(true);
+  co_await simpleapi_handler->WriteStartupOption(
+      znp::simpleapi::StartupOption::ClearConfig);
+  std::ignore = co_await system_handler->Reset(true);
+  co_await simpleapi_handler->WriteConfiguration<uint16_t>(
+      znp::simpleapi::ConfigurationOption::PANID, 0x1A62);
+  co_await simpleapi_handler->WriteConfiguration<uint64_t>(
+      znp::simpleapi::ConfigurationOption::EXTENDED_PAN_ID, 0xDDDDDDDDDDDDDDDD);
+  co_await simpleapi_handler->WriteConfiguration<uint32_t>(
+      znp::simpleapi::ConfigurationOption::CHANLIST, 0x00000800);
+  co_await simpleapi_handler->WriteLogicalType(
+      znp::simpleapi::LogicalType::Coordinator);
+  std::array<uint8_t, 16> presharedkey = {
+      {1, 3, 5, 7, 9, 11, 13, 15, 0, 2, 4, 6, 8, 10, 12, 13}};
+  co_await simpleapi_handler->WriteConfiguration(
+      znp::simpleapi::ConfigurationOption::PRECFGKEY, presharedkey);
+  co_await simpleapi_handler->WriteConfiguration<uint8_t>(
+      znp::simpleapi::ConfigurationOption::PRECFGKEYS_ENABLE, 0);
+  co_await simpleapi_handler->WriteConfiguration<uint8_t>(
+      znp::simpleapi::ConfigurationOption::ZDO_DIRECT_CB, 1);
+  uint8_t device_state = co_await simpleapi_handler->GetDeviceInfo<uint8_t>(
+      znp::simpleapi::DeviceInfo::DeviceState);
+  LOG("Main", debug) << "DeviceInfo(0): " << (unsigned int)device_state;
+  co_return;
 }
 
 int main() {
@@ -48,57 +68,7 @@ int main() {
   // Reset device
   LOG("Main", info) << "Initializing";
 
-  chain(io_service,
-        {[system_handler]() {
-           return system_handler->Reset(true).then([](auto f) {});
-         },
-         [simpleapi_handler]() {
-           return simpleapi_handler->WriteStartupOption(
-               znp::simpleapi::StartupOption::ClearConfig);
-         },
-         [system_handler]() {
-           return system_handler->Reset(true).then([](auto f) {});
-         },
-         [simpleapi_handler]() {
-           return simpleapi_handler->WriteConfiguration<uint16_t>(
-               znp::simpleapi::ConfigurationOption::PANID, 0x1A62);
-         },
-         [simpleapi_handler]() {
-           return simpleapi_handler->WriteConfiguration<uint64_t>(
-               znp::simpleapi::ConfigurationOption::EXTENDED_PAN_ID,
-               0xDDDDDDDDDDDDDDDD);
-         },
-         [simpleapi_handler]() {
-           return simpleapi_handler->WriteConfiguration<uint32_t>(
-               znp::simpleapi::ConfigurationOption::CHANLIST, 0x00000800);
-         },
-         [simpleapi_handler]() {
-           return simpleapi_handler->WriteLogicalType(
-               znp::simpleapi::LogicalType::Coordinator);
-         },
-         [simpleapi_handler]() {
-           std::array<uint8_t, 16> presharedkey = {1, 3, 5, 7, 9, 11, 13, 15,
-                                                  0, 2, 4, 6, 8, 10, 12, 13};
-           return simpleapi_handler->WriteConfiguration(
-               znp::simpleapi::ConfigurationOption::PRECFGKEY, presharedkey);
-         },
-         [simpleapi_handler]() {
-           return simpleapi_handler->WriteConfiguration<uint8_t>(
-               znp::simpleapi::ConfigurationOption::PRECFGKEYS_ENABLE, 0);
-         },
-         [simpleapi_handler]() {
-           return simpleapi_handler->WriteConfiguration<uint8_t>(
-               znp::simpleapi::ConfigurationOption::ZDO_DIRECT_CB, 1);
-         },
-         [simpleapi_handler]() {
-           return simpleapi_handler
-               ->GetDeviceInfo<uint8_t>(znp::simpleapi::DeviceInfo::DeviceState)
-               .then([](const uint8_t data) {
-                 LOG("Main", debug)
-                     << "DeviceInfo(0): "
-                     << (unsigned int)data;
-               });
-         }})
+  Initialize(system_handler, simpleapi_handler)
       .then([]() { LOG("Main", info) << "Initialization complete?"; })
       .recover([](stlab::future<void> v) {
         LOG("Main", info) << "In final handler";
