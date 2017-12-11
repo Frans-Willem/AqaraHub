@@ -8,8 +8,7 @@
 namespace znp {
 class ZnpSreqHandler {
  public:
-  ZnpSreqHandler(boost::asio::io_service& io_service,
-                 std::shared_ptr<ZnpPort> port);
+  ZnpSreqHandler(std::shared_ptr<ZnpPort> port);
   ~ZnpSreqHandler() = default;
 
   /**
@@ -25,7 +24,6 @@ class ZnpSreqHandler {
   stlab::future<std::vector<uint8_t>> SReqStatus(ZnpSubsystem subsys, uint8_t command, const std::vector<uint8_t>& payload);
 
  private:
-  boost::asio::io_service& io_service_;
   std::shared_ptr<ZnpPort> port_;
   boost::signals2::scoped_connection on_frame_connection_;
 

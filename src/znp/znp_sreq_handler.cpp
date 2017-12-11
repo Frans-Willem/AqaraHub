@@ -1,12 +1,11 @@
 #include "znp/znp_sreq_handler.h"
 #include "asio_executor.h"
 #include "logging.h"
+#include <stlab/concurrency/immediate_executor.hpp>
 
 namespace znp {
-ZnpSreqHandler::ZnpSreqHandler(boost::asio::io_service& io_service,
-                               std::shared_ptr<ZnpPort> port)
-    : io_service_(io_service),
-      port_(port),
+ZnpSreqHandler::ZnpSreqHandler(std::shared_ptr<ZnpPort> port)
+    : port_(port),
       on_frame_connection_(port_->on_frame_.connect(
           std::bind(&ZnpSreqHandler::OnFrame, this, std::placeholders::_1,
                     std::placeholders::_2, std::placeholders::_3,
@@ -16,7 +15,7 @@ stlab::future<std::vector<uint8_t>> ZnpSreqHandler::SReq(
     ZnpSubsystem subsys, uint8_t command, const std::vector<uint8_t>& payload) {
   auto package = stlab::package<std::vector<uint8_t>(std::exception_ptr,
                                                      std::vector<uint8_t>)>(
-      AsioExecutor(io_service_),
+      stlab::immediate_executor,
       [](std::exception_ptr exc, std::vector<uint8_t> retval) {
         if (exc != nullptr) {
           std::rethrow_exception(exc);

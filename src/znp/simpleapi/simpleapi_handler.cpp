@@ -89,5 +89,8 @@ stlab::future<std::vector<uint8_t>> SimpleAPIHandler::GetRawDeviceInfo(
       });
 }
 
+stlab::future<zdo::DeviceState> SimpleAPIHandler::GetDeviceState() {
+	return GetDeviceInfo<zdo::DeviceState>(DeviceInfo::DeviceState);
+}
 }  // namespace simpleapi
 }  // namespace znp

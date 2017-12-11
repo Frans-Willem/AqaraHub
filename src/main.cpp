@@ -15,14 +15,19 @@
 #include "znp/system/system_handler.h"
 #include "znp/znp_port.h"
 #include "znp/znp_sreq_handler.h"
+#include "znp/zdo/zdo_handler.h"
 
 stlab::future<void> Initialize(
     std::shared_ptr<znp::system::SystemHandler> system_handler,
-    std::shared_ptr<znp::simpleapi::SimpleAPIHandler> simpleapi_handler) {
+    std::shared_ptr<znp::simpleapi::SimpleAPIHandler> simpleapi_handler,
+	std::shared_ptr<znp::zdo::ZdoHandler> zdo_handler) {
+LOG("Initialize", debug) << "Doing initial reset, and instructing to clear config on next reset";
   std::ignore = co_await system_handler->Reset(true);
   co_await simpleapi_handler->WriteStartupOption(
       znp::simpleapi::StartupOption::ClearConfig);
+  LOG("Initialize", debug) << "Doing final reset";
   std::ignore = co_await system_handler->Reset(true);
+  LOG("Initialize", debug) << "Writing all configuration";
   co_await simpleapi_handler->WriteConfiguration<uint16_t>(
       znp::simpleapi::ConfigurationOption::PANID, 0x1A62);
   co_await simpleapi_handler->WriteConfiguration<uint64_t>(
@@ -39,9 +44,12 @@ stlab::future<void> Initialize(
       znp::simpleapi::ConfigurationOption::PRECFGKEYS_ENABLE, 0);
   co_await simpleapi_handler->WriteConfiguration<uint8_t>(
       znp::simpleapi::ConfigurationOption::ZDO_DIRECT_CB, 1);
-  uint8_t device_state = co_await simpleapi_handler->GetDeviceInfo<uint8_t>(
-      znp::simpleapi::DeviceInfo::DeviceState);
-  LOG("Main", debug) << "DeviceInfo(0): " << (unsigned int)device_state;
+  LOG("Initialize", debug) << "Starting ZDO";
+  auto future_state = zdo_handler->WaitForState({znp::zdo::DeviceState::ZB_COORD}, {znp::zdo::DeviceState::COORD_STARTING, znp::zdo::DeviceState::HOLD, znp::zdo::DeviceState::INIT});
+  uint8_t ret = co_await zdo_handler->StartupFromApp(100);
+  LOG("Initialize", debug) << "ZDO Start return value: " << (unsigned int) ret;
+  uint8_t device_state = co_await future_state;
+  LOG("Initialize", debug) << "Final device state " << (unsigned int)device_state;
   co_return;
 }
 
@@ -59,16 +67,17 @@ int main() {
   console_log->set_formatter(formatter);
   LOG("Main", info) << "Starting";
   auto port = std::make_shared<znp::ZnpPort>(io_service, "/dev/ttyACM0");
-  auto sreq_handler = std::make_shared<znp::ZnpSreqHandler>(io_service, port);
+  auto sreq_handler = std::make_shared<znp::ZnpSreqHandler>(port);
   auto system_handler = std::make_shared<znp::system::SystemHandler>(
       io_service, port, sreq_handler);
   auto simpleapi_handler =
       std::make_shared<znp::simpleapi::SimpleAPIHandler>(sreq_handler);
+  auto zdo_handler = std::make_shared<znp::zdo::ZdoHandler>(port, sreq_handler, simpleapi_handler);
 
   // Reset device
   LOG("Main", info) << "Initializing";
 
-  Initialize(system_handler, simpleapi_handler)
+  Initialize(system_handler, simpleapi_handler, zdo_handler)
       .then([]() { LOG("Main", info) << "Initialization complete?"; })
       .recover([](stlab::future<void> v) {
         LOG("Main", info) << "In final handler";

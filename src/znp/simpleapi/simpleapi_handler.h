@@ -4,6 +4,7 @@
 #include "znp/encoding.h"
 #include "znp/simpleapi/simpleapi.h"
 #include "znp/znp_sreq_handler.h"
+#include "znp/zdo/zdo.h"
 
 namespace znp {
 namespace simpleapi {
@@ -33,7 +34,7 @@ class SimpleAPIHandler {
   stlab::future<T> GetDeviceInfo(DeviceInfo info) {
     return GetRawDeviceInfo(info, znp::EncodedSize<T>()).then(znp::Decode<T>);
   }
-  stlab::future<uint8_t> GetDeviceState();
+  stlab::future<zdo::DeviceState> GetDeviceState();
   stlab::future<IEEEAddress> GetDeviceIEEEAddress();
   stlab::future<ShortAddress> GetDeviceShortAddress();
 
