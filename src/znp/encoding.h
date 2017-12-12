@@ -2,8 +2,10 @@
 #define _ZNP_ENCODING_H_
 #include <iostream>
 #include <tuple>
-#include "znp/znp.h"
 #include <type_traits>
+#include "znp/znp.h"
+#include <boost/fusion/include/is_sequence.hpp>
+#include <boost/fusion/include/accumulate.hpp>
 
 namespace znp {
 typedef std::vector<uint8_t> EncodeTarget;
@@ -13,7 +15,7 @@ class EncodeHelper;
 template <>
 class EncodeHelper<uint8_t> {
  public:
-  static inline std::size_t GetSize() { return 1; }
+  static inline std::size_t GetSize(const uint8_t& value) { return 1; }
   static inline void Encode(const uint8_t& number,
                             EncodeTarget::iterator& begin,
                             EncodeTarget::iterator end) {
@@ -35,7 +37,7 @@ class EncodeHelper<uint8_t> {
 template <>
 class EncodeHelper<uint16_t> {
  public:
-  static inline std::size_t GetSize() { return 2; }
+  static inline std::size_t GetSize(const uint16_t& value) { return 2; }
   static inline void Encode(const uint16_t& number,
                             EncodeTarget::iterator& begin,
                             EncodeTarget::iterator end) {
@@ -60,7 +62,7 @@ class EncodeHelper<uint16_t> {
 template <>
 class EncodeHelper<uint32_t> {
  public:
-  static inline std::size_t GetSize() { return 4; }
+  static inline std::size_t GetSize(const uint32_t& value) { return 4; }
   static inline void Encode(const uint32_t& number,
                             EncodeTarget::iterator& begin,
                             EncodeTarget::iterator end) {
@@ -89,7 +91,7 @@ class EncodeHelper<uint32_t> {
 template <>
 class EncodeHelper<uint64_t> {
  public:
-  static inline std::size_t GetSize() { return 8; }
+  static inline std::size_t GetSize(const uint64_t& value) { return 8; }
   static inline void Encode(const uint64_t& number,
                             EncodeTarget::iterator& begin,
                             EncodeTarget::iterator end) {
@@ -125,8 +127,12 @@ class EncodeHelper<uint64_t> {
 template <typename T, size_t length>
 class EncodeHelper<std::array<T, length>> {
  public:
-  static inline std::size_t GetSize() {
-    return EncodeHelper<T>::GetSize() * length;
+  static inline std::size_t GetSize(const std::array<T, length>& value) {
+    std::size_t size = 0;
+    for (const auto& item : value) {
+      size += EncodeHelper<T>::GetSize(item);
+    }
+    return size;
   }
   static inline void Encode(const std::array<T, length>& data,
                             EncodeTarget::iterator& begin,
@@ -150,9 +156,10 @@ class EncodeTupleHelper {
   static constexpr std::size_t index = std::tuple_size<T>::value - 1 - pos;
 
  public:
-  static inline std::size_t GetSize() {
-    return EncodeHelper<std::tuple_element_t<index, T>>::GetSize() +
-           EncodeTupleHelper<T, pos - 1>::GetSize();
+  static inline std::size_t GetSize(const T& value) {
+    return EncodeHelper<std::tuple_element_t<index, T>>::GetSize(
+               std::get<index>(value)) +
+           EncodeTupleHelper<T, pos - 1>::GetSize(value);
   }
   static void Encode(const T& value, EncodeTarget::iterator& begin,
                      EncodeTarget::iterator end) {
@@ -173,8 +180,9 @@ class EncodeTupleHelper<T, 0> {
   static constexpr std::size_t index = std::tuple_size<T>::value - 1;
 
  public:
-  static inline std::size_t GetSize() {
-    return EncodeHelper<std::tuple_element_t<index, T>>::GetSize();
+  static inline std::size_t GetSize(const T& value) {
+    return EncodeHelper<std::tuple_element_t<index, T>>::GetSize(
+        std::get<index>(value));
   }
   static void Encode(const T& value, EncodeTarget::iterator& begin,
                      EncodeTarget::iterator end) {
@@ -191,10 +199,10 @@ class EncodeTupleHelper<T, 0> {
 template <class... T>
 class EncodeHelper<std::tuple<T...>> {
  public:
-  static inline std::size_t GetSize() {
+  static inline std::size_t GetSize(const std::tuple<T...>& value) {
     return EncodeTupleHelper<std::tuple<T...>,
                              std::tuple_size<std::tuple<T...>>::value -
-                                 1>::GetSize();
+                                 1>::GetSize(value);
   }
   static void Encode(const std::tuple<T...>& value,
                      EncodeTarget::iterator& begin,
@@ -215,8 +223,9 @@ class EncodeHelper<std::tuple<T...>> {
 template <typename T>
 class EncodeHelper<T, std::enable_if_t<std::is_enum<T>::value>> {
  public:
-  static inline std::size_t GetSize() {
-    return EncodeHelper<std::underlying_type_t<T>>::GetSize();
+  static inline std::size_t GetSize(const T& value) {
+    return EncodeHelper<std::underlying_type_t<T>>::GetSize(
+        (std::underlying_type_t<T>)value);
   }
   static inline void Encode(const T& value, EncodeTarget::iterator& begin,
                             EncodeTarget::iterator end) {
@@ -232,8 +241,70 @@ class EncodeHelper<T, std::enable_if_t<std::is_enum<T>::value>> {
 };
 
 template <typename T>
+class EncodeHelper<std::vector<T>> {
+ public:
+  static inline std::size_t GetSize(const std::vector<T>& value) {
+    std::size_t size = 1;
+    for (const auto& item : value) {
+      size += EncodeHelper<T>::GetSize(item);
+    }
+    return size;
+  }
+  static inline void Encode(const std::vector<T>& value,
+                            EncodeTarget::iterator& begin,
+                            EncodeTarget::iterator end) {
+    if (begin == end) {
+      throw std::runtime_error(
+          "Not enough space in encoding buffer to encode vector length");
+    }
+    if (value.size() > 255) {
+      throw std::runtime_error("Unable to encode vector of size >255");
+    }
+    *(begin++) = (uint8_t)value.size();
+    for (const auto& item : value) {
+      EncodeHelper<T>::Encode(item, begin, end);
+    }
+  }
+  static inline void Decode(std::vector<T>& value,
+                            EncodeTarget::const_iterator& begin,
+                            EncodeTarget::const_iterator end) {
+    if (begin == end) {
+      throw std::runtime_error("Expected vector length");
+    }
+    std::size_t length = (std::size_t) * (begin++);
+    value.resize(length);
+    for (auto& item : value) {
+      EncodeHelper<T>::Decode(item, begin, end);
+    }
+  }
+};
+
+struct FusionGetSizeHelper {
+	template<typename T> std::size_t operator()(std::size_t current, const T &t) const {
+		return current + EncodeHelper<T>(t);
+	}
+};
+struct FusionDecodeHelper {
+	EncodeTarget::const_iterator end;
+	template<typename T> EncodeTarget::const_iterator operator()(EncodeTarget::const_iterator begin, T& value) {
+		EncodeHelper<T>::Decode(value, begin, end);
+		return begin;
+	}
+};
+template<typename T>
+class EncodeHelper<T, std::enable_if_t<boost::fusion::traits::is_sequence<T>::value>> {
+	public:
+	static inline std::size_t GetSize(const T& value) {
+		return boost::fusion::accumulate(value, 0, FusionGetSizeHelper{});
+	}
+	static inline void Decode(T& value, EncodeTarget::const_iterator& begin, EncodeTarget::const_iterator end) {
+		begin = boost::fusion::accumulate(value, begin, FusionDecodeHelper{end});
+	}
+};
+
+template <typename T>
 std::vector<uint8_t> Encode(const T& data) {
-  std::vector<uint8_t> target(EncodeHelper<T>::GetSize());
+  std::vector<uint8_t> target(EncodeHelper<T>::GetSize(data));
   std::vector<uint8_t>::iterator current = target.begin();
   EncodeHelper<T>::Encode(data, current, target.end());
   if (current != target.end()) {
@@ -245,19 +316,25 @@ std::vector<uint8_t> Encode(const T& data) {
 inline std::vector<uint8_t> Encode() { return std::vector<uint8_t>(); }
 
 template <typename T>
+T DecodePartial(const std::vector<uint8_t>& data) {
+  T retval;
+  EncodeTarget::const_iterator current = data.begin();
+  EncodeHelper<T>::Decode(retval, current, data.end());
+  return std::move(retval);
+}
+template <typename T>
 T Decode(const std::vector<uint8_t>& data) {
-  if (data.size() != EncodeHelper<T>::GetSize()) {
-    throw std::runtime_error("Decoding failure: Data size did not match");
-  }
   T retval;
   EncodeTarget::const_iterator current = data.begin();
   EncodeHelper<T>::Decode(retval, current, data.end());
   if (current != data.end()) {
-    throw std::runtime_error("Decoding failure: Not all data parsed");
+    throw std::runtime_error("Decoding failure: Not all bytes parsed");
   }
   return std::move(retval);
 }
 
+template <>
+inline void DecodePartial<void>(const std::vector<uint8_t>& data) {}
 template <>
 inline void Decode<void>(const std::vector<uint8_t>& data) {
   if (data.size() != 0) {
@@ -275,12 +352,12 @@ std::tuple<T...> DecodeT(const std::vector<uint8_t>& data) {
 }
 
 template <typename T>
-std::size_t EncodedSize() {
-  return EncodeHelper<T>::GetSize();
+std::size_t EncodedSize(const T& value) {
+  return EncodeHelper<T>::GetSize(value);
 }
 template <typename... T>
-std::size_t EncodedSizeT() {
-  return EncodedSize<std::tuple<T...>>();
+std::size_t EncodedSizeT(const T&... args) {
+  return EncodedSize<std::tuple<T...>>(std::tuple<T...>(args...));
 }
 }  // namespace znp
 #endif  // _ZNP_ENCODING_H_

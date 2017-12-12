@@ -7,13 +7,13 @@ SimpleAPIHandler::SimpleAPIHandler(std::shared_ptr<ZnpSreqHandler> sreq_handler)
     : sreq_handler_(sreq_handler) {}
 
 stlab::future<std::vector<uint8_t>> SimpleAPIHandler::ReadRawConfiguration(
-    ConfigurationOption option, std::size_t expected_length) {
+    ConfigurationOption option) {
   std::vector<uint8_t> payload;
   payload.push_back((uint8_t)option);
   return sreq_handler_
       ->SReqStatus(ZnpSubsystem::SAPI,
                    (uint8_t)SimpleAPICommand::READ_CONFIGURATION, payload)
-      .then([option, expected_length](const std::vector<uint8_t>& response) {
+      .then([option](const std::vector<uint8_t>& response) {
         if (response.size() < 2 ||
             response.size() != 2 + (std::size_t)response[1]) {
           throw std::runtime_error("READ_CONFIGURATION invalid response size");
@@ -21,10 +21,6 @@ stlab::future<std::vector<uint8_t>> SimpleAPIHandler::ReadRawConfiguration(
         if (response[0] != (uint8_t)option) {
           throw std::runtime_error(
               "READ_CONFIGURATION responded with wrong configuration option");
-        }
-        if ((std::size_t)response[1] != expected_length) {
-          throw std::runtime_error(
-              "READ_CONFIGURATION responded with unexpected response size");
         }
         return std::vector<uint8_t>(response.begin() + 2, response.end());
       });
@@ -72,25 +68,24 @@ stlab::future<void> SimpleAPIHandler::PermitJoiningRequest(uint16_t destination,
 }
 
 stlab::future<std::vector<uint8_t>> SimpleAPIHandler::GetRawDeviceInfo(
-    DeviceInfo info, std::size_t length) {
+    DeviceInfo info) {
   return sreq_handler_
       ->SReq(ZnpSubsystem::SAPI, (uint8_t)SimpleAPICommand::GET_DEVICE_INFO,
              znp::Encode((uint8_t)info))
-      .then([info, length](const std::vector<uint8_t>& retdata) {
-        if (retdata.size() < 1 + length) {
+      .then([info](const std::vector<uint8_t>& retdata) {
+        if (retdata.size() < 1) {
           throw std::runtime_error(
               "SAPI::GET_DEVICE_INFO returned insufficient data.");
         }
         if (retdata[0] != (uint8_t)info) {
           throw std::runtime_error("SAPI::GET_DEVICE_INFO returned wrong info");
         }
-        return std::vector<uint8_t>(retdata.begin() + 1,
-                                    retdata.begin() + 1 + length);
+        return std::vector<uint8_t>(retdata.begin() + 1, retdata.end());
       });
 }
 
 stlab::future<zdo::DeviceState> SimpleAPIHandler::GetDeviceState() {
-	return GetDeviceInfo<zdo::DeviceState>(DeviceInfo::DeviceState);
+  return GetDeviceInfo<zdo::DeviceState>(DeviceInfo::DeviceState);
 }
 }  // namespace simpleapi
 }  // namespace znp

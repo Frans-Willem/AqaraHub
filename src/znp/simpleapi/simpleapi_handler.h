@@ -3,8 +3,8 @@
 #include <stlab/concurrency/future.hpp>
 #include "znp/encoding.h"
 #include "znp/simpleapi/simpleapi.h"
-#include "znp/znp_sreq_handler.h"
 #include "znp/zdo/zdo.h"
+#include "znp/znp_sreq_handler.h"
 
 namespace znp {
 namespace simpleapi {
@@ -32,7 +32,9 @@ class SimpleAPIHandler {
                                            uint8_t timeout);
   template <typename T>
   stlab::future<T> GetDeviceInfo(DeviceInfo info) {
-    return GetRawDeviceInfo(info, znp::EncodedSize<T>()).then(znp::Decode<T>);
+    // Use DecodePartial as GetDeviceInfo always returns 8 bytes, even if less
+    // are used.
+    return GetRawDeviceInfo(info).then(znp::DecodePartial<T>);
   }
   stlab::future<zdo::DeviceState> GetDeviceState();
   stlab::future<IEEEAddress> GetDeviceIEEEAddress();
@@ -42,11 +44,10 @@ class SimpleAPIHandler {
   std::shared_ptr<ZnpSreqHandler> sreq_handler_;
   // Private getters/setters for raw configuration
   stlab::future<std::vector<uint8_t>> ReadRawConfiguration(
-      ConfigurationOption option, std::size_t expected_length);
+      ConfigurationOption option);
   stlab::future<void> WriteRawConfiguration(ConfigurationOption option,
                                             std::vector<uint8_t> data);
-  stlab::future<std::vector<uint8_t>> GetRawDeviceInfo(DeviceInfo info,
-                                                       std::size_t length);
+  stlab::future<std::vector<uint8_t>> GetRawDeviceInfo(DeviceInfo info);
 };
 }  // namespace simpleapi
 }  // namespace znp
