@@ -21,6 +21,8 @@ endif()
 add_library(stlab INTERFACE)
 target_include_directories(stlab INTERFACE ${STLAB_INCLUDE_DIRS})
 
+# std::auto_ptr doesn't exist in C++17, so disable it just in case.
+add_definitions(-DBOOST_NO_AUTO_PTR)
 
 add_executable(AqaraHub
 	src/main.cpp
