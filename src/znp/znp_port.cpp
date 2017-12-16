@@ -6,10 +6,7 @@
 
 namespace znp {
 ZnpPort::ZnpPort(boost::asio::io_service& io_service, const std::string& port)
-    : 
-      port_(io_service, port),
-      send_in_progress_(false),
-      send_queue_() {
+    : port_(io_service, port), send_in_progress_(false), send_queue_() {
   port_.set_option(boost::asio::serial_port_base::baud_rate(115200));
   port_.set_option(boost::asio::serial_port_base::character_size(8));
   port_.set_option(boost::asio::serial_port_base::stop_bits(
@@ -22,20 +19,18 @@ ZnpPort::ZnpPort(boost::asio::io_service& io_service, const std::string& port)
 }
 
 void ZnpPort::SendFrame(ZnpCommandType type, ZnpSubsystem subsystem,
-                        uint8_t command, boost::asio::const_buffer payload) {
-  if (boost::asio::buffer_size(payload) > 255) {
+                        uint8_t command, const std::vector<uint8_t>& payload) {
+  if (payload.size() > 255) {
     throw std::runtime_error(
         "ZNP Command Payload size should not exceed 255 bytes");
   }
   // SOF + Length (1 byte) + Command (2 byte) + payload + Checksum
-  std::vector<uint8_t> buffer(1 + 1 + 2 + boost::asio::buffer_size(payload) +
-                              1);
+  std::vector<uint8_t> buffer(1 + 1 + 2 + payload.size() + 1);
   buffer[0] = 0xFE;
-  buffer[1] = boost::asio::buffer_size(payload);
+  buffer[1] = payload.size();
   buffer[2] = (((unsigned int)type) << 4) | (((unsigned int)subsystem) & 0xF);
   buffer[3] = command;
-  std::memcpy(&buffer[4], boost::asio::buffer_cast<const uint8_t*>(payload),
-              boost::asio::buffer_size(payload));
+  std::copy(payload.begin(), payload.end(), buffer.begin() + 4);
 
   uint8_t crc = 0;
   for (std::size_t i = 1; i < buffer.size() - 1; i++) {
@@ -84,20 +79,17 @@ void ZnpPort::StartReceive() {
       port_, boost::asio::buffer(target.get(), sizeof(uint8_t)),
       std::bind(&ZnpPort::StartOfFrameHandler, this, target,
                 std::placeholders::_1, std::placeholders::_2));
-  //	port_.async_read_some(boost::asio::buffer(target.get(),
-  // sizeof(uint8_t)), std::bind(&ZnpPort::StartOfFrameHandler, this, target,
-  // std::placeholders::_1, std::placeholders::_2));
 }
 
 void ZnpPort::StartOfFrameHandler(std::shared_ptr<uint8_t> marker,
                                   const boost::system::error_code& error,
                                   std::size_t bytes_transferred) {
   if (error) {
-	  LOG("ZnpPort", critical) << "Error while reading SOF";
+    LOG("ZnpPort", critical) << "Error while reading SOF";
     return;
   }
   if (*marker != 0xFE) {
-	  LOG("ZnpPort", trace) << "No SOF marker, dropping data";
+    LOG("ZnpPort", trace) << "No SOF marker, dropping data";
     return;
   }
   boost::asio::async_read(
@@ -110,7 +102,7 @@ void ZnpPort::FrameLengthHandler(std::shared_ptr<uint8_t> length,
                                  const boost::system::error_code& error,
                                  std::size_t bytes_transferred) {
   if (error) {
-	  LOG("ZnpPort", critical) << "Error while reading length";
+    LOG("ZnpPort", critical) << "Error while reading length";
     return;
   }
   auto buffer =
@@ -125,7 +117,7 @@ void ZnpPort::FrameHandler(std::shared_ptr<std::vector<uint8_t>> frame,
                            const boost::system::error_code& error,
                            std::size_t bytes_transferred) {
   if (error) {
-	  LOG("ZnpPort", critical) << "Error while reading frame";
+    LOG("ZnpPort", critical) << "Error while reading frame";
     return;
   }
   StartReceive();
@@ -135,13 +127,13 @@ void ZnpPort::FrameHandler(std::shared_ptr<std::vector<uint8_t>> frame,
     crc ^= (*frame)[i];
   }
   if (crc != (*frame)[frame->size() - 1]) {
-	  LOG("ZnpPort", warning) << "CRC does not match, dropping frame";
+    LOG("ZnpPort", warning) << "CRC does not match, dropping frame";
     return;
   }
   ZnpCommandType type = (ZnpCommandType)((*frame)[0] >> 4);
   ZnpSubsystem subsystem = (ZnpSubsystem)((*frame)[0] & 0xF);
   unsigned int command = (*frame)[1];
   on_frame_(type, subsystem, command,
-            boost::asio::const_buffer(&(*frame)[2], frame->size() - 3));
+            std::vector<uint8_t>(frame->begin() + 2, frame->end() - 1));
 }
 }  // namespace znp

@@ -25,7 +25,7 @@ class SystemHandler {
   boost::signals2::scoped_connection on_frame_connection_;
 
   void OnFrame(ZnpCommandType type, ZnpSubsystem subsys, uint8_t command,
-               boost::asio::const_buffer payload);
+               const std::vector<uint8_t>& payload);
 };
 }  // namespace system
 }  // namespace znp

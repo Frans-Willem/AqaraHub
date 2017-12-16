@@ -73,7 +73,7 @@ stlab::future<void> Initialize(
 
 void OnFrameDebug(std::string prefix, znp::ZnpCommandType cmdtype,
                   znp::ZnpSubsystem subsys, uint8_t command,
-                  boost::asio::const_buffer payload) {
+                  const std::vector<uint8_t>& payload) {
   std::stringstream ss_command;
   switch (subsys) {
     case znp::ZnpSubsystem::SAPI:
@@ -92,8 +92,8 @@ void OnFrameDebug(std::string prefix, znp::ZnpCommandType cmdtype,
   LOG("FRAME", debug) << prefix << " " << cmdtype << " " << subsys << " "
                       << ss_command.str() << " "
                       << boost::log::dump(
-                             boost::asio::buffer_cast<const uint8_t*>(payload),
-                             boost::asio::buffer_size(payload));
+                             payload.data(),
+                             payload.size());
 }
 
 int main() {

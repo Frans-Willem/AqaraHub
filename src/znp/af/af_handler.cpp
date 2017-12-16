@@ -27,16 +27,13 @@ stlab::future<void> AfHandler::Register(uint8_t endpoint, uint16_t profile_id,
 }
 
 void AfHandler::OnFrame(ZnpCommandType cmdtype, ZnpSubsystem subsys,
-                        uint8_t command, boost::asio::const_buffer payload) {
+                        uint8_t command, const std::vector<uint8_t>& payload) {
   if (cmdtype != ZnpCommandType::AREQ || subsys != ZnpSubsystem::AF) {
     return;
   }
-  const uint8_t* buffer_start =
-      boost::asio::buffer_cast<const uint8_t*>(payload);
-  const uint8_t* buffer_end = &buffer_start[boost::asio::buffer_size(payload)];
   switch ((AfCommand)command) {
     case AfCommand::INCOMING_MSG:
-      OnIncomingMsg(std::vector<uint8_t>(buffer_start, buffer_end));
+      OnIncomingMsg(payload);
       break;
     default:
       break;

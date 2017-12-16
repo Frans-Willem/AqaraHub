@@ -5,21 +5,18 @@
 #include <queue>
 #include <stlab/concurrency/future.hpp>
 #include <vector>
-#include "znp.h"
+#include "znp/znp_raw_interface.h"
 
 namespace znp {
-class ZnpPort {
+class ZnpPort : public ZnpRawInterface {
  public:
   ZnpPort(boost::asio::io_service& io_service, const std::string& port);
   ~ZnpPort() = default;
   void SendFrame(ZnpCommandType type, ZnpSubsystem subsystem, uint8_t command,
-                 boost::asio::const_buffer payload);
+                 const std::vector<uint8_t>& payload) override;
 
   boost::signals2::signal<void(ZnpCommandType, ZnpSubsystem, uint8_t,
-                               boost::asio::const_buffer)>
-      on_frame_;
-  boost::signals2::signal<void(ZnpCommandType, ZnpSubsystem, uint8_t,
-                               boost::asio::const_buffer)>
+                               const std::vector<uint8_t>&)>
       on_sent_;
 
  private:

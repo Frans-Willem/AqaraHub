@@ -24,7 +24,7 @@ class AfHandler {
   boost::signals2::scoped_connection on_frame_connection_;
 
   void OnFrame(ZnpCommandType cmdtype, ZnpSubsystem subsys, uint8_t command,
-               boost::asio::const_buffer payload);
+               const std::vector<uint8_t>& payload);
   void OnIncomingMsg(const std::vector<uint8_t>& payload);
 };
 }  // namespace af

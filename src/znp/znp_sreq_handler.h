@@ -39,7 +39,7 @@ class ZnpSreqHandler {
   std::map<AreqIdentifier, std::queue<AreqCallback>> areq_queue_;
 
   void OnFrame(ZnpCommandType type, ZnpSubsystem subsys, uint8_t command,
-               boost::asio::const_buffer payload);
+               const std::vector<uint8_t>& payload);
 };
 }  // namespace znp
 #endif  //_ZNP_SREQ_HANDLER_H

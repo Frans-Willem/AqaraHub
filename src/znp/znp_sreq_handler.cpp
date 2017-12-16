@@ -24,7 +24,7 @@ stlab::future<std::vector<uint8_t>> ZnpSreqHandler::SReq(
       });
   srsp_queue_[std::make_pair(subsys, command)].push(package.first);
   port_->SendFrame(ZnpCommandType::SREQ, subsys, (unsigned int)command,
-                   boost::asio::const_buffer(payload.data(), payload.size()));
+                   payload);
   return package.second;
 }
 
@@ -60,7 +60,7 @@ stlab::future<std::vector<uint8_t>> ZnpSreqHandler::WaitForAReq(
 
 void ZnpSreqHandler::OnFrame(ZnpCommandType type, ZnpSubsystem subsys,
                              uint8_t command,
-                             boost::asio::const_buffer payload) {
+                             const std::vector<uint8_t>& payload) {
   if (type == ZnpCommandType::SRSP) {
     std::queue<SreqCallback>& callback_queue(
         srsp_queue_[std::make_pair(subsys, command)]);
@@ -71,11 +71,7 @@ void ZnpSreqHandler::OnFrame(ZnpCommandType type, ZnpSubsystem subsys,
     }
     SreqCallback callback = std::move(callback_queue.front());
     callback_queue.pop();
-    std::vector<uint8_t> payload_vector(boost::asio::buffer_size(payload));
-    std::memcpy(&payload_vector[0],
-                boost::asio::buffer_cast<const uint8_t*>(payload),
-                boost::asio::buffer_size(payload));
-    callback(nullptr, std::move(payload_vector));
+    callback(nullptr, payload);
   } else if (type == ZnpCommandType::AREQ) {
     std::queue<AreqCallback>& callback_queue(
         areq_queue_[std::make_pair(subsys, command)]);
@@ -84,11 +80,7 @@ void ZnpSreqHandler::OnFrame(ZnpCommandType type, ZnpSubsystem subsys,
     }
     AreqCallback callback = std::move(callback_queue.front());
     callback_queue.pop();
-    std::vector<uint8_t> payload_vector(boost::asio::buffer_size(payload));
-    std::memcpy(&payload_vector[0],
-                boost::asio::buffer_cast<const uint8_t*>(payload),
-                boost::asio::buffer_size(payload));
-    callback(nullptr, std::move(payload_vector));
+    callback(nullptr, payload);
   }
 }
 }  // namespace znp

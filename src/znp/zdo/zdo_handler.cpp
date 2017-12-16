@@ -50,7 +50,7 @@ stlab::future<DeviceState> ZdoHandler::WaitForState(
         [promise, end_states, allowed_states](
             const boost::signals2::connection &connection,
             ZnpCommandType cmdtype, ZnpSubsystem subsys, uint8_t command,
-            boost::asio::const_buffer payload) {
+            const std::vector<uint8_t>& payload) {
           if (cmdtype != ZnpCommandType::AREQ || subsys != ZnpSubsystem::ZDO ||
               command != (uint8_t)ZdoCommand::STATE_CHANGE_IND) {
             return;
@@ -58,12 +58,7 @@ stlab::future<DeviceState> ZdoHandler::WaitForState(
           LOG("WaitForState", debug) << "Got state message";
           DeviceState state = DeviceState::HOLD;
           try {
-            const uint8_t *buffer =
-                boost::asio::buffer_cast<const uint8_t *>(payload);
-            const uint8_t *buffer_end =
-                &buffer[boost::asio::buffer_size(payload)];
-            state = znp::Decode<DeviceState>(
-                std::vector<uint8_t>(buffer, buffer_end));
+            state = znp::Decode<DeviceState>(payload);
             if (end_states.count(state) != 0) {
               connection.disconnect();
               promise(nullptr, state);

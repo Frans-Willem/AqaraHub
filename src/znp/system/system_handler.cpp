@@ -1,5 +1,6 @@
 #include "znp/system/system_handler.h"
 #include "asio_executor.h"
+#include "znp/encoding.h"
 
 namespace znp {
 namespace system {
@@ -25,9 +26,7 @@ stlab::future<ResetInfo> SystemHandler::Reset(bool soft_reset) {
         callback(info);
       });
 
-  uint8_t reset_type = soft_reset ? 1 : 0;
-
-  port_->SendFrame(ZnpCommandType::AREQ, ZnpSubsystem::SYS, (uint8_t)SystemCommand::RESET, boost::asio::const_buffer(&reset_type, 1));
+  port_->SendFrame(ZnpCommandType::AREQ, ZnpSubsystem::SYS, (uint8_t)SystemCommand::RESET, znp::Encode<uint8_t>(soft_reset ? 1 : 0));
 
   return package.second;
 }
@@ -47,25 +46,23 @@ stlab::future<Capability> SystemHandler::Ping() {
 
 void SystemHandler::OnFrame(ZnpCommandType type, ZnpSubsystem subsys,
                             uint8_t command,
-                            boost::asio::const_buffer payload) {
+                            const std::vector<uint8_t>& payload) {
   if (subsys != ZnpSubsystem::SYS) {
     return;
   }
   SystemCommand sys_cmd = (SystemCommand)command;
   if (sys_cmd == SystemCommand::RESET_IND) {
-    if (boost::asio::buffer_size(payload) != 6) {
+    if (payload.size() != 6) {
       std::cerr << "RESET_IND was not of expected size" << std::endl;
       return;
     }
-    const uint8_t* payload_data =
-        boost::asio::buffer_cast<const uint8_t*>(payload);
     ResetInfo info;
-    info.reason = (ResetReason)payload_data[0];
-    info.TransportRev = payload_data[1];
-    info.ProductId = payload_data[2];
-    info.MajorRel = payload_data[3];
-    info.MinorRel = payload_data[4];
-    info.HwRev = payload_data[5];
+    info.reason = (ResetReason)payload[0];
+    info.TransportRev = payload[1];
+    info.ProductId = payload[2];
+    info.MajorRel = payload[3];
+    info.MinorRel = payload[4];
+    info.HwRev = payload[5];
     on_reset_(info);
   }
 }
