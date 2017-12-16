@@ -8,22 +8,7 @@
 
 namespace znp {
 namespace af {
-enum class AfCommand : uint8_t {
-  REGISTER = 0x00,
-  DATA_REQUEST = 0x01,
-  DATA_REQUEST_EXT = 0x02,
-  DATA_REQUEST_SRC_RTG = 0x03,
-  INTER_PAN_CTL = 0x10,
-  DATA_STORE = 0x11,
-  DATA_RETRIEVE = 0x12,
-  APSF_CONFIG_SET = 0x13,
-  DATA_CONFIRM = 0x80,
-  REFLECT_ERROR = 0x83,
-  INCOMING_MSG = 0x81,
-  INCOMING_MSG_EXT = 0x82
-};
 
-std::ostream& operator<<(std::ostream& stream, AfCommand command);
 enum class Latency : uint8_t {
   NoLatency = 0,
   FastBeacons = 1,

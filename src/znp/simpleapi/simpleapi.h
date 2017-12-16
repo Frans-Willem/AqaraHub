@@ -5,26 +5,6 @@
 
 namespace znp {
 namespace simpleapi {
-enum class SimpleAPICommand : uint8_t {
-  START_REQUEST = 0x00,
-  BIND_DEVICE = 0x01,
-  ALLOW_BIND = 0x02,
-  SEND_DATA_REQUEST = 0x03,
-  READ_CONFIGURATION = 0x04,
-  WRITE_CONFIGURATION = 0x05,
-  GET_DEVICE_INFO = 0x06,
-  FIND_DEVICE_REQUEST = 0x07,
-  PERMIT_JOINING_REQUEST = 0x08,
-  SYSTEM_RESET = 0x09,
-  START_CONFIRM = 0x80,
-  BIND_CONFIRM = 0x81,
-  ALLOW_BIND_CONFIRM = 0x82,
-  SEND_DATA_CONFIRM = 0x83,
-  FIND_DEVICE_CONFIRM = 0x85,
-  RECEIVE_DATA_INDICATION = 0x87,
-};
-
-std::ostream& operator<<(std::ostream& stream, SimpleAPICommand command);
 
 enum class ConfigurationOption : uint16_t {
   STARTUP_OPTION = 0x0003,

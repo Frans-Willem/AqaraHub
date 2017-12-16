@@ -77,13 +77,13 @@ void OnFrameDebug(std::string prefix, znp::ZnpCommandType cmdtype,
   std::stringstream ss_command;
   switch (subsys) {
     case znp::ZnpSubsystem::SAPI:
-      ss_command << (znp::simpleapi::SimpleAPICommand)command;
+      ss_command << (znp::SapiCommand)command;
       break;
     case znp::ZnpSubsystem::ZDO:
-      ss_command << (znp::zdo::ZdoCommand)command;
+      ss_command << (znp::ZdoCommand)command;
       break;
     case znp::ZnpSubsystem::AF:
-      ss_command << (znp::af::AfCommand)command;
+      ss_command << (znp::AfCommand)command;
 	  break;
     default:
       ss_command << std::hex << (unsigned int)command;

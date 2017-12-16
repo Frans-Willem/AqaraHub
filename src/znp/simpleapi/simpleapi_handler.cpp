@@ -12,7 +12,7 @@ stlab::future<std::vector<uint8_t>> SimpleAPIHandler::ReadRawConfiguration(
   payload.push_back((uint8_t)option);
   return sreq_handler_
       ->SReqStatus(ZnpSubsystem::SAPI,
-                   (uint8_t)SimpleAPICommand::READ_CONFIGURATION, payload)
+                   (uint8_t)SapiCommand::READ_CONFIGURATION, payload)
       .then([option](const std::vector<uint8_t>& response) {
         if (response.size() < 2 ||
             response.size() != 2 + (std::size_t)response[1]) {
@@ -37,7 +37,7 @@ stlab::future<void> SimpleAPIHandler::WriteRawConfiguration(
   payload.insert(payload.end(), data.begin(), data.end());
   return sreq_handler_
       ->SReqStatus(ZnpSubsystem::SAPI,
-                   (uint8_t)SimpleAPICommand::WRITE_CONFIGURATION, payload)
+                   (uint8_t)SapiCommand::WRITE_CONFIGURATION, payload)
       .then([](const std::vector<uint8_t>& data) {
         if (data.size() != 0) {
           throw std::runtime_error(
@@ -62,7 +62,7 @@ stlab::future<void> SimpleAPIHandler::PermitJoiningRequest(uint16_t destination,
                                                            uint8_t timeout) {
   return sreq_handler_
       ->SReqStatus(ZnpSubsystem::SAPI,
-                   (uint8_t)SimpleAPICommand::PERMIT_JOINING_REQUEST,
+                   (uint8_t)SapiCommand::PERMIT_JOINING_REQUEST,
                    znp::EncodeT(destination, timeout))
       .then(znp::Decode<void>);
 }
@@ -70,7 +70,7 @@ stlab::future<void> SimpleAPIHandler::PermitJoiningRequest(uint16_t destination,
 stlab::future<std::vector<uint8_t>> SimpleAPIHandler::GetRawDeviceInfo(
     DeviceInfo info) {
   return sreq_handler_
-      ->SReq(ZnpSubsystem::SAPI, (uint8_t)SimpleAPICommand::GET_DEVICE_INFO,
+      ->SReq(ZnpSubsystem::SAPI, (uint8_t)SapiCommand::GET_DEVICE_INFO,
              znp::Encode((uint8_t)info))
       .then([info](const std::vector<uint8_t>& retdata) {
         if (retdata.size() < 1) {

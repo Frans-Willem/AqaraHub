@@ -26,7 +26,7 @@ stlab::future<ResetInfo> SystemHandler::Reset(bool soft_reset) {
         callback(info);
       });
 
-  port_->SendFrame(ZnpCommandType::AREQ, ZnpSubsystem::SYS, (uint8_t)SystemCommand::RESET, znp::Encode<uint8_t>(soft_reset ? 1 : 0));
+  port_->SendFrame(ZnpCommandType::AREQ, ZnpSubsystem::SYS, (uint8_t)SysCommand::RESET, znp::Encode<uint8_t>(soft_reset ? 1 : 0));
 
   return package.second;
 }
@@ -34,7 +34,7 @@ stlab::future<ResetInfo> SystemHandler::Reset(bool soft_reset) {
 stlab::future<Capability> SystemHandler::Ping() {
   std::vector<uint8_t> empty;
   auto future = sreq_handler_->SReq(ZnpSubsystem::SYS,
-                                    (uint8_t)SystemCommand::PING, empty);
+                                    (uint8_t)SysCommand::PING, empty);
   return future.then([](const std::vector<uint8_t>& payload) {
     if (payload.size() != 2) {
       throw std::runtime_error("Response to PING was not of expected size");
@@ -50,8 +50,8 @@ void SystemHandler::OnFrame(ZnpCommandType type, ZnpSubsystem subsys,
   if (subsys != ZnpSubsystem::SYS) {
     return;
   }
-  SystemCommand sys_cmd = (SystemCommand)command;
-  if (sys_cmd == SystemCommand::RESET_IND) {
+  SysCommand sys_cmd = (SysCommand)command;
+  if (sys_cmd == SysCommand::RESET_IND) {
     if (payload.size() != 6) {
       std::cerr << "RESET_IND was not of expected size" << std::endl;
       return;

@@ -4,33 +4,6 @@
 
 namespace znp {
 namespace system {
-enum class SystemCommand : uint8_t {
-  RESET = 0x00,
-  PING = 0x01,
-  VERSION = 0x02,
-  SET_EXTADDR = 0x03,
-  GET_EXTADDR = 0x04,
-  RAM_READ = 0x05,
-  RAM_WRITE = 0x06,
-  OSAL_NV_ITEM_INIT = 0x07,
-  OSAL_NV_READ = 0x08,
-  OSAL_NV_WRITE = 0x09,
-  OSAL_START_TIMER = 0x0A,
-  OSAL_STOP_TIMER = 0x0B,
-  RANDOM = 0x0C,
-  ADC_READ = 0x0D,
-  GPIO = 0x0E,
-  STACK_TUNE = 0x0F,
-  SET_TIME = 0x10,
-  GET_TIME = 0x11,
-  OSAL_NV_DELETE = 0x12,
-  OSAL_NV_LENGTH = 0x13,
-  TEST_RF = 0x40,
-  TEST_LOOPBACK = 0x41,
-  RESET_IND = 0x80,
-  OSAL_TIMER_EXPIRED = 0x81,
-};
-
 enum class Capability : uint16_t {
   SYS = 0x0001,
   MAC = 0x0002,
