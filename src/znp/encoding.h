@@ -1,11 +1,11 @@
 #ifndef _ZNP_ENCODING_H_
 #define _ZNP_ENCODING_H_
+#include <boost/fusion/include/accumulate.hpp>
+#include <boost/fusion/include/is_sequence.hpp>
 #include <iostream>
 #include <tuple>
 #include <type_traits>
 #include "znp/znp.h"
-#include <boost/fusion/include/is_sequence.hpp>
-#include <boost/fusion/include/accumulate.hpp>
 
 namespace znp {
 typedef std::vector<uint8_t> EncodeTarget;
@@ -280,26 +280,47 @@ class EncodeHelper<std::vector<T>> {
 };
 
 struct FusionGetSizeHelper {
-	template<typename T> std::size_t operator()(std::size_t current, const T &t) const {
-		return current + EncodeHelper<T>(t);
-	}
+  template <typename T>
+  std::size_t operator()(std::size_t current, const T& t) const {
+    return current + EncodeHelper<T>(t);
+  }
 };
 struct FusionDecodeHelper {
-	EncodeTarget::const_iterator end;
-	template<typename T> EncodeTarget::const_iterator operator()(EncodeTarget::const_iterator begin, T& value) {
-		EncodeHelper<T>::Decode(value, begin, end);
-		return begin;
-	}
+  EncodeTarget::const_iterator end;
+  template <typename T>
+  EncodeTarget::const_iterator operator()(EncodeTarget::const_iterator begin,
+                                          T& value) {
+    EncodeHelper<T>::Decode(value, begin, end);
+    return begin;
+  }
 };
-template<typename T>
-class EncodeHelper<T, std::enable_if_t<boost::fusion::traits::is_sequence<T>::value>> {
-	public:
-	static inline std::size_t GetSize(const T& value) {
-		return boost::fusion::accumulate(value, 0, FusionGetSizeHelper{});
-	}
-	static inline void Decode(T& value, EncodeTarget::const_iterator& begin, EncodeTarget::const_iterator end) {
-		begin = boost::fusion::accumulate(value, begin, FusionDecodeHelper{end});
-	}
+template <typename T>
+class EncodeHelper<
+    T, std::enable_if_t<boost::fusion::traits::is_sequence<T>::value>> {
+ public:
+  static inline std::size_t GetSize(const T& value) {
+    return boost::fusion::accumulate(value, 0, FusionGetSizeHelper{});
+  }
+  static inline void Decode(T& value, EncodeTarget::const_iterator& begin,
+                            EncodeTarget::const_iterator end) {
+    begin = boost::fusion::accumulate(value, begin, FusionDecodeHelper{end});
+  }
+};
+
+template <>
+class EncodeHelper<bool> {
+ public:
+  static inline std::size_t GetSize(const bool& value) { return 1; }
+  static inline void Encode(const bool& value, EncodeTarget::iterator& begin,
+                            EncodeTarget::iterator end) {
+    EncodeHelper<uint8_t>::Encode(value ? 1 : 0, begin, end);
+  }
+  static inline void Decode(bool& value, EncodeTarget::const_iterator begin,
+                            EncodeTarget::const_iterator end) {
+    uint8_t int_value;
+    EncodeHelper<uint8_t>::Decode(int_value, begin, end);
+    value = int_value > 0;
+  }
 };
 
 template <typename T>

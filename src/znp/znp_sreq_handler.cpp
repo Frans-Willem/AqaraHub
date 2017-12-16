@@ -61,8 +61,7 @@ void ZnpSreqHandler::OnFrame(ZnpCommandType type, ZnpCommand command,
   if (type == ZnpCommandType::SRSP) {
     std::queue<SreqCallback>& callback_queue(srsp_queue_[command]);
     if (callback_queue.empty()) {
-      LOG("ZnpSreqHandler", warning)
-          << "SRSP received for an empty queue" << std::endl;
+      LOG("ZnpSreqHandler", warning) << "SRSP received for an empty queue";
       return;
     }
     SreqCallback callback = std::move(callback_queue.front());

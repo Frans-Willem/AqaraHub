@@ -1,5 +1,6 @@
 #ifndef _ZNP_H_
 #define _ZNP_H_
+#include <boost/fusion/include/define_struct.hpp>
 #include <boost/variant.hpp>
 #include <iostream>
 
@@ -195,5 +196,40 @@ class ZnpCommand {
  private:
   std::pair<ZnpSubsystem, uint8_t> value_;
 };
+
+enum class Capability : uint16_t {
+  SYS = 0x0001,
+  MAC = 0x0002,
+  NWK = 0x0004,
+  AF = 0x0008,
+  ZDO = 0x0010,
+  SAPI = 0x0020,
+  UTIL = 0x0040,
+  DEBUG = 0x0080,
+  APP = 0x0100,
+  ZOAD = 0x1000
+};
+
+std::ostream& operator<<(std::ostream& stream, const Capability& cap);
+
+enum class ResetReason : uint8_t { PowerUp = 0, External = 1, Watchdog = 2 };
+std::ostream& operator<<(std::ostream& stream, const ResetReason& reason);
+
+struct VersionInfo {
+  uint8_t TransportRev;
+  uint8_t Product;
+  uint8_t MajorRel;
+  uint8_t MinorRel;
+  uint8_t MaintRel;
+};
+}  // namespace znp
+
+BOOST_FUSION_DEFINE_STRUCT((znp), ResetInfo,
+                           (znp::ResetReason,
+                            reason)(uint8_t, TransportRev)(uint8_t, ProductId)(
+                               uint8_t, MajorRel)(uint8_t, MinorRel)(uint8_t,
+                                                                     HwRev))
+namespace znp {
+std::ostream& operator<<(std::ostream& stream, const ResetInfo& info);
 }  // namespace znp
 #endif  //_ZNP_H_

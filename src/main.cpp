@@ -14,25 +14,26 @@
 #include "znp/af/af_handler.h"
 #include "znp/encoding.h"
 #include "znp/simpleapi/simpleapi_handler.h"
-#include "znp/system/system.h"
-#include "znp/system/system_handler.h"
 #include "znp/zdo/zdo_handler.h"
+#include "znp/znp_api.h"
 #include "znp/znp_port.h"
 #include "znp/znp_sreq_handler.h"
 
 stlab::future<void> Initialize(
-    std::shared_ptr<znp::system::SystemHandler> system_handler,
+    std::shared_ptr<znp::ZnpApi> api,
     std::shared_ptr<znp::simpleapi::SimpleAPIHandler> simpleapi_handler,
     std::shared_ptr<znp::zdo::ZdoHandler> zdo_handler,
     std::shared_ptr<znp::af::AfHandler> af_handler) {
   LOG("Initialize", debug)
       << "Doing initial reset, and instructing to clear config on next reset";
-  std::ignore = co_await system_handler->Reset(true);
+  std::ignore = co_await api->SysReset(true);
   co_await simpleapi_handler->WriteStartupOption(
       znp::simpleapi::StartupOption::ClearConfig |
       znp::simpleapi::StartupOption::ClearState);
   LOG("Initialize", debug) << "Doing final reset";
-  std::ignore = co_await system_handler->Reset(true);
+  std::ignore = co_await api->SysReset(true);
+  auto caps = co_await api->SysPing();
+  LOG("Initialize", debug) << "Capabilities: " << caps;
   LOG("Initialize", debug) << "Writing all configuration";
   co_await simpleapi_handler->WriteConfiguration<uint16_t>(
       znp::simpleapi::ConfigurationOption::PANID, 0x1A62);
@@ -101,8 +102,7 @@ int main() {
                                    std::placeholders::_2,
                                    std::placeholders::_3));
   auto sreq_handler = std::make_shared<znp::ZnpSreqHandler>(port);
-  auto system_handler = std::make_shared<znp::system::SystemHandler>(
-      io_service, port, sreq_handler);
+  auto api = std::make_shared<znp::ZnpApi>(port);
   auto simpleapi_handler =
       std::make_shared<znp::simpleapi::SimpleAPIHandler>(sreq_handler);
   auto zdo_handler = std::make_shared<znp::zdo::ZdoHandler>(port, sreq_handler,
@@ -112,7 +112,7 @@ int main() {
   // Reset device
   LOG("Main", info) << "Initializing";
 
-  Initialize(system_handler, simpleapi_handler, zdo_handler, af_handler)
+  Initialize(api, simpleapi_handler, zdo_handler, af_handler)
       .then([]() { LOG("Main", info) << "Initialization complete?"; })
       .recover([](stlab::future<void> v) {
         LOG("Main", info) << "In final handler";
