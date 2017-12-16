@@ -11,8 +11,7 @@ AfHandler::AfHandler(std::shared_ptr<ZnpPort> port,
       sreq_handler_(sreq_handler),
       on_frame_connection_(port_->on_frame_.connect(
           std::bind(&AfHandler::OnFrame, this, std::placeholders::_1,
-                    std::placeholders::_2, std::placeholders::_3,
-                    std::placeholders::_4))) {}
+                    std::placeholders::_2, std::placeholders::_3))) {}
 
 stlab::future<void> AfHandler::Register(uint8_t endpoint, uint16_t profile_id,
                                         uint16_t device_id, uint8_t version,
@@ -20,23 +19,20 @@ stlab::future<void> AfHandler::Register(uint8_t endpoint, uint16_t profile_id,
                                         std::vector<uint16_t> input_clusters,
                                         std::vector<uint16_t> output_clusters) {
   return sreq_handler_
-      ->SReqStatus(ZnpSubsystem::AF, (uint8_t)AfCommand::REGISTER,
+      ->SReqStatus(AfCommand::REGISTER,
                    znp::EncodeT(endpoint, profile_id, device_id, version,
                                 latency, input_clusters, output_clusters))
       .then(znp::Decode<void>);
 }
 
-void AfHandler::OnFrame(ZnpCommandType cmdtype, ZnpSubsystem subsys,
-                        uint8_t command, const std::vector<uint8_t>& payload) {
-  if (cmdtype != ZnpCommandType::AREQ || subsys != ZnpSubsystem::AF) {
+void AfHandler::OnFrame(ZnpCommandType cmdtype, ZnpCommand command,
+                        const std::vector<uint8_t>& payload) {
+  if (cmdtype != ZnpCommandType::AREQ) {
     return;
   }
-  switch ((AfCommand)command) {
-    case AfCommand::INCOMING_MSG:
-      OnIncomingMsg(payload);
-      break;
-    default:
-      break;
+  if (command == AfCommand::INCOMING_MSG) {
+    OnIncomingMsg(payload);
+    return;
   }
 }
 

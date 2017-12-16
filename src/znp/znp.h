@@ -1,5 +1,6 @@
 #ifndef _ZNP_H_
 #define _ZNP_H_
+#include <boost/variant.hpp>
 #include <iostream>
 
 namespace znp {
@@ -20,11 +21,11 @@ enum class ZnpSubsystem {
 std::ostream& operator<<(std::ostream& stream, const ZnpSubsystem& subsys);
 
 enum class ZnpStatus : uint8_t {
-	Success = 0x00,
-	Failure = 0x01,
-	InvalidParameter = 0x02,
-	MemError = 0x03,
-	BufferFull = 0x11
+  Success = 0x00,
+  Failure = 0x01,
+  InvalidParameter = 0x02,
+  MemError = 0x03,
+  BufferFull = 0x11
 };
 std::ostream& operator<<(std::ostream& stream, const ZnpCommandType& type);
 
@@ -32,11 +33,11 @@ typedef uint64_t IEEEAddress;
 typedef uint16_t ShortAddress;
 
 enum class AddrMode : uint8_t {
-	NotPresent = 0,
-	Group = 1,
-	ShortAddress = 2,
-	IEEEAddress = 3,
-	Broadcast = 0xFF
+  NotPresent = 0,
+  Group = 1,
+  ShortAddress = 2,
+  IEEEAddress = 3,
+  Broadcast = 0xFF
 };
 
 // Commands in the SYS subsystem
@@ -66,6 +67,7 @@ enum class SysCommand : uint8_t {
   RESET_IND = 0x80,
   OSAL_TIMER_EXPIRED = 0x81,
 };
+std::ostream& operator<<(std::ostream& stream, SysCommand command);
 
 // Commands in the AF subsystem
 enum class AfCommand : uint8_t {
@@ -170,5 +172,28 @@ enum class SapiCommand : uint8_t {
 };
 
 std::ostream& operator<<(std::ostream& stream, SapiCommand command);
+
+class ZnpCommand {
+ public:
+  ZnpCommand(ZnpSubsystem subsystem, uint8_t command);
+  ZnpCommand(SysCommand command);
+  ZnpCommand(AfCommand command);
+  ZnpCommand(ZdoCommand command);
+  ZnpCommand(SapiCommand command);
+
+  ZnpSubsystem Subsystem();
+  uint8_t RawCommand();
+
+  friend bool operator==(const ZnpCommand& a, const ZnpCommand& b);
+  friend bool operator!=(const ZnpCommand& a, const ZnpCommand& b);
+  friend bool operator<=(const ZnpCommand& a, const ZnpCommand& b);
+  friend bool operator>=(const ZnpCommand& a, const ZnpCommand& b);
+  friend bool operator<(const ZnpCommand& a, const ZnpCommand& b);
+  friend bool operator>(const ZnpCommand& a, const ZnpCommand& b);
+  friend std::ostream& operator<<(std::ostream& stream, ZnpCommand command);
+
+ private:
+  std::pair<ZnpSubsystem, uint8_t> value_;
+};
 }  // namespace znp
 #endif  //_ZNP_H_

@@ -8,11 +8,10 @@ ZnpSreqHandler::ZnpSreqHandler(std::shared_ptr<ZnpPort> port)
     : port_(port),
       on_frame_connection_(port_->on_frame_.connect(
           std::bind(&ZnpSreqHandler::OnFrame, this, std::placeholders::_1,
-                    std::placeholders::_2, std::placeholders::_3,
-                    std::placeholders::_4))) {}
+                    std::placeholders::_2, std::placeholders::_3))) {}
 
 stlab::future<std::vector<uint8_t>> ZnpSreqHandler::SReq(
-    ZnpSubsystem subsys, uint8_t command, const std::vector<uint8_t>& payload) {
+    ZnpCommand command, const std::vector<uint8_t>& payload) {
   auto package = stlab::package<std::vector<uint8_t>(std::exception_ptr,
                                                      std::vector<uint8_t>)>(
       stlab::immediate_executor,
@@ -22,15 +21,14 @@ stlab::future<std::vector<uint8_t>> ZnpSreqHandler::SReq(
         }
         return retval;
       });
-  srsp_queue_[std::make_pair(subsys, command)].push(package.first);
-  port_->SendFrame(ZnpCommandType::SREQ, subsys, (unsigned int)command,
-                   payload);
+  srsp_queue_[command].push(package.first);
+  port_->SendFrame(ZnpCommandType::SREQ, command, payload);
   return package.second;
 }
 
 stlab::future<std::vector<uint8_t>> ZnpSreqHandler::SReqStatus(
-    ZnpSubsystem subsys, uint8_t command, const std::vector<uint8_t>& payload) {
-  return SReq(subsys, command, payload).then([](const std::vector<uint8_t>& v) {
+    ZnpCommand command, const std::vector<uint8_t>& payload) {
+  return SReq(command, payload).then([](const std::vector<uint8_t>& v) {
     if (v.size() < 1) {
       throw std::runtime_error("Status byte missing");
     }
@@ -44,7 +42,7 @@ stlab::future<std::vector<uint8_t>> ZnpSreqHandler::SReqStatus(
 }
 
 stlab::future<std::vector<uint8_t>> ZnpSreqHandler::WaitForAReq(
-    ZnpSubsystem subsys, uint8_t command) {
+    ZnpCommand command) {
   auto package = stlab::package<std::vector<uint8_t>(std::exception_ptr,
                                                      std::vector<uint8_t>)>(
       stlab::immediate_executor,
@@ -54,16 +52,14 @@ stlab::future<std::vector<uint8_t>> ZnpSreqHandler::WaitForAReq(
         }
         return retval;
       });
-  areq_queue_[std::make_pair(subsys, command)].push(package.first);
+  areq_queue_[command].push(package.first);
   return package.second;
 }
 
-void ZnpSreqHandler::OnFrame(ZnpCommandType type, ZnpSubsystem subsys,
-                             uint8_t command,
+void ZnpSreqHandler::OnFrame(ZnpCommandType type, ZnpCommand command,
                              const std::vector<uint8_t>& payload) {
   if (type == ZnpCommandType::SRSP) {
-    std::queue<SreqCallback>& callback_queue(
-        srsp_queue_[std::make_pair(subsys, command)]);
+    std::queue<SreqCallback>& callback_queue(srsp_queue_[command]);
     if (callback_queue.empty()) {
       LOG("ZnpSreqHandler", warning)
           << "SRSP received for an empty queue" << std::endl;
@@ -73,8 +69,7 @@ void ZnpSreqHandler::OnFrame(ZnpCommandType type, ZnpSubsystem subsys,
     callback_queue.pop();
     callback(nullptr, payload);
   } else if (type == ZnpCommandType::AREQ) {
-    std::queue<AreqCallback>& callback_queue(
-        areq_queue_[std::make_pair(subsys, command)]);
+    std::queue<AreqCallback>& callback_queue(areq_queue_[command]);
     if (callback_queue.empty()) {
       return;
     }

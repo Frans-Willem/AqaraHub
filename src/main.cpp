@@ -11,6 +11,7 @@
 #include "coroutines.h"
 #include "logging.h"
 #include "znp/af/af.h"
+#include "znp/af/af_handler.h"
 #include "znp/encoding.h"
 #include "znp/simpleapi/simpleapi_handler.h"
 #include "znp/system/system.h"
@@ -18,13 +19,12 @@
 #include "znp/zdo/zdo_handler.h"
 #include "znp/znp_port.h"
 #include "znp/znp_sreq_handler.h"
-#include "znp/af/af_handler.h"
 
 stlab::future<void> Initialize(
     std::shared_ptr<znp::system::SystemHandler> system_handler,
     std::shared_ptr<znp::simpleapi::SimpleAPIHandler> simpleapi_handler,
     std::shared_ptr<znp::zdo::ZdoHandler> zdo_handler,
-	std::shared_ptr<znp::af::AfHandler> af_handler) {
+    std::shared_ptr<znp::af::AfHandler> af_handler) {
   LOG("Initialize", debug)
       << "Doing initial reset, and instructing to clear config on next reset";
   std::ignore = co_await system_handler->Reset(true);
@@ -67,33 +67,17 @@ stlab::future<void> Initialize(
       co_await zdo_handler->PermitJoin((znp::AddrMode)15, 0xFFFC, 60, 0);
   LOG("Initialize", debug) << "Second PermitJoin OK " << second_join;
 
-  co_await af_handler->Register(1, 0x0104, 5, 0, znp::af::Latency::NoLatency, std::vector<uint16_t>(), std::vector<uint16_t>());
+  co_await af_handler->Register(1, 0x0104, 5, 0, znp::af::Latency::NoLatency,
+                                std::vector<uint16_t>(),
+                                std::vector<uint16_t>());
   co_return;
 }
 
 void OnFrameDebug(std::string prefix, znp::ZnpCommandType cmdtype,
-                  znp::ZnpSubsystem subsys, uint8_t command,
+                  znp::ZnpCommand command,
                   const std::vector<uint8_t>& payload) {
-  std::stringstream ss_command;
-  switch (subsys) {
-    case znp::ZnpSubsystem::SAPI:
-      ss_command << (znp::SapiCommand)command;
-      break;
-    case znp::ZnpSubsystem::ZDO:
-      ss_command << (znp::ZdoCommand)command;
-      break;
-    case znp::ZnpSubsystem::AF:
-      ss_command << (znp::AfCommand)command;
-	  break;
-    default:
-      ss_command << std::hex << (unsigned int)command;
-      break;
-  }
-  LOG("FRAME", debug) << prefix << " " << cmdtype << " " << subsys << " "
-                      << ss_command.str() << " "
-                      << boost::log::dump(
-                             payload.data(),
-                             payload.size());
+  LOG("FRAME", debug) << prefix << " " << cmdtype << " " << command << " "
+                      << boost::log::dump(payload.data(), payload.size());
 }
 
 int main() {
@@ -110,12 +94,12 @@ int main() {
   console_log->set_formatter(formatter);
   LOG("Main", info) << "Starting";
   auto port = std::make_shared<znp::ZnpPort>(io_service, "/dev/ttyACM0");
-  port->on_frame_.connect(std::bind(
-      OnFrameDebug, "<<", std::placeholders::_1, std::placeholders::_2,
-      std::placeholders::_3, std::placeholders::_4));
+  port->on_frame_.connect(std::bind(OnFrameDebug, "<<", std::placeholders::_1,
+                                    std::placeholders::_2,
+                                    std::placeholders::_3));
   port->on_sent_.connect(std::bind(OnFrameDebug, ">>", std::placeholders::_1,
-                                   std::placeholders::_2, std::placeholders::_3,
-                                   std::placeholders::_4));
+                                   std::placeholders::_2,
+                                   std::placeholders::_3));
   auto sreq_handler = std::make_shared<znp::ZnpSreqHandler>(port);
   auto system_handler = std::make_shared<znp::system::SystemHandler>(
       io_service, port, sreq_handler);

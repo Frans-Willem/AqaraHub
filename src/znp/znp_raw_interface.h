@@ -10,11 +10,10 @@ class ZnpRawInterface {
   ZnpRawInterface() = default;
   virtual ~ZnpRawInterface() = default;
 
-  virtual void SendFrame(ZnpCommandType cmdtype, ZnpSubsystem subsystem,
-                         uint8_t command,
+  virtual void SendFrame(ZnpCommandType cmdtype, ZnpCommand command,
                          const std::vector<uint8_t>& payload) = 0;
 
-  boost::signals2::signal<void(ZnpCommandType, ZnpSubsystem, uint8_t,
+  boost::signals2::signal<void(ZnpCommandType, ZnpCommand,
                                const std::vector<uint8_t>&)>
       on_frame_;
 };

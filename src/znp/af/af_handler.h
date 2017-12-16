@@ -23,7 +23,7 @@ class AfHandler {
   std::shared_ptr<ZnpSreqHandler> sreq_handler_;
   boost::signals2::scoped_connection on_frame_connection_;
 
-  void OnFrame(ZnpCommandType cmdtype, ZnpSubsystem subsys, uint8_t command,
+  void OnFrame(ZnpCommandType cmdtype, ZnpCommand command,
                const std::vector<uint8_t>& payload);
   void OnIncomingMsg(const std::vector<uint8_t>& payload);
 };

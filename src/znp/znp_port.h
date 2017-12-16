@@ -12,10 +12,10 @@ class ZnpPort : public ZnpRawInterface {
  public:
   ZnpPort(boost::asio::io_service& io_service, const std::string& port);
   ~ZnpPort() = default;
-  void SendFrame(ZnpCommandType type, ZnpSubsystem subsystem, uint8_t command,
+  void SendFrame(ZnpCommandType type, ZnpCommand command,
                  const std::vector<uint8_t>& payload) override;
 
-  boost::signals2::signal<void(ZnpCommandType, ZnpSubsystem, uint8_t,
+  boost::signals2::signal<void(ZnpCommandType, ZnpCommand,
                                const std::vector<uint8_t>&)>
       on_sent_;
 

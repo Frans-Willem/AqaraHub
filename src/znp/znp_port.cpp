@@ -18,8 +18,8 @@ ZnpPort::ZnpPort(boost::asio::io_service& io_service, const std::string& port)
   StartReceive();
 }
 
-void ZnpPort::SendFrame(ZnpCommandType type, ZnpSubsystem subsystem,
-                        uint8_t command, const std::vector<uint8_t>& payload) {
+void ZnpPort::SendFrame(ZnpCommandType type, ZnpCommand command,
+                        const std::vector<uint8_t>& payload) {
   if (payload.size() > 255) {
     throw std::runtime_error(
         "ZNP Command Payload size should not exceed 255 bytes");
@@ -28,8 +28,9 @@ void ZnpPort::SendFrame(ZnpCommandType type, ZnpSubsystem subsystem,
   std::vector<uint8_t> buffer(1 + 1 + 2 + payload.size() + 1);
   buffer[0] = 0xFE;
   buffer[1] = payload.size();
-  buffer[2] = (((unsigned int)type) << 4) | (((unsigned int)subsystem) & 0xF);
-  buffer[3] = command;
+  buffer[2] =
+      (((unsigned int)type) << 4) | (((unsigned int)command.Subsystem()) & 0xF);
+  buffer[3] = command.RawCommand();
   std::copy(payload.begin(), payload.end(), buffer.begin() + 4);
 
   uint8_t crc = 0;
@@ -39,7 +40,7 @@ void ZnpPort::SendFrame(ZnpCommandType type, ZnpSubsystem subsystem,
   buffer[buffer.size() - 1] = crc;
   send_queue_.emplace(std::move(buffer));
   TrySend();
-  on_sent_(type, subsystem, command, payload);
+  on_sent_(type, command, payload);
 }
 
 void ZnpPort::TrySend() {
@@ -133,7 +134,7 @@ void ZnpPort::FrameHandler(std::shared_ptr<std::vector<uint8_t>> frame,
   ZnpCommandType type = (ZnpCommandType)((*frame)[0] >> 4);
   ZnpSubsystem subsystem = (ZnpSubsystem)((*frame)[0] & 0xF);
   unsigned int command = (*frame)[1];
-  on_frame_(type, subsystem, command,
+  on_frame_(type, ZnpCommand(subsystem, command),
             std::vector<uint8_t>(frame->begin() + 2, frame->end() - 1));
 }
 }  // namespace znp

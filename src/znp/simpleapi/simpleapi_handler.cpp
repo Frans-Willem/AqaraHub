@@ -10,9 +10,7 @@ stlab::future<std::vector<uint8_t>> SimpleAPIHandler::ReadRawConfiguration(
     ConfigurationOption option) {
   std::vector<uint8_t> payload;
   payload.push_back((uint8_t)option);
-  return sreq_handler_
-      ->SReqStatus(ZnpSubsystem::SAPI,
-                   (uint8_t)SapiCommand::READ_CONFIGURATION, payload)
+  return sreq_handler_->SReqStatus(SapiCommand::READ_CONFIGURATION, payload)
       .then([option](const std::vector<uint8_t>& response) {
         if (response.size() < 2 ||
             response.size() != 2 + (std::size_t)response[1]) {
@@ -35,9 +33,7 @@ stlab::future<void> SimpleAPIHandler::WriteRawConfiguration(
   }
   payload.push_back((uint8_t)data.size());
   payload.insert(payload.end(), data.begin(), data.end());
-  return sreq_handler_
-      ->SReqStatus(ZnpSubsystem::SAPI,
-                   (uint8_t)SapiCommand::WRITE_CONFIGURATION, payload)
+  return sreq_handler_->SReqStatus(SapiCommand::WRITE_CONFIGURATION, payload)
       .then([](const std::vector<uint8_t>& data) {
         if (data.size() != 0) {
           throw std::runtime_error(
@@ -61,8 +57,7 @@ stlab::future<void> SimpleAPIHandler::WriteLogicalType(
 stlab::future<void> SimpleAPIHandler::PermitJoiningRequest(uint16_t destination,
                                                            uint8_t timeout) {
   return sreq_handler_
-      ->SReqStatus(ZnpSubsystem::SAPI,
-                   (uint8_t)SapiCommand::PERMIT_JOINING_REQUEST,
+      ->SReqStatus(SapiCommand::PERMIT_JOINING_REQUEST,
                    znp::EncodeT(destination, timeout))
       .then(znp::Decode<void>);
 }
@@ -70,8 +65,7 @@ stlab::future<void> SimpleAPIHandler::PermitJoiningRequest(uint16_t destination,
 stlab::future<std::vector<uint8_t>> SimpleAPIHandler::GetRawDeviceInfo(
     DeviceInfo info) {
   return sreq_handler_
-      ->SReq(ZnpSubsystem::SAPI, (uint8_t)SapiCommand::GET_DEVICE_INFO,
-             znp::Encode((uint8_t)info))
+      ->SReq(SapiCommand::GET_DEVICE_INFO, znp::Encode((uint8_t)info))
       .then([info](const std::vector<uint8_t>& retdata) {
         if (retdata.size() < 1) {
           throw std::runtime_error(

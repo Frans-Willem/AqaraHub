@@ -1,9 +1,9 @@
 #ifndef _ZNP_SYSTEM_SYSTEM_HANDLER_H_
 #define _ZNP_SYSTEM_SYSTEM_HANDLER_H_
+#include <boost/signals2/signal.hpp>
 #include "znp/system/system.h"
 #include "znp/znp_port.h"
 #include "znp/znp_sreq_handler.h"
-#include <boost/signals2/signal.hpp>
 
 namespace znp {
 namespace system {
@@ -24,7 +24,7 @@ class SystemHandler {
   std::shared_ptr<ZnpSreqHandler> sreq_handler_;
   boost::signals2::scoped_connection on_frame_connection_;
 
-  void OnFrame(ZnpCommandType type, ZnpSubsystem subsys, uint8_t command,
+  void OnFrame(ZnpCommandType type, ZnpCommand command,
                const std::vector<uint8_t>& payload);
 };
 }  // namespace system

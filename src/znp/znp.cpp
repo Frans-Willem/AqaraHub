@@ -1,4 +1,5 @@
 #include "znp/znp.h"
+#include <boost/variant/get.hpp>
 
 namespace znp {
 std::ostream& operator<<(std::ostream& stream, const ZnpSubsystem& subsys) {
@@ -40,6 +41,61 @@ std::ostream& operator<<(std::ostream& stream, const ZnpCommandType& type) {
       return stream << "SRSP";
     default:
       return stream << "UNK(" << (int)type << ")";
+  }
+}
+
+std::ostream& operator<<(std::ostream& stream, SysCommand command) {
+  switch (command) {
+    case SysCommand::RESET:
+      return stream << "RESET";
+    case SysCommand::PING:
+      return stream << "PING";
+    case SysCommand::VERSION:
+      return stream << "VERSION";
+    case SysCommand::SET_EXTADDR:
+      return stream << "SET_EXTADDR";
+    case SysCommand::GET_EXTADDR:
+      return stream << "GET_EXTADDR";
+    case SysCommand::RAM_READ:
+      return stream << "RAM_READ";
+    case SysCommand::RAM_WRITE:
+      return stream << "RAM_WRITE";
+    case SysCommand::OSAL_NV_ITEM_INIT:
+      return stream << "OSAL_NV_ITEM_INIT";
+    case SysCommand::OSAL_NV_READ:
+      return stream << "OSAL_NV_READ";
+    case SysCommand::OSAL_NV_WRITE:
+      return stream << "OSAL_NV_WRITE";
+    case SysCommand::OSAL_START_TIMER:
+      return stream << "OSAL_START_TIMER";
+    case SysCommand::OSAL_STOP_TIMER:
+      return stream << "OSAL_STOP_TIMER";
+    case SysCommand::RANDOM:
+      return stream << "RANDOM";
+    case SysCommand::ADC_READ:
+      return stream << "ADC_READ";
+    case SysCommand::GPIO:
+      return stream << "GPIO";
+    case SysCommand::STACK_TUNE:
+      return stream << "STACK_TUNE";
+    case SysCommand::SET_TIME:
+      return stream << "SET_TIME";
+    case SysCommand::GET_TIME:
+      return stream << "GET_TIME";
+    case SysCommand::OSAL_NV_DELETE:
+      return stream << "OSAL_NV_DELETE";
+    case SysCommand::OSAL_NV_LENGTH:
+      return stream << "OSAL_NV_LENGTH";
+    case SysCommand::TEST_RF:
+      return stream << "TEST_RF";
+    case SysCommand::TEST_LOOPBACK:
+      return stream << "TEST_LOOPBACK";
+    case SysCommand::RESET_IND:
+      return stream << "RESET_IND";
+    case SysCommand::OSAL_TIMER_EXPIRED:
+      return stream << "OSAL_TIMER_EXPIRED";
+    default:
+      return stream << std::hex << (unsigned int)command;
   }
 }
 
@@ -188,12 +244,12 @@ std::ostream& operator<<(std::ostream& stream, ZdoCommand command) {
       return stream << "STATUS_ERROR_RSP";
     case ZdoCommand::SRC_RTG_IND:
       return stream << "SRC_RTG_IND";
-	case ZdoCommand::LEAVE_IND:
-	  return stream << "LEAVE_IND";
-	case ZdoCommand::TC_DEV_IND:
-	  return stream << "TC_DEV_IND";
-	case ZdoCommand::PERMIT_JOIN_IND:
-	  return stream << "PERMIT_JOIN_IND";
+    case ZdoCommand::LEAVE_IND:
+      return stream << "LEAVE_IND";
+    case ZdoCommand::TC_DEV_IND:
+      return stream << "TC_DEV_IND";
+    case ZdoCommand::PERMIT_JOIN_IND:
+      return stream << "PERMIT_JOIN_IND";
     case ZdoCommand::MSG_CB_INCOMING:
       return stream << "MSG_CB_INCOMING";
     default:
@@ -239,4 +295,52 @@ std::ostream& operator<<(std::ostream& stream, SapiCommand command) {
       return stream << "SapiCommand(" << (unsigned int)command << ")";
   }
 }
+
+ZnpCommand::ZnpCommand(ZnpSubsystem subsystem, uint8_t command)
+    : value_(subsystem, command) {}
+ZnpCommand::ZnpCommand(SysCommand command)
+    : value_(ZnpSubsystem::SYS, (uint8_t)command) {}
+ZnpCommand::ZnpCommand(AfCommand command)
+    : value_(ZnpSubsystem::AF, (uint8_t)command) {}
+ZnpCommand::ZnpCommand(ZdoCommand command)
+    : value_(ZnpSubsystem::ZDO, (uint8_t)command) {}
+ZnpCommand::ZnpCommand(SapiCommand command)
+    : value_(ZnpSubsystem::SAPI, (uint8_t)command) {}
+
+ZnpSubsystem ZnpCommand::Subsystem() { return value_.first; }
+uint8_t ZnpCommand::RawCommand() { return value_.second; }
+bool operator==(const ZnpCommand& a, const ZnpCommand& b) {
+  return a.value_ == b.value_;
+}
+bool operator!=(const ZnpCommand& a, const ZnpCommand& b) {
+  return a.value_ != b.value_;
+}
+bool operator<=(const ZnpCommand& a, const ZnpCommand& b) {
+  return a.value_ <= b.value_;
+}
+bool operator>=(const ZnpCommand& a, const ZnpCommand& b) {
+  return a.value_ >= b.value_;
+}
+bool operator<(const ZnpCommand& a, const ZnpCommand& b) {
+  return a.value_ < b.value_;
+}
+bool operator>(const ZnpCommand& a, const ZnpCommand& b) {
+  return a.value_ > b.value_;
+}
+std::ostream& operator<<(std::ostream& stream, ZnpCommand command) {
+  stream << command.value_.first << "_";
+  switch (command.value_.first) {
+    case ZnpSubsystem::SYS:
+      return stream << (SysCommand)command.value_.second;
+    case ZnpSubsystem::AF:
+      return stream << (AfCommand)command.value_.second;
+    case ZnpSubsystem::ZDO:
+      return stream << (ZdoCommand)command.value_.second;
+    case ZnpSubsystem::SAPI:
+      return stream << (SapiCommand)command.value_.second;
+    default:
+      return stream << std::hex << (unsigned int)command.value_.second;
+  }
+}
+
 }  // namespace znp

@@ -12,8 +12,7 @@ SystemHandler::SystemHandler(boost::asio::io_service& io_service,
       sreq_handler_(sreq_handler),
       on_frame_connection_(port->on_frame_.connect(
           std::bind(&SystemHandler::OnFrame, this, std::placeholders::_1,
-                    std::placeholders::_2, std::placeholders::_3,
-                    std::placeholders::_4))) {}
+                    std::placeholders::_2, std::placeholders::_3))) {}
 
 stlab::future<ResetInfo> SystemHandler::Reset(bool soft_reset) {
   auto package = stlab::package<ResetInfo(ResetInfo)>(
@@ -26,15 +25,15 @@ stlab::future<ResetInfo> SystemHandler::Reset(bool soft_reset) {
         callback(info);
       });
 
-  port_->SendFrame(ZnpCommandType::AREQ, ZnpSubsystem::SYS, (uint8_t)SysCommand::RESET, znp::Encode<uint8_t>(soft_reset ? 1 : 0));
+  port_->SendFrame(ZnpCommandType::AREQ, SysCommand::RESET,
+                   znp::Encode<uint8_t>(soft_reset ? 1 : 0));
 
   return package.second;
 }
 
 stlab::future<Capability> SystemHandler::Ping() {
   std::vector<uint8_t> empty;
-  auto future = sreq_handler_->SReq(ZnpSubsystem::SYS,
-                                    (uint8_t)SysCommand::PING, empty);
+  auto future = sreq_handler_->SReq(SysCommand::PING, empty);
   return future.then([](const std::vector<uint8_t>& payload) {
     if (payload.size() != 2) {
       throw std::runtime_error("Response to PING was not of expected size");
@@ -44,14 +43,9 @@ stlab::future<Capability> SystemHandler::Ping() {
   });
 }
 
-void SystemHandler::OnFrame(ZnpCommandType type, ZnpSubsystem subsys,
-                            uint8_t command,
+void SystemHandler::OnFrame(ZnpCommandType type, ZnpCommand command,
                             const std::vector<uint8_t>& payload) {
-  if (subsys != ZnpSubsystem::SYS) {
-    return;
-  }
-  SysCommand sys_cmd = (SysCommand)command;
-  if (sys_cmd == SysCommand::RESET_IND) {
+  if (command == SysCommand::RESET_IND) {
     if (payload.size() != 6) {
       std::cerr << "RESET_IND was not of expected size" << std::endl;
       return;
