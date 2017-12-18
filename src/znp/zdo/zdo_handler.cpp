@@ -6,12 +6,10 @@
 
 namespace znp {
 namespace zdo {
-ZdoHandler::ZdoHandler(
-    std::shared_ptr<ZnpPort> port, std::shared_ptr<ZnpSreqHandler> sreq_handler,
-    std::shared_ptr<simpleapi::SimpleAPIHandler> simpleapi_handler)
-    : port_(port),
-      sreq_handler_(sreq_handler),
-      simpleapi_handler_(simpleapi_handler) {}
+ZdoHandler::ZdoHandler(std::shared_ptr<ZnpPort> port,
+                       std::shared_ptr<ZnpSreqHandler> sreq_handler,
+                       std::shared_ptr<ZnpApi> api)
+    : port_(port), sreq_handler_(sreq_handler), api_(api) {}
 
 stlab::future<StartupFromAppResponse> ZdoHandler::StartupFromApp(
     uint16_t start_delay) {
@@ -23,7 +21,7 @@ stlab::future<StartupFromAppResponse> ZdoHandler::StartupFromApp(
 stlab::future<DeviceState> ZdoHandler::WaitForState(
     std::set<DeviceState> end_states, std::set<DeviceState> allowed_states) {
   auto port = port_;
-  return simpleapi_handler_->GetDeviceState().then(
+  return api_->SapiGetDeviceInfo<DeviceInfo::DeviceState>().then(
       [end_states, allowed_states, port](DeviceState state) {
         if (end_states.count(state) != 0) {
           LOG("WaitForState", debug) << "Immediately reached end state";

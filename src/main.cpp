@@ -13,7 +13,6 @@
 #include "znp/af/af.h"
 #include "znp/af/af_handler.h"
 #include "znp/encoding.h"
-#include "znp/simpleapi/simpleapi_handler.h"
 #include "znp/zdo/zdo_handler.h"
 #include "znp/znp_api.h"
 #include "znp/znp_port.h"
@@ -21,41 +20,41 @@
 
 stlab::future<void> Initialize(
     std::shared_ptr<znp::ZnpApi> api,
-    std::shared_ptr<znp::simpleapi::SimpleAPIHandler> simpleapi_handler,
     std::shared_ptr<znp::zdo::ZdoHandler> zdo_handler,
     std::shared_ptr<znp::af::AfHandler> af_handler) {
   LOG("Initialize", debug)
       << "Doing initial reset, and instructing to clear config on next reset";
   std::ignore = co_await api->SysReset(true);
-  co_await simpleapi_handler->WriteStartupOption(
-      znp::simpleapi::StartupOption::ClearConfig |
-      znp::simpleapi::StartupOption::ClearState);
+  co_await api
+      ->SapiWriteConfiguration<znp::ConfigurationOption::STARTUP_OPTION>(
+          znp::StartupOption::ClearConfig | znp::StartupOption::ClearState);
   LOG("Initialize", debug) << "Doing final reset";
   std::ignore = co_await api->SysReset(true);
   auto caps = co_await api->SysPing();
   LOG("Initialize", debug) << "Capabilities: " << caps;
   LOG("Initialize", debug) << "Writing all configuration";
-  co_await simpleapi_handler->WriteConfiguration<uint16_t>(
-      znp::simpleapi::ConfigurationOption::PANID, 0x1A62);
-  co_await simpleapi_handler->WriteConfiguration<uint64_t>(
-      znp::simpleapi::ConfigurationOption::EXTENDED_PAN_ID, 0xDDDDDDDDDDDDDDDD);
-  co_await simpleapi_handler->WriteConfiguration<uint32_t>(
-      znp::simpleapi::ConfigurationOption::CHANLIST, 0x00000800);
-  co_await simpleapi_handler->WriteLogicalType(
-      znp::simpleapi::LogicalType::Coordinator);
+  co_await api->SapiWriteConfiguration<znp::ConfigurationOption::PANID>(0x1A62);
+  co_await api
+      ->SapiWriteConfiguration<znp::ConfigurationOption::EXTENDED_PAN_ID>(
+          0xDDDDDDDDDDDDDDDD);
+  co_await api->SapiWriteConfiguration<znp::ConfigurationOption::CHANLIST>(
+      0x00000800);
+  co_await api->SapiWriteConfiguration<znp::ConfigurationOption::LOGICAL_TYPE>(
+      znp::LogicalType::Coordinator);
   std::array<uint8_t, 16> presharedkey = {
       {1, 3, 5, 7, 9, 11, 13, 15, 0, 2, 4, 6, 8, 10, 12, 13}};
-  co_await simpleapi_handler->WriteConfiguration(
-      znp::simpleapi::ConfigurationOption::PRECFGKEY, presharedkey);
-  co_await simpleapi_handler->WriteConfiguration<uint8_t>(
-      znp::simpleapi::ConfigurationOption::PRECFGKEYS_ENABLE, 0);
-  co_await simpleapi_handler->WriteConfiguration<uint8_t>(
-      znp::simpleapi::ConfigurationOption::ZDO_DIRECT_CB, 1);
+  co_await api->SapiWriteConfiguration<znp::ConfigurationOption::PRECFGKEY>(
+      presharedkey);
+  co_await api
+      ->SapiWriteConfiguration<znp::ConfigurationOption::PRECFGKEYS_ENABLE>(
+          false);
+  co_await api->SapiWriteConfiguration<znp::ConfigurationOption::ZDO_DIRECT_CB>(
+      true);
   LOG("Initialize", debug) << "Starting ZDO";
   auto future_state = zdo_handler->WaitForState(
-      {znp::zdo::DeviceState::ZB_COORD},
-      {znp::zdo::DeviceState::COORD_STARTING, znp::zdo::DeviceState::HOLD,
-       znp::zdo::DeviceState::INIT});
+      {znp::DeviceState::ZB_COORD},
+      {znp::DeviceState::COORD_STARTING, znp::DeviceState::HOLD,
+       znp::DeviceState::INIT});
   uint8_t ret = co_await zdo_handler->StartupFromApp(100);
   LOG("Initialize", debug) << "ZDO Start return value: " << (unsigned int)ret;
   uint8_t device_state = co_await future_state;
@@ -103,16 +102,14 @@ int main() {
                                    std::placeholders::_3));
   auto sreq_handler = std::make_shared<znp::ZnpSreqHandler>(port);
   auto api = std::make_shared<znp::ZnpApi>(port);
-  auto simpleapi_handler =
-      std::make_shared<znp::simpleapi::SimpleAPIHandler>(sreq_handler);
-  auto zdo_handler = std::make_shared<znp::zdo::ZdoHandler>(port, sreq_handler,
-                                                            simpleapi_handler);
+  auto zdo_handler =
+      std::make_shared<znp::zdo::ZdoHandler>(port, sreq_handler, api);
   auto af_handler = std::make_shared<znp::af::AfHandler>(port, sreq_handler);
 
   // Reset device
   LOG("Main", info) << "Initializing";
 
-  Initialize(api, simpleapi_handler, zdo_handler, af_handler)
+  Initialize(api, zdo_handler, af_handler)
       .then([]() { LOG("Main", info) << "Initialization complete?"; })
       .recover([](stlab::future<void> v) {
         LOG("Main", info) << "In final handler";

@@ -215,6 +215,139 @@ std::ostream& operator<<(std::ostream& stream, const Capability& cap);
 enum class ResetReason : uint8_t { PowerUp = 0, External = 1, Watchdog = 2 };
 std::ostream& operator<<(std::ostream& stream, const ResetReason& reason);
 
+enum class ConfigurationOption : uint8_t {
+  STARTUP_OPTION = 0x03,
+  POLL_RATE = 0x24,
+  QUEUED_POLL_RATE = 0x25,
+  RESPONSE_POLL_RATE = 0x26,
+  POLL_FAILURE_RETRIES = 0x29,
+  INDIRECT_MSG_TIMEOUT = 0x2B,
+  ROUTE_EXPIRY_TIME = 0x2C,
+  EXTENDED_PAN_ID = 0x2D,
+  BCAST_RETRIES = 0x2E,
+  PASSIVE_ACK_TIMEOUT = 0x2F,
+  BCAST_DELIVERY_TIME = 0x30,
+  APS_FRAME_RETRIES = 0x43,
+  APS_ACK_WAIT_DURATION = 0x44,
+  BINDING_TIME = 0x46,
+  PRECFGKEY = 0x62,
+  PRECFGKEYS_ENABLE = 0x63,
+  SECURITY_MODE = 0x64,
+  USERDESC = 0x81,
+  PANID = 0x83,
+  CHANLIST = 0x84,
+  LOGICAL_TYPE = 0x87,
+  ZDO_DIRECT_CB = 0x8F
+};
+
+template <ConfigurationOption O>
+struct ConfigurationOptionInfo;
+
+enum class StartupOption : uint8_t { ClearConfig = 1, ClearState = 2 };
+inline StartupOption operator|(StartupOption a, StartupOption b) {
+  return (StartupOption)(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));
+}
+template <>
+struct ConfigurationOptionInfo<ConfigurationOption::STARTUP_OPTION> {
+  typedef StartupOption Type;
+};
+
+template <>
+struct ConfigurationOptionInfo<ConfigurationOption::EXTENDED_PAN_ID> {
+  typedef uint64_t Type;
+};
+
+template <>
+struct ConfigurationOptionInfo<ConfigurationOption::PRECFGKEY> {
+  typedef std::array<uint8_t, 16> Type;
+};
+template <>
+struct ConfigurationOptionInfo<ConfigurationOption::PRECFGKEYS_ENABLE> {
+  typedef bool Type;
+};
+template <>
+struct ConfigurationOptionInfo<ConfigurationOption::PANID> {
+  typedef uint16_t Type;
+};
+
+template <>
+struct ConfigurationOptionInfo<ConfigurationOption::CHANLIST> {
+  typedef uint32_t Type;
+};
+
+enum class LogicalType : uint8_t { Coordinator = 0, Router = 1, EndDevice = 2 };
+template <>
+struct ConfigurationOptionInfo<ConfigurationOption::LOGICAL_TYPE> {
+  typedef LogicalType Type;
+};
+
+template <>
+struct ConfigurationOptionInfo<ConfigurationOption::ZDO_DIRECT_CB> {
+  typedef bool Type;
+};
+
+enum class DeviceInfo : uint8_t {
+  DeviceState = 0,
+  DeviceIEEEAddress = 1,
+  DeviceShortAddress = 2,
+  ParentDeviceShortAddress = 3,
+  ParentDeviceIEEEAddress = 4,
+  Channel = 5,
+  PanId = 6,
+  ExtendedPanId = 7
+};
+
+template <DeviceInfo I>
+struct DeviceInfoInfo;
+enum DeviceState : uint8_t {
+  HOLD = 0,
+  INIT = 1,
+  NWK_DISC = 2,
+  NWK_JOINING = 3,
+  NWK_REJOIN = 4,
+  END_DEVICE_UNAUTH = 5,
+  END_DEVICE = 6,
+  ROUTER = 7,
+  COORD_STARTING = 8,
+  ZB_COORD = 9,
+  NWK_ORPHAN = 10
+};
+template <>
+struct DeviceInfoInfo<DeviceInfo::DeviceState> {
+  typedef DeviceState Type;
+};
+
+template <>
+struct DeviceInfoInfo<DeviceInfo::DeviceIEEEAddress> {
+  typedef IEEEAddress Type;
+};
+
+template <>
+struct DeviceInfoInfo<DeviceInfo::DeviceShortAddress> {
+  typedef ShortAddress Type;
+};
+template <>
+struct DeviceInfoInfo<DeviceInfo::ParentDeviceShortAddress> {
+  typedef ShortAddress Type;
+};
+template <>
+struct DeviceInfoInfo<DeviceInfo::ParentDeviceIEEEAddress> {
+  typedef IEEEAddress Type;
+};
+template <>
+struct DeviceInfoInfo<DeviceInfo::Channel> {
+  /* TODO! */
+};
+
+template <>
+struct DeviceInfoInfo<DeviceInfo::PanId> {
+  typedef uint16_t Type;
+};
+template <>
+struct DeviceInfoInfo<DeviceInfo::ExtendedPanId> {
+  typedef uint64_t Type;
+};
+
 struct VersionInfo {
   uint8_t TransportRev;
   uint8_t Product;
