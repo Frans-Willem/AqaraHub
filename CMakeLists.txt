@@ -29,8 +29,6 @@ add_executable(AqaraHub
 	src/znp/znp.cpp
 	src/znp/znp_port.cpp
 	src/znp/znp_api.cpp
-	src/znp/znp_sreq_handler.cpp
-	src/znp/af/af_handler.cpp
 	src/asio_executor.cpp
 	src/logging.cpp
 	)

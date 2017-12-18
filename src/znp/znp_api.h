@@ -26,7 +26,13 @@ class ZnpApi {
   boost::signals2::signal<void(ResetInfo)> sys_on_reset_;
 
   // AF commands
+  stlab::future<void> AfRegister(uint8_t endpoint, uint16_t profile_id,
+                                 uint16_t device_id, uint8_t version,
+                                 Latency latency,
+                                 std::vector<uint16_t> input_clusters,
+                                 std::vector<uint16_t> output_clusters);
   // AF events
+  boost::signals2::signal<void(const IncomingMsg&)> af_on_incoming_msg_;
 
   // ZDO commands
   stlab::future<StartupFromAppResponse> ZdoStartupFromApp(
@@ -100,22 +106,24 @@ class ZnpApi {
                              boost::signals2::signal<void(Args...)>& signal,
                              bool allow_partial) {
     auto& handler_list = handlers_[std::make_pair(type, command)];
-    handler_list.push_back(
-        [&signal, allow_partial](const std::vector<uint8_t>& data) {
-          std::tuple<Args...> arguments;
-          try {
-            if (allow_partial) {
-              arguments = znp::DecodePartial<std::tuple<Args...>>(data);
-            } else {
-              arguments = znp::Decode<std::tuple<Args...>>(data);
-            }
-          } catch (const std::exception& exc) {
-            LOG("ZnpApi", warning)
-                << "Exception while decoding event: " << exc.what();
-            return;
-          }
-          polyfill::apply(signal, arguments);
-        });
+    handler_list.push_back([&signal,
+                            allow_partial](const std::vector<uint8_t>& data) {
+      typedef std::tuple<std::remove_const_t<std::remove_reference_t<Args>>...>
+          ArgTuple;
+      ArgTuple arguments;
+      try {
+        if (allow_partial) {
+          arguments = znp::DecodePartial<ArgTuple>(data);
+        } else {
+          arguments = znp::Decode<ArgTuple>(data);
+        }
+      } catch (const std::exception& exc) {
+        LOG("ZnpApi", warning)
+            << "Exception while decoding event: " << exc.what();
+        return;
+      }
+      polyfill::apply(signal, arguments);
+    });
   }
 };
 }  // namespace znp

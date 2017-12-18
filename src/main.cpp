@@ -10,16 +10,11 @@
 #include "asio_executor.h"
 #include "coroutines.h"
 #include "logging.h"
-#include "znp/af/af.h"
-#include "znp/af/af_handler.h"
 #include "znp/encoding.h"
 #include "znp/znp_api.h"
 #include "znp/znp_port.h"
-#include "znp/znp_sreq_handler.h"
 
-stlab::future<void> Initialize(
-    std::shared_ptr<znp::ZnpApi> api,
-    std::shared_ptr<znp::af::AfHandler> af_handler) {
+stlab::future<void> Initialize(std::shared_ptr<znp::ZnpApi> api) {
   LOG("Initialize", debug)
       << "Doing initial reset, and instructing to clear config on next reset";
   std::ignore = co_await api->SysReset(true);
@@ -65,9 +60,8 @@ stlab::future<void> Initialize(
       co_await api->ZdoMgmtPermitJoin((znp::AddrMode)15, 0xFFFC, 60, 0);
   LOG("Initialize", debug) << "Second PermitJoin OK " << second_join;
 
-  co_await af_handler->Register(1, 0x0104, 5, 0, znp::af::Latency::NoLatency,
-                                std::vector<uint16_t>(),
-                                std::vector<uint16_t>());
+  co_await api->AfRegister(1, 0x0104, 5, 0, znp::Latency::NoLatency,
+                           std::vector<uint16_t>(), std::vector<uint16_t>());
   co_return;
 }
 
@@ -98,14 +92,12 @@ int main() {
   port->on_sent_.connect(std::bind(OnFrameDebug, ">>", std::placeholders::_1,
                                    std::placeholders::_2,
                                    std::placeholders::_3));
-  auto sreq_handler = std::make_shared<znp::ZnpSreqHandler>(port);
   auto api = std::make_shared<znp::ZnpApi>(port);
-  auto af_handler = std::make_shared<znp::af::AfHandler>(port, sreq_handler);
 
   // Reset device
   LOG("Main", info) << "Initializing";
 
-  Initialize(api, af_handler)
+  Initialize(api)
       .then([]() { LOG("Main", info) << "Initialization complete?"; })
       .recover([](stlab::future<void> v) {
         LOG("Main", info) << "In final handler";

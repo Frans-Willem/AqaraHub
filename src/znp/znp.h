@@ -3,6 +3,7 @@
 #include <boost/fusion/include/define_struct.hpp>
 #include <boost/variant.hpp>
 #include <iostream>
+#include <vector>
 
 namespace znp {
 enum class ZnpCommandType { POLL = 0, SREQ = 2, AREQ = 4, SRSP = 6 };
@@ -357,6 +358,12 @@ struct VersionInfo {
 };
 
 enum StartupFromAppResponse : uint8_t { Restored = 0, New = 1, Leave = 2 };
+
+enum class Latency : uint8_t {
+  NoLatency = 0,
+  FastBeacons = 1,
+  SlowBeacons = 2
+};
 }  // namespace znp
 
 BOOST_FUSION_DEFINE_STRUCT((znp), ResetInfo,
@@ -367,4 +374,10 @@ BOOST_FUSION_DEFINE_STRUCT((znp), ResetInfo,
 namespace znp {
 std::ostream& operator<<(std::ostream& stream, const ResetInfo& info);
 }  // namespace znp
+BOOST_FUSION_DEFINE_STRUCT(
+    (znp), IncomingMsg,
+    (uint16_t, GroupId)(uint16_t, ClusterId)(uint16_t, SrcAddr)(
+        uint8_t, SrcEndpoint)(uint8_t, DstEndpoint)(uint8_t, WasBroadcast)(
+        uint8_t, LinkQuality)(uint8_t, SecurityUse)(uint32_t, TimeStamp)(
+        uint8_t, TransSeqNumber)(std::vector<uint8_t>, Data))
 #endif  //_ZNP_H_

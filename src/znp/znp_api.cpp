@@ -14,6 +14,10 @@ ZnpApi::ZnpApi(std::shared_ptr<ZnpRawInterface> interface)
                         sys_on_reset_, false);
   AddSimpleEventHandler(ZnpCommandType::AREQ, ZdoCommand::STATE_CHANGE_IND,
                         zdo_on_state_change_, false);
+  // NOTE: INCOMING_MSG sometimes has 3 extra trailing bytes, so allow a partial
+  // decoding.
+  AddSimpleEventHandler(ZnpCommandType::AREQ, AfCommand::INCOMING_MSG,
+                        af_on_incoming_msg_, true);
 }
 
 stlab::future<ResetInfo> ZnpApi::SysReset(bool soft_reset) {
@@ -26,6 +30,17 @@ stlab::future<ResetInfo> ZnpApi::SysReset(bool soft_reset) {
 
 stlab::future<Capability> ZnpApi::SysPing() {
   return RawSReq(SysCommand::PING, znp::Encode()).then(znp::Decode<Capability>);
+}
+
+stlab::future<void> ZnpApi::AfRegister(uint8_t endpoint, uint16_t profile_id,
+                                       uint16_t device_id, uint8_t version,
+                                       Latency latency,
+                                       std::vector<uint16_t> input_clusters,
+                                       std::vector<uint16_t> output_clusters) {
+  return RawSReq(AfCommand::REGISTER,
+                 znp::EncodeT(endpoint, profile_id, device_id, version, latency,
+                              input_clusters, output_clusters))
+      .then(CheckOnlyStatus);
 }
 
 stlab::future<StartupFromAppResponse> ZnpApi::ZdoStartupFromApp(
