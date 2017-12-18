@@ -3,6 +3,7 @@
 #include <boost/signals2/signal.hpp>
 #include <map>
 #include <queue>
+#include <set>
 #include <stlab/concurrency/future.hpp>
 #include <vector>
 #include "logging.h"
@@ -22,13 +23,20 @@ class ZnpApi {
   stlab::future<Capability> SysPing();
 
   // SYS events
-  boost::signals2::signal<void(ResetInfo)> on_reset_;
+  boost::signals2::signal<void(ResetInfo)> sys_on_reset_;
 
   // AF commands
   // AF events
 
   // ZDO commands
+  stlab::future<StartupFromAppResponse> ZdoStartupFromApp(
+      uint16_t start_delay_ms);
+  stlab::future<uint16_t> ZdoMgmtPermitJoin(AddrMode addr_mode,
+                                            uint16_t dst_address,
+                                            uint8_t duration,
+                                            uint8_t tc_significance);
   // ZDO events
+  boost::signals2::signal<void(DeviceState)> zdo_on_state_change_;
 
   // SAPI commands
   stlab::future<std::vector<uint8_t>> SapiReadConfigurationRaw(
@@ -58,6 +66,10 @@ class ZnpApi {
 
   // SAPI events
 
+  // Helper functions
+  stlab::future<DeviceState> WaitForState(std::set<DeviceState> end_states,
+                                          std::set<DeviceState> allowed_states);
+
  private:
   std::shared_ptr<ZnpRawInterface> raw_;
   boost::signals2::scoped_connection on_frame_connection_;
@@ -75,6 +87,9 @@ class ZnpApi {
                const std::vector<uint8_t>& payload);
   stlab::future<std::vector<uint8_t>> WaitFor(ZnpCommandType type,
                                               ZnpCommand command);
+  stlab::future<std::vector<uint8_t>> WaitAfter(
+      stlab::future<void> first_request, ZnpCommandType type,
+      ZnpCommand command);
   stlab::future<std::vector<uint8_t>> RawSReq(
       ZnpCommand command, const std::vector<uint8_t>& payload);
   static std::vector<uint8_t> CheckStatus(const std::vector<uint8_t>& response);

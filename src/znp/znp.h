@@ -355,6 +355,8 @@ struct VersionInfo {
   uint8_t MinorRel;
   uint8_t MaintRel;
 };
+
+enum StartupFromAppResponse : uint8_t { Restored = 0, New = 1, Leave = 2 };
 }  // namespace znp
 
 BOOST_FUSION_DEFINE_STRUCT((znp), ResetInfo,

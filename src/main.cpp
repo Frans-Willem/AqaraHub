@@ -13,14 +13,12 @@
 #include "znp/af/af.h"
 #include "znp/af/af_handler.h"
 #include "znp/encoding.h"
-#include "znp/zdo/zdo_handler.h"
 #include "znp/znp_api.h"
 #include "znp/znp_port.h"
 #include "znp/znp_sreq_handler.h"
 
 stlab::future<void> Initialize(
     std::shared_ptr<znp::ZnpApi> api,
-    std::shared_ptr<znp::zdo::ZdoHandler> zdo_handler,
     std::shared_ptr<znp::af::AfHandler> af_handler) {
   LOG("Initialize", debug)
       << "Doing initial reset, and instructing to clear config on next reset";
@@ -51,20 +49,20 @@ stlab::future<void> Initialize(
   co_await api->SapiWriteConfiguration<znp::ConfigurationOption::ZDO_DIRECT_CB>(
       true);
   LOG("Initialize", debug) << "Starting ZDO";
-  auto future_state = zdo_handler->WaitForState(
-      {znp::DeviceState::ZB_COORD},
-      {znp::DeviceState::COORD_STARTING, znp::DeviceState::HOLD,
-       znp::DeviceState::INIT});
-  uint8_t ret = co_await zdo_handler->StartupFromApp(100);
+  auto future_state =
+      api->WaitForState({znp::DeviceState::ZB_COORD},
+                        {znp::DeviceState::COORD_STARTING,
+                         znp::DeviceState::HOLD, znp::DeviceState::INIT});
+  uint8_t ret = co_await api->ZdoStartupFromApp(100);
   LOG("Initialize", debug) << "ZDO Start return value: " << (unsigned int)ret;
   uint8_t device_state = co_await future_state;
   LOG("Initialize", debug) << "Final device state "
                            << (unsigned int)device_state;
   auto first_join =
-      co_await zdo_handler->PermitJoin(znp::AddrMode::ShortAddress, 0, 0, 0);
+      co_await api->ZdoMgmtPermitJoin(znp::AddrMode::ShortAddress, 0, 0, 0);
   LOG("Initialize", debug) << "First PermitJoin OK " << first_join;
   auto second_join =
-      co_await zdo_handler->PermitJoin((znp::AddrMode)15, 0xFFFC, 60, 0);
+      co_await api->ZdoMgmtPermitJoin((znp::AddrMode)15, 0xFFFC, 60, 0);
   LOG("Initialize", debug) << "Second PermitJoin OK " << second_join;
 
   co_await af_handler->Register(1, 0x0104, 5, 0, znp::af::Latency::NoLatency,
@@ -102,14 +100,12 @@ int main() {
                                    std::placeholders::_3));
   auto sreq_handler = std::make_shared<znp::ZnpSreqHandler>(port);
   auto api = std::make_shared<znp::ZnpApi>(port);
-  auto zdo_handler =
-      std::make_shared<znp::zdo::ZdoHandler>(port, sreq_handler, api);
   auto af_handler = std::make_shared<znp::af::AfHandler>(port, sreq_handler);
 
   // Reset device
   LOG("Main", info) << "Initializing";
 
-  Initialize(api, zdo_handler, af_handler)
+  Initialize(api, af_handler)
       .then([]() { LOG("Main", info) << "Initialization complete?"; })
       .recover([](stlab::future<void> v) {
         LOG("Main", info) << "In final handler";
