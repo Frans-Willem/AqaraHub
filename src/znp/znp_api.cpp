@@ -66,6 +66,18 @@ stlab::future<uint16_t> ZnpApi::ZdoMgmtPermitJoin(AddrMode addr_mode,
       });
 }
 
+stlab::future<ZdoIEEEAddressResponse> ZnpApi::ZdoIEEEAddress(
+    ShortAddress address, boost::optional<uint8_t> children_index) {
+  return WaitAfter(RawSReq(ZdoCommand::IEEE_ADDR_REQ,
+                           znp::EncodeT<ShortAddress, bool, uint8_t>(
+                               address, !!children_index,
+                               children_index ? *children_index : 0))
+                       .then(&ZnpApi::CheckOnlyStatus),
+                   ZnpCommandType::AREQ, ZdoCommand::IEEE_ADDR_RSP)
+      .then(&ZnpApi::CheckStatus)
+      .then(&znp::Decode<ZdoIEEEAddressResponse>);
+}
+
 stlab::future<std::vector<uint8_t>> ZnpApi::SapiReadConfigurationRaw(
     ConfigurationOption option) {
   return RawSReq(SapiCommand::READ_CONFIGURATION, znp::Encode(option))

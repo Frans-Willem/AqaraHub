@@ -41,6 +41,8 @@ class ZnpApi {
                                             uint16_t dst_address,
                                             uint8_t duration,
                                             uint8_t tc_significance);
+  stlab::future<ZdoIEEEAddressResponse> ZdoIEEEAddress(
+      ShortAddress address, boost::optional<uint8_t> children_index);
   // ZDO events
   boost::signals2::signal<void(DeviceState)> zdo_on_state_change_;
 

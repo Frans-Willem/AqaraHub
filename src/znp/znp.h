@@ -380,4 +380,9 @@ BOOST_FUSION_DEFINE_STRUCT(
         uint8_t, SrcEndpoint)(uint8_t, DstEndpoint)(uint8_t, WasBroadcast)(
         uint8_t, LinkQuality)(uint8_t, SecurityUse)(uint32_t, TimeStamp)(
         uint8_t, TransSeqNumber)(std::vector<uint8_t>, Data))
+BOOST_FUSION_DEFINE_STRUCT((znp), ZdoIEEEAddressResponse,
+                           (znp::IEEEAddress, IEEEAddr)(znp::ShortAddress,
+                                                        NwkAddr)(uint8_t,
+                                                                 StartIndex)(
+                               std::vector<znp::ShortAddress>, AssocDevList))
 #endif  //_ZNP_H_
