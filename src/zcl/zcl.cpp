@@ -32,7 +32,7 @@ std::ostream& operator<<(std::ostream& stream, const ZclFrame& header) {
   stream << ", direction: " << header.direction
          << ", disable_default_response: "
          << (header.disable_default_response ? "true" : "false")
-         << ", reserved: " << header.reserved
+         << ", reserved: " << (unsigned int)header.reserved
          << ", transaction_sequence_number: "
          << (unsigned int)header.transaction_sequence_number
          << ", command_identifier: " << (unsigned int)header.command_identifier
