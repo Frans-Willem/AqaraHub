@@ -21,6 +21,10 @@ class ZnpApi {
   // SYS commands
   stlab::future<ResetInfo> SysReset(bool soft_reset);
   stlab::future<Capability> SysPing();
+  stlab::future<std::vector<uint8_t>> SysOsalNvRead(uint16_t Id,
+                                                    uint8_t Offset);
+  stlab::future<void> SysOsalNvWrite(uint16_t Id, uint8_t Offset,
+                                     std::vector<uint8_t> Value);
 
   // SYS events
   boost::signals2::signal<void(ResetInfo)> sys_on_reset_;
@@ -35,14 +39,21 @@ class ZnpApi {
   boost::signals2::signal<void(const IncomingMsg&)> af_on_incoming_msg_;
 
   // ZDO commands
-  stlab::future<StartupFromAppResponse> ZdoStartupFromApp(
-      uint16_t start_delay_ms);
+  stlab::future<ZdoIEEEAddressResponse> ZdoIEEEAddress(
+      ShortAddress address, boost::optional<uint8_t> children_index);
+  stlab::future<void> ZdoRemoveLinkKey(IEEEAddress IEEEAddr);
+  stlab::future<std::tuple<IEEEAddress, std::array<uint8_t, 16>>> ZdoGetLinkKey(
+      IEEEAddress IEEEAddr);
+  stlab::future<ShortAddress> ZdoMgmtLeave(ShortAddress DstAddr,
+                                           IEEEAddress DeviceAddr,
+                                           uint8_t remove_rejoin);
   stlab::future<uint16_t> ZdoMgmtPermitJoin(AddrMode addr_mode,
                                             uint16_t dst_address,
                                             uint8_t duration,
                                             uint8_t tc_significance);
-  stlab::future<ZdoIEEEAddressResponse> ZdoIEEEAddress(
-      ShortAddress address, boost::optional<uint8_t> children_index);
+  stlab::future<StartupFromAppResponse> ZdoStartupFromApp(
+      uint16_t start_delay_ms);
+
   // ZDO events
   boost::signals2::signal<void(DeviceState)> zdo_on_state_change_;
 
@@ -73,6 +84,10 @@ class ZnpApi {
   }
 
   // SAPI events
+
+  // UTIL commands
+  stlab::future<IEEEAddress> UtilAddrmgrNwkAddrLookup(ShortAddress address);
+  // UTIL events
 
   // Helper functions
   stlab::future<DeviceState> WaitForState(std::set<DeviceState> end_states,

@@ -32,6 +32,19 @@ stlab::future<Capability> ZnpApi::SysPing() {
   return RawSReq(SysCommand::PING, znp::Encode()).then(znp::Decode<Capability>);
 }
 
+stlab::future<std::vector<uint8_t>> ZnpApi::SysOsalNvRead(uint16_t Id,
+                                                          uint8_t Offset) {
+  return RawSReq(SysCommand::OSAL_NV_READ, znp::EncodeT(Id, Offset))
+      .then(&ZnpApi::CheckStatus)
+      .then(&znp::Decode<std::vector<uint8_t>>);
+}
+
+stlab::future<void> ZnpApi::SysOsalNvWrite(uint16_t Id, uint8_t Offset,
+                                           std::vector<uint8_t> Value) {
+  return RawSReq(SysCommand::OSAL_NV_WRITE, znp::EncodeT(Id, Offset, Value))
+      .then(&ZnpApi::CheckOnlyStatus);
+}
+
 stlab::future<void> ZnpApi::AfRegister(uint8_t endpoint, uint16_t profile_id,
                                        uint16_t device_id, uint8_t version,
                                        Latency latency,
@@ -47,6 +60,21 @@ stlab::future<StartupFromAppResponse> ZnpApi::ZdoStartupFromApp(
     uint16_t start_delay_ms) {
   return RawSReq(ZdoCommand::STARTUP_FROM_APP, znp::Encode(start_delay_ms))
       .then(&znp::Decode<StartupFromAppResponse>);
+}
+stlab::future<ShortAddress> ZnpApi::ZdoMgmtLeave(ShortAddress DstAddr,
+                                                 IEEEAddress DeviceAddr,
+                                                 uint8_t remove_rejoin) {
+  return WaitAfter(RawSReq(ZdoCommand::MGMT_LEAVE_REQ,
+                           znp::EncodeT(DstAddr, DeviceAddr, remove_rejoin))
+                       .then(&ZnpApi::CheckOnlyStatus),
+                   ZnpCommandType::AREQ, ZdoCommand::MGMT_LEAVE_RSP)
+      .then(&znp::DecodeT<ShortAddress, ZnpStatus>)
+      .then([](std::tuple<ShortAddress, ZnpStatus> retval) {
+        if (std::get<1>(retval) != ZnpStatus::Success) {
+          throw std::runtime_error("MgmtLeave returned non-success status");
+        }
+        return std::get<0>(retval);
+      });
 }
 stlab::future<uint16_t> ZnpApi::ZdoMgmtPermitJoin(AddrMode addr_mode,
                                                   uint16_t dst_address,
@@ -76,6 +104,17 @@ stlab::future<ZdoIEEEAddressResponse> ZnpApi::ZdoIEEEAddress(
                    ZnpCommandType::AREQ, ZdoCommand::IEEE_ADDR_RSP)
       .then(&ZnpApi::CheckStatus)
       .then(&znp::Decode<ZdoIEEEAddressResponse>);
+}
+
+stlab::future<void> ZnpApi::ZdoRemoveLinkKey(IEEEAddress IEEEAddr) {
+  return RawSReq(ZdoCommand::REMOVE_LINK_KEY, znp::Encode(IEEEAddr))
+      .then(&ZnpApi::CheckOnlyStatus);
+}
+stlab::future<std::tuple<IEEEAddress, std::array<uint8_t, 16>>>
+ZnpApi::ZdoGetLinkKey(IEEEAddress IEEEAddr) {
+  return RawSReq(ZdoCommand::GET_LINK_KEY, znp::Encode(IEEEAddr))
+      .then(&ZnpApi::CheckStatus)
+      .then(&znp::Decode<std::tuple<IEEEAddress, std::array<uint8_t, 16>>>);
 }
 
 stlab::future<std::vector<uint8_t>> ZnpApi::SapiReadConfigurationRaw(
@@ -111,6 +150,12 @@ stlab::future<std::vector<uint8_t>> ZnpApi::SapiGetDeviceInfoRaw(
         }
         return std::vector<uint8_t>(retval.begin() + 1, retval.end());
       });
+}
+
+stlab::future<IEEEAddress> ZnpApi::UtilAddrmgrNwkAddrLookup(
+    ShortAddress address) {
+  return RawSReq(UtilCommand::ADDRMGR_NWK_ADDR_LOOKUP, znp::Encode(address))
+      .then(&znp::Decode<IEEEAddress>);
 }
 
 void ZnpApi::OnFrame(ZnpCommandType type, ZnpCommand command,
