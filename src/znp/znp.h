@@ -175,6 +175,42 @@ enum class SapiCommand : uint8_t {
 
 std::ostream& operator<<(std::ostream& stream, SapiCommand command);
 
+// Commands in the UTIL subsystem
+enum class UtilCommand : uint8_t {
+  GET_DEVICE_INFO = 0x00,
+  GET_NV_INFO = 0x01,
+  SET_PANID = 0x02,
+  SET_CHANNELS = 0x03,
+  SET_SECLEVEL = 0x04,
+  SET_PRECFGKEY = 0x05,
+  CALLBACK_SUB_CMD = 0x06,
+  KEY_EVENT = 0x07,
+  TIME_ALIVE = 0x09,
+  LED_CONTROL = 0x0A,
+  TEST_LOOPBACK = 0x10,
+  DATA_REQ = 0x11,
+  SRC_MATCH_ENABLE = 0x20,
+  SRC_MATCH_ADD_ENTRY = 0x21,
+  SRC_MATCH_DEL_ENTRY = 0x22,
+  SRC_MATCH_CHECK_SRC_ADDR = 0x23,
+  SRC_MATCH_ACK_ALL_PENDING = 0x24,
+  SRC_MATCH_CHECK_ALL_PENDING = 0x25,
+  ADDRMGR_EXT_ADDR_LOOKUP = 0x40,
+  ADDRMGR_NWK_ADDR_LOOKUP = 0x41,
+  APSME_LINK_KEY_DATA_GET = 0x44,
+  APSME_LINK_KEY_NV_ID_GET = 0x45,
+  ASSOC_COUNT = 0x48,
+  ASSOC_FIND_DEVICE = 0x49,
+  ASSOC_GET_WITH_ADDRESS = 0x4A,
+  APSME_REQUEST_KEY_CMD = 0x4B,
+  ZCL_KEY_EST_INIT_EST = 0x80,
+  ZCL_KEY_EST_SIGN = 0x81,
+  UTIL_SYNC_REQ = 0xE0,
+  ZCL_KEY_ESTABLISH_IND = 0xE1
+};
+
+std::ostream& operator<<(std::ostream& stream, UtilCommand command);
+
 class ZnpCommand {
  public:
   ZnpCommand(ZnpSubsystem subsystem, uint8_t command);
@@ -182,6 +218,7 @@ class ZnpCommand {
   ZnpCommand(AfCommand command);
   ZnpCommand(ZdoCommand command);
   ZnpCommand(SapiCommand command);
+  ZnpCommand(UtilCommand command);
 
   ZnpSubsystem Subsystem();
   uint8_t RawCommand();

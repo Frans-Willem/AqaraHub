@@ -297,6 +297,73 @@ std::ostream& operator<<(std::ostream& stream, SapiCommand command) {
   }
 }
 
+std::ostream& operator<<(std::ostream& stream, UtilCommand command) {
+  switch (command) {
+    case UtilCommand::GET_DEVICE_INFO:
+      return stream << "GET_DEVICE_INFO";
+    case UtilCommand::GET_NV_INFO:
+      return stream << "GET_NV_INFO";
+    case UtilCommand::SET_PANID:
+      return stream << "SET_PANID";
+    case UtilCommand::SET_CHANNELS:
+      return stream << "SET_CHANNELS";
+    case UtilCommand::SET_SECLEVEL:
+      return stream << "SET_SECLEVEL";
+    case UtilCommand::SET_PRECFGKEY:
+      return stream << "SET_PRECFGKEY";
+    case UtilCommand::CALLBACK_SUB_CMD:
+      return stream << "CALLBACK_SUB_CMD";
+    case UtilCommand::KEY_EVENT:
+      return stream << "KEY_EVENT";
+    case UtilCommand::TIME_ALIVE:
+      return stream << "TIME_ALIVE";
+    case UtilCommand::LED_CONTROL:
+      return stream << "LED_CONTROL";
+    case UtilCommand::TEST_LOOPBACK:
+      return stream << "TEST_LOOPBACK";
+    case UtilCommand::DATA_REQ:
+      return stream << "DATA_REQ";
+    case UtilCommand::SRC_MATCH_ENABLE:
+      return stream << "SRC_MATCH_ENABLE";
+    case UtilCommand::SRC_MATCH_ADD_ENTRY:
+      return stream << "SRC_MATCH_ADD_ENTRY";
+    case UtilCommand::SRC_MATCH_DEL_ENTRY:
+      return stream << "SRC_MATCH_DEL_ENTRY";
+    case UtilCommand::SRC_MATCH_CHECK_SRC_ADDR:
+      return stream << "SRC_MATCH_CHECK_SRC_ADDR";
+    case UtilCommand::SRC_MATCH_ACK_ALL_PENDING:
+      return stream << "SRC_MATCH_ACK_ALL_PENDING";
+    case UtilCommand::SRC_MATCH_CHECK_ALL_PENDING:
+      return stream << "SRC_MATCH_CHECK_ALL_PENDING";
+    case UtilCommand::ADDRMGR_EXT_ADDR_LOOKUP:
+      return stream << "ADDRMGR_EXT_ADDR_LOOKUP";
+    case UtilCommand::ADDRMGR_NWK_ADDR_LOOKUP:
+      return stream << "ADDRMGR_NWK_ADDR_LOOKUP";
+    case UtilCommand::APSME_LINK_KEY_DATA_GET:
+      return stream << "APSME_LINK_KEY_DATA_GET";
+    case UtilCommand::APSME_LINK_KEY_NV_ID_GET:
+      return stream << "APSME_LINK_KEY_NV_ID_GET";
+    case UtilCommand::ASSOC_COUNT:
+      return stream << "ASSOC_COUNT";
+    case UtilCommand::ASSOC_FIND_DEVICE:
+      return stream << "ASSOC_FIND_DEVICE";
+    case UtilCommand::ASSOC_GET_WITH_ADDRESS:
+      return stream << "ASSOC_GET_WITH_ADDRESS";
+    case UtilCommand::APSME_REQUEST_KEY_CMD:
+      return stream << "APSME_REQUEST_KEY_CMD";
+    case UtilCommand::ZCL_KEY_EST_INIT_EST:
+      return stream << "ZCL_KEY_EST_INIT_EST";
+    case UtilCommand::ZCL_KEY_EST_SIGN:
+      return stream << "ZCL_KEY_EST_SIGN";
+    case UtilCommand::UTIL_SYNC_REQ:
+      return stream << "UTIL_SYNC_REQ";
+    case UtilCommand::ZCL_KEY_ESTABLISH_IND:
+      return stream << "ZCL_KEY_ESTABLISH_IND";
+    default:
+      return stream << "UtilCommand(" << (unsigned int)command << ")";
+  }
+}
+
 ZnpCommand::ZnpCommand(ZnpSubsystem subsystem, uint8_t command)
     : value_(subsystem, command) {}
 ZnpCommand::ZnpCommand(SysCommand command)
@@ -307,6 +374,8 @@ ZnpCommand::ZnpCommand(ZdoCommand command)
     : value_(ZnpSubsystem::ZDO, (uint8_t)command) {}
 ZnpCommand::ZnpCommand(SapiCommand command)
     : value_(ZnpSubsystem::SAPI, (uint8_t)command) {}
+ZnpCommand::ZnpCommand(UtilCommand command)
+    : value_(ZnpSubsystem::UTIL, (uint8_t)command) {}
 
 ZnpSubsystem ZnpCommand::Subsystem() { return value_.first; }
 uint8_t ZnpCommand::RawCommand() { return value_.second; }
@@ -339,6 +408,8 @@ std::ostream& operator<<(std::ostream& stream, ZnpCommand command) {
       return stream << (ZdoCommand)command.value_.second;
     case ZnpSubsystem::SAPI:
       return stream << (SapiCommand)command.value_.second;
+    case ZnpSubsystem::UTIL:
+      return stream << (UtilCommand)command.value_.second;
     default:
       return stream << std::hex << (unsigned int)command.value_.second;
   }
