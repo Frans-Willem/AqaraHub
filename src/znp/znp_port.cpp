@@ -91,6 +91,7 @@ void ZnpPort::StartOfFrameHandler(std::shared_ptr<uint8_t> marker,
   }
   if (*marker != 0xFE) {
     LOG("ZnpPort", trace) << "No SOF marker, dropping data";
+    StartReceive();
     return;
   }
   boost::asio::async_read(
