@@ -31,6 +31,7 @@ add_executable(AqaraHub
 	src/znp/znp_api.cpp
 	src/asio_executor.cpp
 	src/logging.cpp
+	src/zcl/zcl.cpp
 	)
 target_include_directories(AqaraHub PUBLIC "src")
 target_link_libraries(AqaraHub stlab)
