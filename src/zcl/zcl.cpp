@@ -39,4 +39,25 @@ std::ostream& operator<<(std::ostream& stream, const ZclFrame& header) {
          << "}";
   return stream;
 }
+
+std::ostream& operator<<(std::ostream& stream, const ZclVariant& variant) {
+  switch (variant.type_) {
+    case DataType::_bool:
+      return stream << (*variant.Get<DataType::_bool>() ? "true" : "false");
+    case DataType::map8:
+      return stream << "(map8) " << variant.Get<DataType::map8>()->to_string();
+    case DataType::uint8:
+      return stream << "(uint8) " << std::dec
+                    << (unsigned int)*variant.Get<DataType::uint8>();
+    case DataType::uint16:
+      return stream << "(uint16) " << std::dec
+                    << (unsigned int)*variant.Get<DataType::uint16>();
+    case DataType::int16:
+      return stream << "(int16) " << std::dec
+                    << (unsigned int)*variant.Get<DataType::int16>();
+    default:
+      return stream << "(type " << std::hex << (unsigned int)variant.type_
+                    << ")";
+  }
+}
 }  // namespace zcl

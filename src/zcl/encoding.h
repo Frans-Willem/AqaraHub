@@ -61,5 +61,69 @@ class EncodeHelper<zcl::ZclFrame> {
     begin = end;
   }
 };
+template <>
+class EncodeHelper<zcl::ZclVariant> {
+ private:
+  template <zcl::DataType T>
+  static inline void DefaultDecode(zcl::ZclVariant& variant,
+                                   EncodeTarget::const_iterator& begin,
+                                   EncodeTarget::const_iterator end) {
+    typename zcl::DataTypeHelper<T>::Type value;
+    EncodeHelper<typename zcl::DataTypeHelper<T>::Type>::Decode(value, begin,
+                                                                end);
+    variant.data_ = value;
+  }
+
+ public:
+  static inline std::size_t GetSize(const zcl::ZclVariant& variant) {
+    switch (variant.type_) {
+      default:
+        LOG("Encoding", critical) << "(GetSize) Unsupported variant type: 0x"
+                                  << std::hex << (unsigned int)variant.type_;
+        throw std::runtime_error("Unsupported variant type");
+        return 0;
+    }
+  }
+  static inline void Encode(const zcl::ZclVariant& variant,
+                            EncodeTarget::iterator& begin,
+                            EncodeTarget::iterator end) {
+    EncodeHelper<zcl::DataType>::Encode(variant.type_, begin, end);
+    switch (variant.type_) {
+      default:
+        LOG("Encoding", critical) << "(Encode) Unsupported variant type: 0x"
+                                  << std::hex << (unsigned int)variant.type_;
+        throw std::runtime_error("Unsupported variant type");
+    }
+  }
+
+  static inline void Decode(zcl::ZclVariant& variant,
+                            EncodeTarget::const_iterator& begin,
+                            EncodeTarget::const_iterator end) {
+    EncodeHelper<zcl::DataType>::Decode(variant.type_, begin, end);
+    switch (variant.type_) {
+      case zcl::DataType::nodata:
+        break;
+      case zcl::DataType::map8:
+        DefaultDecode<zcl::DataType::map8>(variant, begin, end);
+        break;
+      case zcl::DataType::_bool:
+        DefaultDecode<zcl::DataType::_bool>(variant, begin, end);
+        break;
+      case zcl::DataType::uint8:
+        DefaultDecode<zcl::DataType::uint8>(variant, begin, end);
+        break;
+      case zcl::DataType::uint16:
+        DefaultDecode<zcl::DataType::uint16>(variant, begin, end);
+        break;
+      case zcl::DataType::int16:
+        DefaultDecode<zcl::DataType::int16>(variant, begin, end);
+        break;
+      default:
+        LOG("Encoding", critical) << "(Decode) Unsupported variant type: 0x"
+                                  << std::hex << (unsigned int)variant.type_;
+        throw std::runtime_error("Unsupported variant type");
+    }
+  }
+};
 }  // namespace znp
 #endif  // _ZCL_ENCODING_H_
