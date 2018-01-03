@@ -10,17 +10,58 @@
 #include "asio_executor.h"
 #include "coroutines.h"
 #include "logging.h"
+#include "zcl/encoding.h"
+#include "zcl/zcl.h"
 #include "znp/encoding.h"
 #include "znp/znp_api.h"
 #include "znp/znp_port.h"
 
+struct ZnpConfiguration {
+	uint16_t pan_id;
+	uint64_t extended_pan_id;
+	uint32_t chan_list;
+	znp::LogicalType logical_type;
+	std::array<uint8_t, 16> presharedkey;
+	bool precfgkeys_enable;
+	bool zdo_direct_cb;
+};
+
+stlab::future<ZnpConfiguration> ReadZnpConfiguration(
+    std::shared_ptr<znp::ZnpApi> api) {
+  return stlab::when_all(
+      stlab::immediate_executor,
+      [](uint16_t pan_id, uint64_t extended_pan_id, uint32_t chan_list,
+         znp::LogicalType logical_type, std::array<uint8_t, 16> presharedkey,
+         bool precfgkeys_enable, bool zdo_direct_cb) {
+        ZnpConfiguration retval;
+        retval.pan_id = pan_id;
+        retval.extended_pan_id = extended_pan_id;
+        retval.chan_list = chan_list;
+        retval.logical_type = logical_type;
+        retval.presharedkey = presharedkey;
+        retval.precfgkeys_enable = precfgkeys_enable;
+        retval.zdo_direct_cb = zdo_direct_cb;
+        return retval;
+      },
+      api->SapiReadConfiguration<znp::ConfigurationOption::PANID>(),
+      api->SapiReadConfiguration<znp::ConfigurationOption::EXTENDED_PAN_ID>(),
+      api->SapiReadConfiguration<znp::ConfigurationOption::CHANLIST>(),
+      api->SapiReadConfiguration<znp::ConfigurationOption::LOGICAL_TYPE>(),
+      api->SapiReadConfiguration<znp::ConfigurationOption::PRECFGKEY>(),
+      api->SapiReadConfiguration<znp::ConfigurationOption::PRECFGKEYS_ENABLE>(),
+      api->SapiReadConfiguration<znp::ConfigurationOption::ZDO_DIRECT_CB>());
+}
+
 stlab::future<void> Initialize(std::shared_ptr<znp::ZnpApi> api) {
   LOG("Initialize", debug)
       << "Doing initial reset, and instructing to clear config on next reset";
+  co_await api->SapiWriteConfiguration<
+      znp::ConfigurationOption::STARTUP_OPTION>(
+      znp::StartupOption::ClearConfig);  // | znp::StartupOption::ClearState);
   std::ignore = co_await api->SysReset(true);
-  co_await api
-      ->SapiWriteConfiguration<znp::ConfigurationOption::STARTUP_OPTION>(
-          znp::StartupOption::ClearConfig | znp::StartupOption::ClearState);
+  co_await api->SapiWriteConfiguration<
+      znp::ConfigurationOption::STARTUP_OPTION>(
+      znp::StartupOption::ClearConfig | znp::StartupOption::ClearState);
   LOG("Initialize", debug) << "Doing final reset";
   std::ignore = co_await api->SysReset(true);
   auto caps = co_await api->SysPing();
@@ -43,6 +84,7 @@ stlab::future<void> Initialize(std::shared_ptr<znp::ZnpApi> api) {
           false);
   co_await api->SapiWriteConfiguration<znp::ConfigurationOption::ZDO_DIRECT_CB>(
       true);
+
   LOG("Initialize", debug) << "Starting ZDO";
   auto future_state =
       api->WaitForState({znp::DeviceState::ZB_COORD},
@@ -53,6 +95,7 @@ stlab::future<void> Initialize(std::shared_ptr<znp::ZnpApi> api) {
   uint8_t device_state = co_await future_state;
   LOG("Initialize", debug) << "Final device state "
                            << (unsigned int)device_state;
+
   auto first_join =
       co_await api->ZdoMgmtPermitJoin(znp::AddrMode::ShortAddress, 0, 0, 0);
   LOG("Initialize", debug) << "First PermitJoin OK " << first_join;
@@ -62,6 +105,19 @@ stlab::future<void> Initialize(std::shared_ptr<znp::ZnpApi> api) {
 
   co_await api->AfRegister(1, 0x0104, 5, 0, znp::Latency::NoLatency,
                            std::vector<uint16_t>(), std::vector<uint16_t>());
+
+  /*
+      for (unsigned int id = 0; id < 0x1000; id++) {
+        try {
+          auto result = co_await api->SysOsalNvReadRaw((znp::NvItemId)id, 0);
+          LOG("Initialize", debug)
+              << std::hex << id << ": "
+              << boost::log::dump(result.data(), result.size());
+        } catch (const std::exception& exc) {
+        }
+      }
+      LOG("Initialize", debug) << "--- Done ---";
+  */
   co_return;
 }
 
@@ -70,6 +126,40 @@ void OnFrameDebug(std::string prefix, znp::ZnpCommandType cmdtype,
                   const std::vector<uint8_t>& payload) {
   LOG("FRAME", debug) << prefix << " " << cmdtype << " " << command << " "
                       << boost::log::dump(payload.data(), payload.size());
+}
+
+void AfIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
+                   const znp::IncomingMsg& message) {
+  LOG("MSG", debug) << "GroupId: " << message.GroupId
+                    << ", ClusterId: " << message.ClusterId
+                    << ", SrcAddr: " << message.SrcAddr
+                    << ", SrcEndpoint: " << (unsigned int)message.SrcEndpoint
+                    << ", DstEndpoint: " << (unsigned int)message.DstEndpoint
+                    << ", WasBroadcast: " << (unsigned int)message.WasBroadcast
+                    << ", LinkQuality: " << (unsigned int)message.LinkQuality
+                    << ", SecurityUse: " << (unsigned int)message.SecurityUse
+                    << ", TimeStamp: " << message.TimeStamp
+                    << ", TransSeqNumber: "
+                    << (unsigned int)message.TransSeqNumber;
+  try {
+    auto frame = znp::Decode<zcl::ZclFrame>(message.Data);
+    LOG("MSG", debug) << frame;
+  } catch (const std::exception& exc) {
+    LOG("MSG", debug) << "Exception: " << exc.what();
+  }
+
+    api->UtilAddrmgrNwkAddrLookup(message.SrcAddr)
+        .recover([](auto f) {
+          try {
+            auto response = *f.get_try();
+            LOG("MSG", debug) << "IEEE Address: " << std::hex << response;
+
+          } catch (const std::exception& exc) {
+            LOG("MSG", debug)
+                << "Exception while getting IEEE Address: " << exc.what();
+          }
+        })
+        .detach();
 }
 
 int main() {
@@ -93,6 +183,9 @@ int main() {
                                    std::placeholders::_2,
                                    std::placeholders::_3));
   auto api = std::make_shared<znp::ZnpApi>(port);
+
+  api->af_on_incoming_msg_.connect(
+      std::bind(&AfIncomingMsg, api, std::placeholders::_1));
 
   // Reset device
   LOG("Main", info) << "Initializing";
