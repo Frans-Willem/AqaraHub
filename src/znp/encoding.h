@@ -124,6 +124,26 @@ class EncodeHelper<uint64_t> {
     number |= ((uint64_t) * (begin++)) << 56;
   }
 };
+
+template <>
+class EncodeHelper<int16_t> {
+ public:
+  static inline std::size_t GetSize(const int16_t& value) {
+    return EncodeHelper<uint16_t>::GetSize((uint16_t)value);
+  }
+  static inline void Encode(const int16_t& number,
+                            EncodeTarget::iterator& begin,
+                            EncodeTarget::iterator end) {
+    EncodeHelper<uint16_t>::Encode((uint16_t)number, begin, end);
+  }
+  static inline void Decode(int16_t& number,
+                            EncodeTarget::const_iterator& begin,
+                            EncodeTarget::const_iterator end) {
+    uint16_t unsigned_number;
+    EncodeHelper<uint16_t>::Decode(unsigned_number, begin, end);
+    number = (int16_t)unsigned_number;
+  }
+};
 template <typename T, size_t length>
 class EncodeHelper<std::array<T, length>> {
  public:
@@ -315,11 +335,46 @@ class EncodeHelper<bool> {
                             EncodeTarget::iterator end) {
     EncodeHelper<uint8_t>::Encode(value ? 1 : 0, begin, end);
   }
-  static inline void Decode(bool& value, EncodeTarget::const_iterator begin,
+  static inline void Decode(bool& value, EncodeTarget::const_iterator& begin,
                             EncodeTarget::const_iterator end) {
     uint8_t int_value;
     EncodeHelper<uint8_t>::Decode(int_value, begin, end);
     value = int_value > 0;
+  }
+};
+
+template <std::size_t N>
+class EncodeHelper<
+    std::bitset<N>,
+    std::enable_if_t<N % 8 == 0 &&
+                     std::numeric_limits<unsigned long long>::digits >= N>> {
+ public:
+  static inline std::size_t GetSize(const std::bitset<N>& value) {
+    return N / 8;
+  };
+  static inline void Encode(const std::bitset<N>& value,
+                            EncodeTarget::iterator& begin,
+                            EncodeTarget::iterator end) {
+    unsigned long long numvalue = value.to_ullong();
+    for (std::size_t i = 0; i < N; i += 8) {
+      if (begin == end) {
+        throw std::runtime_error("Not enough space to encode bitset");
+      }
+      *(begin++) = (uint8_t)(numvalue & 0xFF);
+      numvalue >>= 8;
+    }
+  }
+  static inline void Decode(std::bitset<N>& value,
+                            EncodeTarget::const_iterator& begin,
+                            EncodeTarget::const_iterator end) {
+    unsigned long long numvalue = 0;
+    for (std::size_t i = 0; i < N; i += 8) {
+      if (begin == end) {
+        throw std::runtime_error("Not enough data to decode bitset");
+      }
+      numvalue |= ((unsigned long long)*(begin++)) << i;
+    }
+    value = std::bitset<N>(numvalue);
   }
 };
 
