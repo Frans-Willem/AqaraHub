@@ -16,24 +16,41 @@
 #include "znp/znp_api.h"
 #include "znp/znp_port.h"
 
-struct ZnpConfiguration {
-	uint16_t pan_id;
-	uint64_t extended_pan_id;
-	uint32_t chan_list;
-	znp::LogicalType logical_type;
-	std::array<uint8_t, 16> presharedkey;
-	bool precfgkeys_enable;
-	bool zdo_direct_cb;
+struct FullConfiguration {
+  znp::StartupOption startup_option;
+  uint16_t pan_id;
+  uint64_t extended_pan_id;
+  uint32_t chan_list;
+  znp::LogicalType logical_type;
+  std::array<uint8_t, 16> presharedkey;
+  bool precfgkeys_enable;
+  bool zdo_direct_cb;
+
+  bool operator==(const FullConfiguration& other) const {
+    return this->startup_option == other.startup_option &&
+           this->pan_id == other.pan_id &&
+           this->extended_pan_id == other.extended_pan_id &&
+           this->chan_list == other.chan_list &&
+           this->logical_type == other.logical_type &&
+           this->presharedkey == other.presharedkey &&
+           this->precfgkeys_enable == other.precfgkeys_enable &&
+           this->zdo_direct_cb == other.zdo_direct_cb;
+  }
+  bool operator!=(const FullConfiguration& other) const {
+    return !(*this == other);
+  }
 };
 
-stlab::future<ZnpConfiguration> ReadZnpConfiguration(
+stlab::future<FullConfiguration> ReadFullConfiguration(
     std::shared_ptr<znp::ZnpApi> api) {
   return stlab::when_all(
       stlab::immediate_executor,
-      [](uint16_t pan_id, uint64_t extended_pan_id, uint32_t chan_list,
+      [](znp::StartupOption startup_option, uint16_t pan_id,
+         uint64_t extended_pan_id, uint32_t chan_list,
          znp::LogicalType logical_type, std::array<uint8_t, 16> presharedkey,
          bool precfgkeys_enable, bool zdo_direct_cb) {
-        ZnpConfiguration retval;
+        FullConfiguration retval;
+        retval.startup_option = startup_option;
         retval.pan_id = pan_id;
         retval.extended_pan_id = extended_pan_id;
         retval.chan_list = chan_list;
@@ -43,6 +60,7 @@ stlab::future<ZnpConfiguration> ReadZnpConfiguration(
         retval.zdo_direct_cb = zdo_direct_cb;
         return retval;
       },
+      api->SapiReadConfiguration<znp::ConfigurationOption::STARTUP_OPTION>(),
       api->SapiReadConfiguration<znp::ConfigurationOption::PANID>(),
       api->SapiReadConfiguration<znp::ConfigurationOption::EXTENDED_PAN_ID>(),
       api->SapiReadConfiguration<znp::ConfigurationOption::CHANLIST>(),
@@ -52,39 +70,59 @@ stlab::future<ZnpConfiguration> ReadZnpConfiguration(
       api->SapiReadConfiguration<znp::ConfigurationOption::ZDO_DIRECT_CB>());
 }
 
+stlab::future<void> WriteFullConfiguration(std::shared_ptr<znp::ZnpApi> api,
+                                           const FullConfiguration& config) {
+  return stlab::when_all(
+      stlab::immediate_executor, []() { return; },
+      api->SapiWriteConfiguration<znp::ConfigurationOption::STARTUP_OPTION>(
+          config.startup_option),
+      api->SapiWriteConfiguration<znp::ConfigurationOption::PANID>(
+          config.pan_id),
+      api->SapiWriteConfiguration<znp::ConfigurationOption::EXTENDED_PAN_ID>(
+          config.extended_pan_id),
+      api->SapiWriteConfiguration<znp::ConfigurationOption::CHANLIST>(
+          config.chan_list),
+      api->SapiWriteConfiguration<znp::ConfigurationOption::LOGICAL_TYPE>(
+          config.logical_type),
+      api->SapiWriteConfiguration<znp::ConfigurationOption::PRECFGKEY>(
+          config.presharedkey),
+      api->SapiWriteConfiguration<znp::ConfigurationOption::PRECFGKEYS_ENABLE>(
+          config.precfgkeys_enable),
+      api->SapiWriteConfiguration<znp::ConfigurationOption::ZDO_DIRECT_CB>(
+          config.zdo_direct_cb));
+}
+
 stlab::future<void> Initialize(std::shared_ptr<znp::ZnpApi> api) {
   LOG("Initialize", debug)
-      << "Doing initial reset, and instructing to clear config on next reset";
-  co_await api->SapiWriteConfiguration<
-      znp::ConfigurationOption::STARTUP_OPTION>(
-      znp::StartupOption::ClearConfig);  // | znp::StartupOption::ClearState);
-  std::ignore = co_await api->SysReset(true);
-  co_await api->SapiWriteConfiguration<
-      znp::ConfigurationOption::STARTUP_OPTION>(
-      znp::StartupOption::ClearConfig | znp::StartupOption::ClearState);
-  LOG("Initialize", debug) << "Doing final reset";
-  std::ignore = co_await api->SysReset(true);
-  auto caps = co_await api->SysPing();
-  LOG("Initialize", debug) << "Capabilities: " << caps;
-  LOG("Initialize", debug) << "Writing all configuration";
-  co_await api->SapiWriteConfiguration<znp::ConfigurationOption::PANID>(0x1A62);
+      << "Doing initial reset, without clearing config or state";
   co_await api
-      ->SapiWriteConfiguration<znp::ConfigurationOption::EXTENDED_PAN_ID>(
-          0xDDDDDDDDDDDDDDDD);
-  co_await api->SapiWriteConfiguration<znp::ConfigurationOption::CHANLIST>(
-      0x00000800);
-  co_await api->SapiWriteConfiguration<znp::ConfigurationOption::LOGICAL_TYPE>(
-      znp::LogicalType::Coordinator);
-  std::array<uint8_t, 16> presharedkey = {
-      {1, 3, 5, 7, 9, 11, 13, 15, 0, 2, 4, 6, 8, 10, 12, 13}};
-  co_await api->SapiWriteConfiguration<znp::ConfigurationOption::PRECFGKEY>(
-      presharedkey);
-  co_await api
-      ->SapiWriteConfiguration<znp::ConfigurationOption::PRECFGKEYS_ENABLE>(
-          false);
-  co_await api->SapiWriteConfiguration<znp::ConfigurationOption::ZDO_DIRECT_CB>(
-      true);
-
+      ->SapiWriteConfiguration<znp::ConfigurationOption::STARTUP_OPTION>(
+          znp::StartupOption::None);
+  std::ignore = co_await api->SysReset(true);
+  LOG("Initialize", debug) << "Building desired configuration";
+  FullConfiguration desired_config;
+  desired_config.startup_option = znp::StartupOption::None;
+  desired_config.pan_id = 0x1A62;
+  desired_config.extended_pan_id = 0xDDDDDDDDDDDDDDDD;
+  desired_config.chan_list = 0x800;
+  desired_config.logical_type = znp::LogicalType::Coordinator;
+  desired_config.presharedkey = std::array<uint8_t, 16>(
+      {{1, 3, 5, 7, 9, 11, 13, 15, 0, 2, 4, 6, 8, 10, 12, 13}});
+  desired_config.precfgkeys_enable = false;
+  desired_config.zdo_direct_cb = true;
+  LOG("Initialize", debug) << "Verifying full configuration";
+  auto current_config = co_await ReadFullConfiguration(api);
+  if (current_config != desired_config) {
+    LOG("Initialize", debug) << "Desired configuration does not match current "
+                                "configuration. Full reset is needed...";
+    co_await api
+        ->SapiWriteConfiguration<znp::ConfigurationOption::STARTUP_OPTION>(
+            znp::StartupOption::ClearConfig | znp::StartupOption::ClearState);
+    std::ignore = co_await api->SysReset(true);
+  } else {
+    LOG("Initialize", debug) << "Desired configuration matches current "
+                                "configuration, ready to start!";
+  }
   LOG("Initialize", debug) << "Starting ZDO";
   auto future_state =
       api->WaitForState({znp::DeviceState::ZB_COORD},
@@ -105,19 +143,6 @@ stlab::future<void> Initialize(std::shared_ptr<znp::ZnpApi> api) {
 
   co_await api->AfRegister(1, 0x0104, 5, 0, znp::Latency::NoLatency,
                            std::vector<uint16_t>(), std::vector<uint16_t>());
-
-  /*
-      for (unsigned int id = 0; id < 0x1000; id++) {
-        try {
-          auto result = co_await api->SysOsalNvReadRaw((znp::NvItemId)id, 0);
-          LOG("Initialize", debug)
-              << std::hex << id << ": "
-              << boost::log::dump(result.data(), result.size());
-        } catch (const std::exception& exc) {
-        }
-      }
-      LOG("Initialize", debug) << "--- Done ---";
-  */
   co_return;
 }
 
@@ -148,18 +173,20 @@ void AfIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
     LOG("MSG", debug) << "Exception: " << exc.what();
   }
 
-    api->UtilAddrmgrNwkAddrLookup(message.SrcAddr)
-        .recover([](auto f) {
-          try {
-            auto response = *f.get_try();
-            LOG("MSG", debug) << "IEEE Address: " << std::hex << response;
+  /*
+  api->UtilAddrmgrNwkAddrLookup(message.SrcAddr)
+      .recover([](auto f) {
+        try {
+          auto response = *f.get_try();
+          LOG("MSG", debug) << "IEEE Address: " << std::hex << response;
 
-          } catch (const std::exception& exc) {
-            LOG("MSG", debug)
-                << "Exception while getting IEEE Address: " << exc.what();
-          }
-        })
-        .detach();
+        } catch (const std::exception& exc) {
+          LOG("MSG", debug)
+              << "Exception while getting IEEE Address: " << exc.what();
+        }
+      })
+      .detach();
+          */
 }
 
 int main() {
