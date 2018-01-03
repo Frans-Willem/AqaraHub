@@ -282,6 +282,7 @@ template <ConfigurationOption O>
 struct ConfigurationOptionInfo;
 
 enum class StartupOption : uint8_t {
+  None = 0,
   ClearConfig = 1,
   ClearState = 2,
   AutoStart = 4
