@@ -1,0 +1,4 @@
+- Generic signed integer encoding/decoding.
+- Generic unsigned integer encoding/decoding.
+- Handling RPC errors (try sending an unknown command).
+- Implement ZCL structure and string decoding/encoding/printing.
