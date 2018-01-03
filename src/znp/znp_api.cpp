@@ -32,17 +32,34 @@ stlab::future<Capability> ZnpApi::SysPing() {
   return RawSReq(SysCommand::PING, znp::Encode()).then(znp::Decode<Capability>);
 }
 
-stlab::future<std::vector<uint8_t>> ZnpApi::SysOsalNvRead(uint16_t Id,
-                                                          uint8_t Offset) {
+stlab::future<void> ZnpApi::SysOsalNvItemInitRaw(
+    NvItemId Id, uint16_t ItemLen, std::vector<uint8_t> InitData) {
+  return RawSReq(SysCommand::OSAL_NV_ITEM_INIT,
+                 znp::EncodeT(Id, ItemLen, InitData))
+      .then(&ZnpApi::CheckOnlyStatus);
+}
+
+stlab::future<std::vector<uint8_t>> ZnpApi::SysOsalNvReadRaw(NvItemId Id,
+                                                             uint8_t Offset) {
   return RawSReq(SysCommand::OSAL_NV_READ, znp::EncodeT(Id, Offset))
       .then(&ZnpApi::CheckStatus)
       .then(&znp::Decode<std::vector<uint8_t>>);
 }
 
-stlab::future<void> ZnpApi::SysOsalNvWrite(uint16_t Id, uint8_t Offset,
-                                           std::vector<uint8_t> Value) {
+stlab::future<void> ZnpApi::SysOsalNvWriteRaw(NvItemId Id, uint8_t Offset,
+                                              std::vector<uint8_t> Value) {
   return RawSReq(SysCommand::OSAL_NV_WRITE, znp::EncodeT(Id, Offset, Value))
       .then(&ZnpApi::CheckOnlyStatus);
+}
+
+stlab::future<void> ZnpApi::SysOsalNvDelete(NvItemId Id, uint16_t ItemLen) {
+  return RawSReq(SysCommand::OSAL_NV_DELETE, znp::EncodeT(Id, ItemLen))
+      .then(&ZnpApi::CheckOnlyStatus);
+}
+
+stlab::future<uint16_t> ZnpApi::SysOsalNvLength(NvItemId Id) {
+  return RawSReq(SysCommand::OSAL_NV_LENGTH, znp::EncodeT(Id))
+      .then(&znp::Decode<uint16_t>);
 }
 
 stlab::future<void> ZnpApi::AfRegister(uint8_t endpoint, uint16_t profile_id,

@@ -21,10 +21,14 @@ class ZnpApi {
   // SYS commands
   stlab::future<ResetInfo> SysReset(bool soft_reset);
   stlab::future<Capability> SysPing();
-  stlab::future<std::vector<uint8_t>> SysOsalNvRead(uint16_t Id,
-                                                    uint8_t Offset);
-  stlab::future<void> SysOsalNvWrite(uint16_t Id, uint8_t Offset,
-                                     std::vector<uint8_t> Value);
+  stlab::future<void> SysOsalNvItemInitRaw(NvItemId Id, uint16_t ItemLen,
+                                           std::vector<uint8_t> InitData);
+  stlab::future<std::vector<uint8_t>> SysOsalNvReadRaw(NvItemId Id,
+                                                       uint8_t Offset);
+  stlab::future<void> SysOsalNvWriteRaw(NvItemId Id, uint8_t Offset,
+                                        std::vector<uint8_t> Value);
+  stlab::future<void> SysOsalNvDelete(NvItemId Id, uint16_t ItemLen);
+  stlab::future<uint16_t> SysOsalNvLength(NvItemId Id);
 
   // SYS events
   boost::signals2::signal<void(ResetInfo)> sys_on_reset_;
