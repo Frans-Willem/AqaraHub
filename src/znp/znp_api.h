@@ -64,7 +64,7 @@ class ZnpApi {
   stlab::future<typename ConfigurationOptionInfo<O>::Type>
   SapiReadConfiguration() {
     return SapiReadConfigurationRaw(O).then(
-        &znp::Decode<ConfigurationOptionInfo<O>::Type>);
+        &znp::Decode<typename ConfigurationOptionInfo<O>::Type>);
   }
   stlab::future<void> SapiWriteConfigurationRaw(
       ConfigurationOption option, const std::vector<uint8_t>& value);
