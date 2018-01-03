@@ -281,7 +281,11 @@ enum class ConfigurationOption : uint8_t {
 template <ConfigurationOption O>
 struct ConfigurationOptionInfo;
 
-enum class StartupOption : uint8_t { ClearConfig = 1, ClearState = 2 };
+enum class StartupOption : uint8_t {
+  ClearConfig = 1,
+  ClearState = 2,
+  AutoStart = 4
+};
 inline StartupOption operator|(StartupOption a, StartupOption b) {
   return (StartupOption)(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));
 }
@@ -422,4 +426,55 @@ BOOST_FUSION_DEFINE_STRUCT((znp), ZdoIEEEAddressResponse,
                                                         NwkAddr)(uint8_t,
                                                                  StartIndex)(
                                std::vector<znp::ShortAddress>, AssocDevList))
+
+namespace znp {
+enum class NvItemId : uint16_t {
+  ZCD_NV_EXTADDR = 0x0001,
+  ZCD_NV_BOOTCOUNTER = 0x0002,
+  ZCD_NV_STARTUP_OPTION = 0x0003,
+  ZCD_NV_START_DELAY = 0x0004,
+  ZCD_NV_NIB = 0x0021,
+  ZCD_NV_DEVICE_LIST = 0x0022,
+  ZCD_NV_ADDRMGR = 0x0023,
+  ZCD_NV_POLL_RATE = 0x0024,
+  ZCD_NV_QUEUED_POLL_RATE = 0x0025,
+  ZCD_NV_RESPONSE_POLL_RATE = 0x0026,
+  ZCD_NV_REJOIN_POLL_RATE = 0x0027,
+  ZCD_NV_DATA_RETRIES = 0x0028,
+  ZCD_NV_POLL_FAILURE_RETRIES = 0x0029,
+  ZCD_NV_STACK_PROFILE = 0x002A,
+  ZCD_NV_INDIRECT_MSG_TIMEOUT = 0x002B,
+  ZCD_NV_ROUTE_EXPIRY_TIME = 0x002C,
+  ZCD_NV_EXTENDED_PAN_ID = 0x002D,
+  ZCD_NV_BCAST_RETRIES = 0x002E,
+  ZCD_NV_PASSIVE_ACK_TIMEOUT = 0x002F,
+  ZCD_NV_BCAST_DELIVERY_TIME = 0x0030,
+  ZCD_NV_NWK_MODE = 0x0031,
+  ZCD_NV_CONCENTRATOR_ENABLE = 0x0032,
+  ZCD_NV_CONCENTRATOR_DISCOVERY = 0x0033,
+  ZCD_NV_CONCENTRATOR_RADIUS = 0x0034,
+  ZCD_NV_MAX_SOURCE_ROUTE = 0x0035,
+  ZCD_NV_BINDING_TABLE = 0x0041,
+  ZCD_NV_GROUP_TABLE = 0x0042,
+  ZCD_NV_APS_FRAME_RETRIES = 0x0043,
+  ZCD_NV_APS_ACK_WAIT_DURATION = 0x0044,
+  ZCD_NV_APS_ACK_WAIT_MULTIPLIER = 0x0045,
+  ZCD_NV_BINDING_TIME = 0x0046,
+  ZCD_NV_SECURITY_LEVEL = 0x0061,
+  ZCD_NV_PRECFGKEY = 0x0062,
+  ZCD_NV_PRECFGKEYS_ENABLE = 0x0063,
+  ZCD_NV_USE_DEFAULT_TCLK = 0x006D,
+  ZCD_NV_USERDESC = 0x0081,
+  ZCD_NV_NWKKEY = 0x0082,
+  ZCD_NV_PANID = 0x0083,
+  ZCD_NV_CHANLIST = 0x0084,
+  ZCD_NV_LEAVE_CTRL = 0x0085,
+  ZCD_NV_SCAN_DURATION = 0x0086,
+  ZCD_NV_LOGICAL_TYPE = 0x0087,
+  ZCD_NV_ZDO_DIRECT_CB = 0x008F,
+  ZCD_NV_SCENE_TABLE = 0x0091,
+  ZCD_NV_SAPI_ENDPOINT = 0x00A1,
+  ZCD_NV_RF_TEST_PARAMS = 0x0F07
+};
+}  // namespace znp
 #endif  //_ZNP_H_
