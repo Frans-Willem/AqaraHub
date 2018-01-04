@@ -129,46 +129,6 @@ class DataTypeHelper<DataType::_bool> {
   typedef bool Type;
 };
 template <>
-class DataTypeHelper<DataType::uint8> {
- public:
-  typedef uint8_t Type;
-};
-template <>
-class DataTypeHelper<DataType::uint16> {
- public:
-  typedef uint16_t Type;
-};
-template <>
-class DataTypeHelper<DataType::uint24> {
- public:
-  typedef uint32_t Type;
-};
-template <>
-class DataTypeHelper<DataType::uint32> {
- public:
-  typedef uint32_t Type;
-};
-template <>
-class DataTypeHelper<DataType::int8> {
- public:
-  typedef int8_t Type;
-};
-template <>
-class DataTypeHelper<DataType::int16> {
- public:
-  typedef int16_t Type;
-};
-template <>
-class DataTypeHelper<DataType::int24> {
- public:
-  typedef int32_t Type;
-};
-template <>
-class DataTypeHelper<DataType::int32> {
- public:
-  typedef int32_t Type;
-};
-template <>
 class DataTypeHelper<DataType::map8> {
  public:
   typedef std::bitset<8> Type;
@@ -208,6 +168,97 @@ class DataTypeHelper<DataType::map64> {
  public:
   typedef std::bitset<64> Type;
 };
+template <>
+class DataTypeHelper<DataType::uint8> {
+ public:
+  typedef uint8_t Type;
+};
+template <>
+class DataTypeHelper<DataType::uint16> {
+ public:
+  typedef uint16_t Type;
+};
+template <>
+class DataTypeHelper<DataType::uint24> {
+ public:
+  typedef uint32_t Type;
+};
+template <>
+class DataTypeHelper<DataType::uint32> {
+ public:
+  typedef uint32_t Type;
+};
+template <>
+class DataTypeHelper<DataType::uint40> {
+ public:
+  typedef uint64_t Type;
+};
+template <>
+class DataTypeHelper<DataType::uint48> {
+ public:
+  typedef uint64_t Type;
+};
+template <>
+class DataTypeHelper<DataType::uint56> {
+ public:
+  typedef uint64_t Type;
+};
+template <>
+class DataTypeHelper<DataType::uint64> {
+ public:
+  typedef uint64_t Type;
+};
+template <>
+class DataTypeHelper<DataType::int8> {
+ public:
+  typedef int8_t Type;
+};
+template <>
+class DataTypeHelper<DataType::int16> {
+ public:
+  typedef int16_t Type;
+};
+template <>
+class DataTypeHelper<DataType::int24> {
+ public:
+  typedef int32_t Type;
+};
+template <>
+class DataTypeHelper<DataType::int32> {
+ public:
+  typedef int32_t Type;
+};
+template <>
+class DataTypeHelper<DataType::int40> {
+ public:
+  typedef int64_t Type;
+};
+template <>
+class DataTypeHelper<DataType::int48> {
+ public:
+  typedef int64_t Type;
+};
+template <>
+class DataTypeHelper<DataType::int56> {
+ public:
+  typedef int64_t Type;
+};
+template <>
+class DataTypeHelper<DataType::int64> {
+ public:
+  typedef int64_t Type;
+};
+template <>
+class DataTypeHelper<DataType::string> {
+ public:
+  typedef std::string Type;
+};
+class ZclVariant;
+template <>
+class DataTypeHelper<DataType::_struct> {
+ public:
+  typedef std::vector<ZclVariant> Type;
+};
 
 class ZclVariant {
  public:
@@ -235,7 +286,9 @@ class ZclVariant {
   */
 
  private:
-  boost::variant<bool, uint8_t, uint16_t, int8_t, int16_t, std::bitset<8>>
+  boost::variant<bool, uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,
+                 int32_t, int64_t, std::bitset<8>, std::string,
+                 std::vector<ZclVariant>>
       data_;
   DataType type_;
 

@@ -1,4 +1,5 @@
 #include "zcl/zcl.h"
+#include <boost/log/utility/manipulators/dump.hpp>
 
 namespace zcl {
 std::ostream& operator<<(std::ostream& stream, const ZclFrameType& frame_type) {
@@ -52,9 +53,67 @@ std::ostream& operator<<(std::ostream& stream, const ZclVariant& variant) {
     case DataType::uint16:
       return stream << "(uint16) " << std::dec
                     << (unsigned int)*variant.Get<DataType::uint16>();
+    case DataType::uint24:
+      return stream << "(uint24) " << std::dec
+                    << (unsigned int)*variant.Get<DataType::uint24>();
+    case DataType::uint32:
+      return stream << "(uint32) " << std::dec
+                    << *variant.Get<DataType::uint32>();
+    case DataType::uint40:
+      return stream << "(uint40) " << std::dec
+                    << *variant.Get<DataType::uint40>();
+    case DataType::uint48:
+      return stream << "(uint48) " << std::dec
+                    << *variant.Get<DataType::uint48>();
+    case DataType::uint56:
+      return stream << "(uint56) " << std::dec
+                    << *variant.Get<DataType::uint56>();
+    case DataType::uint64:
+      return stream << "(uint64) " << std::dec
+                    << *variant.Get<DataType::uint64>();
+    case DataType::int8:
+      return stream << "(int8) " << std::dec
+                    << (int)*variant.Get<DataType::int8>();
     case DataType::int16:
       return stream << "(int16) " << std::dec
-                    << (unsigned int)*variant.Get<DataType::int16>();
+                    << (int)*variant.Get<DataType::int16>();
+    case DataType::int24:
+      return stream << "(int24) " << std::dec
+                    << (int)*variant.Get<DataType::int24>();
+    case DataType::int32:
+      return stream << "(int32) " << std::dec
+                    << *variant.Get<DataType::int32>();
+    case DataType::int40:
+      return stream << "(int40) " << std::dec
+                    << *variant.Get<DataType::int40>();
+    case DataType::int48:
+      return stream << "(int48) " << std::dec
+                    << *variant.Get<DataType::int48>();
+    case DataType::int56:
+      return stream << "(int56) " << std::dec
+                    << *variant.Get<DataType::int56>();
+    case DataType::int64:
+      return stream << "(int64) " << std::dec
+                    << *variant.Get<DataType::int64>();
+    case DataType::string: {
+      std::string data(*variant.Get<DataType::string>());
+      return stream << "(string) "
+                    << boost::log::dump(data.data(), data.size());
+    }
+    case DataType::_struct: {
+      auto data = *variant.Get<DataType::_struct>();
+      stream << "(struct " << data.size() << ") [";
+      bool first = true;
+      for (auto& item : data) {
+        if (!first) {
+          stream << ", ";
+        } else {
+          first = false;
+        }
+        stream << item;
+      }
+      return stream << "]";
+    }
     default:
       return stream << "(type " << std::hex << (unsigned int)variant.type_
                     << ")";
