@@ -73,6 +73,40 @@ class EncodeHelper<zcl::ZclVariant> {
                                                                 end);
     variant.data_ = value;
   }
+  template <zcl::DataType T, std::size_t N>
+  static inline std::enable_if_t<
+      std::is_integral<typename zcl::DataTypeHelper<T>::Type>::value &&
+      std::is_unsigned<typename zcl::DataTypeHelper<T>::Type>::value>
+  IntDecode(zcl::ZclVariant& variant, EncodeTarget::const_iterator& begin,
+            EncodeTarget::const_iterator end) {
+    typedef typename zcl::DataTypeHelper<T>::Type VT;
+    VT value = 0;
+    for (std::size_t shift = 0; shift < N; shift += 8) {
+      if (begin == end) {
+        throw std::runtime_error(
+            "Not enough data to decode ZCL unsigned integer");
+      }
+      value |= ((VT) * (begin++)) << shift;
+    }
+    variant.data_ = value;
+  }
+  template <zcl::DataType T, std::size_t N>
+  static inline std::enable_if_t<
+      std::is_integral<typename zcl::DataTypeHelper<T>::Type>::value &&
+      std::is_signed<typename zcl::DataTypeHelper<T>::Type>::value>
+  IntDecode(zcl::ZclVariant& variant, EncodeTarget::const_iterator& begin,
+            EncodeTarget::const_iterator end) {
+    typedef typename zcl::DataTypeHelper<T>::Type VT;
+    typedef typename std::make_unsigned<VT>::type UVT;
+    UVT value = 0;
+    for (std::size_t shift = 0; shift < N; shift += 8) {
+      if (begin == end) {
+        throw std::runtime_error("Not enough data to decode ZCL integer");
+      }
+      value |= ((UVT) * (begin++)) << shift;
+    }
+    variant.data_ = (VT)value;
+  }
 
  public:
   static inline std::size_t GetSize(const zcl::ZclVariant& variant) {
@@ -110,14 +144,75 @@ class EncodeHelper<zcl::ZclVariant> {
         DefaultDecode<zcl::DataType::_bool>(variant, begin, end);
         break;
       case zcl::DataType::uint8:
-        DefaultDecode<zcl::DataType::uint8>(variant, begin, end);
+        IntDecode<zcl::DataType::uint8, 8>(variant, begin, end);
         break;
       case zcl::DataType::uint16:
-        DefaultDecode<zcl::DataType::uint16>(variant, begin, end);
+        IntDecode<zcl::DataType::uint16, 16>(variant, begin, end);
+        break;
+      case zcl::DataType::uint24:
+        IntDecode<zcl::DataType::uint24, 24>(variant, begin, end);
+        break;
+      case zcl::DataType::uint32:
+        IntDecode<zcl::DataType::uint32, 32>(variant, begin, end);
+        break;
+      case zcl::DataType::uint40:
+        IntDecode<zcl::DataType::uint40, 40>(variant, begin, end);
+        break;
+      case zcl::DataType::uint48:
+        IntDecode<zcl::DataType::uint48, 48>(variant, begin, end);
+        break;
+      case zcl::DataType::uint56:
+        IntDecode<zcl::DataType::uint56, 56>(variant, begin, end);
+        break;
+      case zcl::DataType::uint64:
+        IntDecode<zcl::DataType::uint64, 64>(variant, begin, end);
+        break;
+      case zcl::DataType::int8:
+        IntDecode<zcl::DataType::int8, 8>(variant, begin, end);
         break;
       case zcl::DataType::int16:
-        DefaultDecode<zcl::DataType::int16>(variant, begin, end);
+        IntDecode<zcl::DataType::int16, 16>(variant, begin, end);
         break;
+      case zcl::DataType::int24:
+        IntDecode<zcl::DataType::int24, 24>(variant, begin, end);
+        break;
+      case zcl::DataType::int32:
+        IntDecode<zcl::DataType::int32, 32>(variant, begin, end);
+        break;
+      case zcl::DataType::int40:
+        IntDecode<zcl::DataType::int40, 40>(variant, begin, end);
+        break;
+      case zcl::DataType::int48:
+        IntDecode<zcl::DataType::int48, 48>(variant, begin, end);
+        break;
+      case zcl::DataType::int56:
+        IntDecode<zcl::DataType::int56, 56>(variant, begin, end);
+        break;
+      case zcl::DataType::int64:
+        IntDecode<zcl::DataType::int64, 64>(variant, begin, end);
+        break;
+      case zcl::DataType::string: {
+        uint8_t length;
+        EncodeHelper<uint8_t>::Decode(length, begin, end);
+        if (end - begin < length) {
+          throw std::runtime_error("Not enough data for ZCL string");
+        }
+        variant.data_ = std::string(begin, begin + length);
+        begin = begin + length;
+        break;
+      }
+      case zcl::DataType::_struct: {
+        uint16_t length;
+        EncodeHelper<uint16_t>::Decode(length, begin, end);
+        std::vector<zcl::ZclVariant> value((std::size_t)length);
+        for (auto& item : value) {
+          EncodeHelper<zcl::ZclVariant>::Decode(item, begin, end);
+        }
+        LOG("Encoding", debug)
+            << "Length: " << length << ", Size: " << value.size();
+        variant.data_ = value;
+        break;
+      }
       default:
         LOG("Encoding", critical) << "(Decode) Unsupported variant type: 0x"
                                   << std::hex << (unsigned int)variant.type_;
