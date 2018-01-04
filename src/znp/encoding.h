@@ -12,136 +12,54 @@ typedef std::vector<uint8_t> EncodeTarget;
 template <typename T, typename Enable = void>
 class EncodeHelper;
 
-template <>
-class EncodeHelper<uint8_t> {
+template <class T>
+class EncodeHelper<T, std::enable_if_t<std::is_integral<T>::value &&
+                                       std::is_unsigned<T>::value>> {
  public:
-  static inline std::size_t GetSize(const uint8_t& value) { return 1; }
-  static inline void Encode(const uint8_t& number,
-                            EncodeTarget::iterator& begin,
-                            EncodeTarget::iterator end) {
-    if (end - begin < 1) {
-      throw std::runtime_error("Not enough space reserved for uint8_t");
-    }
-    *(begin++) = number;
+  static inline std::size_t GetSize(const T& value) {
+    return std::numeric_limits<T>::digits / 8;
   }
-  static inline void Decode(uint8_t& number,
-                            EncodeTarget::const_iterator& begin,
-                            EncodeTarget::const_iterator end) {
-    if (end - begin < 1) {
-      throw std::runtime_error("Not enough space to decode an uint8_t");
+  static inline void Encode(const T& value, EncodeTarget::iterator& begin,
+                            EncodeTarget::iterator end) {
+    std::size_t bytes = GetSize(value);
+    for (std::size_t shift = 0; shift < bytes * 8; shift += 8) {
+      if (begin == end) {
+        throw std::runtime_error("Not enough space to encode integer");
+      }
+      *(begin++) = (uint8_t)((value >> shift) & 0xFF);
     }
-    number = *(begin++);
+  }
+  static inline void Decode(T& value, EncodeTarget::const_iterator& begin,
+                            EncodeTarget::const_iterator end) {
+    std::size_t bytes = GetSize(0);
+    value = 0;
+    for (std::size_t shift = 0; shift < bytes * 8; shift += 8) {
+      if (begin == end) {
+        throw std::runtime_error("Not enough data to decode integer");
+      }
+      value |= ((T) * (begin++)) << shift;
+    }
   }
 };
+template <class T>
+class EncodeHelper<T, std::enable_if_t<std::is_integral<T>::value &&
+                                       std::is_signed<T>::value>> {
+ private:
+  typedef typename std::make_unsigned<T>::type UT;
 
-template <>
-class EncodeHelper<uint16_t> {
  public:
-  static inline std::size_t GetSize(const uint16_t& value) { return 2; }
-  static inline void Encode(const uint16_t& number,
-                            EncodeTarget::iterator& begin,
+  static inline std::size_t GetSize(const T& value) {
+    return EncodeHelper<UT>::GetSize((UT)value);
+  }
+  static inline void Encode(const T& value, EncodeTarget::iterator& begin,
                             EncodeTarget::iterator end) {
-    if (end - begin < 2) {
-      throw std::runtime_error("Not enough space reserved for uint16_t");
-    }
-    *(begin++) = (uint8_t)((number >> 0) & 0xFF);
-    *(begin++) = (uint8_t)((number >> 8) & 0xFF);
+    EncodeHelper<UT>::Encode((UT)value, begin, end);
   }
-  static inline void Decode(uint16_t& number,
-                            EncodeTarget::const_iterator& begin,
+  static inline void Decode(T& value, EncodeTarget::const_iterator& begin,
                             EncodeTarget::const_iterator end) {
-    if (end - begin < 2) {
-      throw std::runtime_error("Not enough space to decode an uint16_t");
-    }
-    number = 0;
-    number |= ((uint16_t) * (begin++)) << 0;
-    number |= ((uint16_t) * (begin++)) << 8;
-  }
-};
-
-template <>
-class EncodeHelper<uint32_t> {
- public:
-  static inline std::size_t GetSize(const uint32_t& value) { return 4; }
-  static inline void Encode(const uint32_t& number,
-                            EncodeTarget::iterator& begin,
-                            EncodeTarget::iterator end) {
-    if (end - begin < 4) {
-      throw std::runtime_error("Not enough space reserved for uint32_t");
-    }
-    *(begin++) = (uint8_t)((number >> 0) & 0xFF);
-    *(begin++) = (uint8_t)((number >> 8) & 0xFF);
-    *(begin++) = (uint8_t)((number >> 16) & 0xFF);
-    *(begin++) = (uint8_t)((number >> 24) & 0xFF);
-  }
-  static inline void Decode(uint32_t& number,
-                            EncodeTarget::const_iterator& begin,
-                            EncodeTarget::const_iterator end) {
-    if (end - begin < 4) {
-      throw std::runtime_error("Not enough space to decode an uint32_t");
-    }
-    number = 0;
-    number |= ((uint32_t) * (begin++)) << 0;
-    number |= ((uint32_t) * (begin++)) << 8;
-    number |= ((uint32_t) * (begin++)) << 16;
-    number |= ((uint32_t) * (begin++)) << 24;
-  }
-};
-
-template <>
-class EncodeHelper<uint64_t> {
- public:
-  static inline std::size_t GetSize(const uint64_t& value) { return 8; }
-  static inline void Encode(const uint64_t& number,
-                            EncodeTarget::iterator& begin,
-                            EncodeTarget::iterator end) {
-    if (end - begin < 8) {
-      throw std::runtime_error("Not enough space reserved for uint64_t");
-    }
-    *(begin++) = (uint8_t)((number >> 0) & 0xFF);
-    *(begin++) = (uint8_t)((number >> 8) & 0xFF);
-    *(begin++) = (uint8_t)((number >> 16) & 0xFF);
-    *(begin++) = (uint8_t)((number >> 24) & 0xFF);
-    *(begin++) = (uint8_t)((number >> 32) & 0xFF);
-    *(begin++) = (uint8_t)((number >> 40) & 0xFF);
-    *(begin++) = (uint8_t)((number >> 48) & 0xFF);
-    *(begin++) = (uint8_t)((number >> 56) & 0xFF);
-  }
-  static inline void Decode(uint64_t& number,
-                            EncodeTarget::const_iterator& begin,
-                            EncodeTarget::const_iterator end) {
-    if (end - begin < 8) {
-      throw std::runtime_error("Not enough space to decode an uint64_t");
-    }
-    number = 0;
-    number |= ((uint64_t) * (begin++)) << 0;
-    number |= ((uint64_t) * (begin++)) << 8;
-    number |= ((uint64_t) * (begin++)) << 16;
-    number |= ((uint64_t) * (begin++)) << 24;
-    number |= ((uint64_t) * (begin++)) << 32;
-    number |= ((uint64_t) * (begin++)) << 40;
-    number |= ((uint64_t) * (begin++)) << 48;
-    number |= ((uint64_t) * (begin++)) << 56;
-  }
-};
-
-template <>
-class EncodeHelper<int16_t> {
- public:
-  static inline std::size_t GetSize(const int16_t& value) {
-    return EncodeHelper<uint16_t>::GetSize((uint16_t)value);
-  }
-  static inline void Encode(const int16_t& number,
-                            EncodeTarget::iterator& begin,
-                            EncodeTarget::iterator end) {
-    EncodeHelper<uint16_t>::Encode((uint16_t)number, begin, end);
-  }
-  static inline void Decode(int16_t& number,
-                            EncodeTarget::const_iterator& begin,
-                            EncodeTarget::const_iterator end) {
-    uint16_t unsigned_number;
-    EncodeHelper<uint16_t>::Decode(unsigned_number, begin, end);
-    number = (int16_t)unsigned_number;
+    UT unsigned_value = 0;
+    EncodeHelper<UT>::Decode(unsigned_value, begin, end);
+    value = (T)unsigned_value;
   }
 };
 template <typename T, size_t length>
