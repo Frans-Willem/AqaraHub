@@ -101,14 +101,16 @@ class ZnpApi {
   std::shared_ptr<ZnpRawInterface> raw_;
   boost::signals2::scoped_connection on_frame_connection_;
 
-  typedef std::function<void(std::exception_ptr, std::vector<uint8_t>)>
-      QueueCallback;
-  std::map<std::pair<ZnpCommandType, ZnpCommand>, std::queue<QueueCallback>>
-      queue_;
-
-  typedef std::function<void(const std::vector<uint8_t>&)> DefaultHandler;
-  std::map<std::pair<ZnpCommandType, ZnpCommand>, std::list<DefaultHandler>>
-      handlers_;
+  struct FrameHandlerAction {
+    bool
+        stop_processing;  // If true, do not call handlers further down the list
+    bool remove_me;  // If true, remove this handler from the list, and do not
+                     // call again.
+  };
+  typedef std::function<FrameHandlerAction(
+      const ZnpCommandType&, const ZnpCommand&, const std::vector<uint8_t>&)>
+      FrameHandler;
+  std::list<FrameHandler> handlers_;
 
   void OnFrame(ZnpCommandType type, ZnpCommand command,
                const std::vector<uint8_t>& payload);
@@ -126,9 +128,14 @@ class ZnpApi {
   void AddSimpleEventHandler(ZnpCommandType type, ZnpCommand command,
                              boost::signals2::signal<void(Args...)>& signal,
                              bool allow_partial) {
-    auto& handler_list = handlers_[std::make_pair(type, command)];
-    handler_list.push_back([&signal,
-                            allow_partial](const std::vector<uint8_t>& data) {
+    handlers_.push_back([&signal, type, command, allow_partial](
+                            const ZnpCommandType& recvd_type,
+                            const ZnpCommand& recvd_command,
+                            const std::vector<uint8_t>& data)
+                            -> FrameHandlerAction {
+      if (recvd_type != type || recvd_command != command) {
+        return {false, false};
+      }
       typedef std::tuple<std::remove_const_t<std::remove_reference_t<Args>>...>
           ArgTuple;
       ArgTuple arguments;
@@ -141,9 +148,10 @@ class ZnpApi {
       } catch (const std::exception& exc) {
         LOG("ZnpApi", warning)
             << "Exception while decoding event: " << exc.what();
-        return;
+        return {false, false};
       }
       polyfill::apply(signal, arguments);
+      return {true, false};
     });
   }
 };

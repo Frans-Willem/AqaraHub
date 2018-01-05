@@ -1,4 +1,5 @@
 #include "znp/znp_api.h"
+#include <sstream>
 #include <stlab/concurrency/immediate_executor.hpp>
 #include <stlab/concurrency/utility.hpp>
 #include "logging.h"
@@ -21,11 +22,16 @@ ZnpApi::ZnpApi(std::shared_ptr<ZnpRawInterface> interface)
 }
 
 stlab::future<ResetInfo> ZnpApi::SysReset(bool soft_reset) {
-  auto retval = WaitFor(ZnpCommandType::AREQ, SysCommand::RESET_IND)
-                    .then(znp::Decode<ResetInfo>);
+  auto package = stlab::package<ResetInfo(ResetInfo)>(
+      stlab::immediate_executor, [](ResetInfo info) { return info; });
+  sys_on_reset_.connect_extended(
+      [package](const boost::signals2::connection& connection, ResetInfo info) {
+        connection.disconnect();
+        package.first(info);
+      });
   raw_->SendFrame(ZnpCommandType::AREQ, SysCommand::RESET,
                   Encode<bool>(soft_reset));
-  return retval;
+  return package.second;
 }
 
 stlab::future<Capability> ZnpApi::SysPing() {
@@ -177,20 +183,18 @@ stlab::future<IEEEAddress> ZnpApi::UtilAddrmgrNwkAddrLookup(
 
 void ZnpApi::OnFrame(ZnpCommandType type, ZnpCommand command,
                      const std::vector<uint8_t>& payload) {
-  // Handle WaitFor queue
-  std::queue<QueueCallback>& callback_queue(
-      queue_[std::make_pair(type, command)]);
-  if (!callback_queue.empty()) {
-    QueueCallback callback = std::move(callback_queue.front());
-    callback_queue.pop();
-    callback(nullptr, payload);
+  for (auto it = handlers_.begin(); it != handlers_.end();) {
+    auto action = (*it)(type, command, payload);
+    if (action.remove_me) {
+      it = handlers_.erase(it);
+    } else {
+      it++;
+    }
+    if (action.stop_processing) {
+      return;
+    }
   }
-  // Handle normal registered handlers
-  std::list<DefaultHandler>& handler_list(
-      handlers_[std::make_pair(type, command)]);
-  for (auto& handler : handler_list) {
-    handler(payload);
-  }
+  LOG("ZnpApi", debug) << "Unhandled frame " << type << " " << command;
 }
 
 stlab::future<DeviceState> ZnpApi::WaitForState(
@@ -253,7 +257,16 @@ stlab::future<std::vector<uint8_t>> ZnpApi::WaitFor(ZnpCommandType type,
         }
         return retval;
       });
-  queue_[std::make_pair(type, command)].push(std::move(package.first));
+  handlers_.push_back(
+      [package, type, command](
+          const ZnpCommandType& recvd_type, const ZnpCommand& recvd_command,
+          const std::vector<uint8_t>& data) -> FrameHandlerAction {
+        if (recvd_type == type && recvd_command == command) {
+          package.first(nullptr, data);
+          return {true, true};
+        }
+        return {false, false};
+      });
   return package.second;
 }
 
@@ -269,9 +282,48 @@ stlab::future<std::vector<uint8_t>> ZnpApi::WaitAfter(
 
 stlab::future<std::vector<uint8_t>> ZnpApi::RawSReq(
     ZnpCommand command, const std::vector<uint8_t>& payload) {
-  auto retval = WaitFor(ZnpCommandType::SRSP, command);
+  auto package = stlab::package<std::vector<uint8_t>(std::exception_ptr,
+                                                     std::vector<uint8_t>)>(
+      stlab::immediate_executor,
+      [](std::exception_ptr ex, std::vector<uint8_t> data) {
+        if (ex != nullptr) {
+          std::rethrow_exception(ex);
+        }
+        return data;
+      });
+  handlers_.push_back(
+      [package, command](
+          const ZnpCommandType& type, const ZnpCommand& recvd_command,
+          const std::vector<uint8_t>& data) -> FrameHandlerAction {
+        // Normal response
+        if (type == ZnpCommandType::SRSP && recvd_command == command) {
+          package.first(nullptr, data);
+          return {true, true};
+        }
+        // Possible RPC_Error response
+        if (type == ZnpCommandType::SRSP &&
+            recvd_command == ZnpCommand(ZnpSubsystem::RPC_Error, 0)) {
+          try {
+            auto info = znp::DecodeT<uint8_t, uint8_t, uint8_t>(data);
+            ZnpCommand err_command((ZnpSubsystem)(std::get<1>(info) & 0xF),
+                                   std::get<2>(info));
+            ZnpCommandType err_type = (ZnpCommandType)(std::get<1>(info) >> 4);
+            if (err_type == ZnpCommandType::SREQ && err_command == command) {
+              std::stringstream ss;
+              ss << "RPC Error: " << (unsigned int)std::get<0>(info);
+              package.first(
+                  std::make_exception_ptr(std::runtime_error(ss.str())),
+                  std::vector<uint8_t>());
+              return {true, true};
+            }
+          } catch (const std::exception& exc) {
+            LOG("ZnpApi", debug) << "Unable to parse RPCError";
+          }
+        }
+        return {false, false};
+      });
   raw_->SendFrame(ZnpCommandType::SREQ, command, payload);
-  return retval;
+  return package.second;
 }
 
 std::vector<uint8_t> ZnpApi::CheckStatus(const std::vector<uint8_t>& response) {
