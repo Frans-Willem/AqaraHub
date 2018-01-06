@@ -1,4 +1,5 @@
 #include <boost/asio.hpp>
+#include <boost/format.hpp>
 #include <boost/log/expressions.hpp>
 #include <boost/log/utility/manipulators/dump.hpp>
 #include <boost/log/utility/setup/console.hpp>
@@ -10,6 +11,7 @@
 #include "asio_executor.h"
 #include "coroutines.h"
 #include "logging.h"
+#include "mqtt_wrapper.h"
 #include "zcl/encoding.h"
 #include "zcl/zcl.h"
 #include "znp/encoding.h"
@@ -154,39 +156,68 @@ void OnFrameDebug(std::string prefix, znp::ZnpCommandType cmdtype,
 }
 
 void AfIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
+                   std::shared_ptr<MqttWrapper> mqtt_wrapper,
                    const znp::IncomingMsg& message) {
-  LOG("MSG", debug) << "GroupId: " << message.GroupId
-                    << ", ClusterId: " << message.ClusterId
-                    << ", SrcAddr: " << message.SrcAddr
-                    << ", SrcEndpoint: " << (unsigned int)message.SrcEndpoint
-                    << ", DstEndpoint: " << (unsigned int)message.DstEndpoint
-                    << ", WasBroadcast: " << (unsigned int)message.WasBroadcast
-                    << ", LinkQuality: " << (unsigned int)message.LinkQuality
-                    << ", SecurityUse: " << (unsigned int)message.SecurityUse
-                    << ", TimeStamp: " << message.TimeStamp
-                    << ", TransSeqNumber: "
-                    << (unsigned int)message.TransSeqNumber;
   try {
     auto frame = znp::Decode<zcl::ZclFrame>(message.Data);
-    LOG("MSG", debug) << frame;
+    LOG("MSG", debug) << "SrcAddr: " << message.SrcAddr
+                      << ", ClusterId: " << message.ClusterId
+                      << ", SrcEndpoint: " << (unsigned int)message.SrcEndpoint;
+    LOG("MSG", debug) << "Payload: "
+                      << boost::log::dump(frame.payload.data(),
+                                          frame.payload.size());
+    if (frame.frame_type == zcl::ZclFrameType::Global &&
+        frame.command_identifier == 0x0a) {  // Report
+
+      unsigned int SrcEndpoint = (unsigned int)message.SrcEndpoint;
+      uint16_t ClusterId = message.ClusterId;
+      api->UtilAddrmgrNwkAddrLookup(message.SrcAddr)
+          .then([mqtt_wrapper, SrcEndpoint, ClusterId, frame](auto ieee_addr) {
+            std::vector<stlab::future<void>> publishes;
+            std::vector<uint8_t>::const_iterator current =
+                frame.payload.begin();
+            while (current != frame.payload.end()) {
+              std::tuple<uint16_t, zcl::ZclVariant> attribute;
+              znp::EncodeHelper<std::tuple<uint16_t, zcl::ZclVariant>>::Decode(
+                  attribute, current, frame.payload.end());
+              LOG("MSG", debug)
+                  << "Source: " << ieee_addr
+                  << ", SrcEndpoint: " << (unsigned int)SrcEndpoint
+                  << ", ClusterId 0x" << std::hex << ClusterId
+                  << ", Attribute 0x" << std::get<0>(attribute) << ": "
+                  << std::get<1>(attribute);
+
+              std::string topic_name =
+                  boost::str(boost::format("AqaraHub/%08X/%d/%04X/%04X") %
+                             ieee_addr % (unsigned int)SrcEndpoint % ClusterId %
+                             std::get<0>(attribute));
+              std::stringstream message_stream;
+              message_stream << std::get<1>(attribute);
+              publishes.push_back(
+                  mqtt_wrapper->Publish(topic_name, message_stream.str(),
+                                        mqtt::qos::at_least_once, true));
+            }
+            return stlab::when_all(
+                stlab::immediate_executor,
+                []() {
+
+                },
+                std::make_pair(publishes.begin(), publishes.end()));
+          })
+          .recover([](auto f) {
+            try {
+              f.get_try();
+            } catch (const std::exception& ex) {
+              LOG("MSG", debug) << "Exception while handling message";
+              return;
+            }
+            LOG("MSG", debug) << "Attributes reported to MQTT";
+          })
+          .detach();
+    }
   } catch (const std::exception& exc) {
     LOG("MSG", debug) << "Exception: " << exc.what();
   }
-
-  /*
-  api->UtilAddrmgrNwkAddrLookup(message.SrcAddr)
-      .recover([](auto f) {
-        try {
-          auto response = *f.get_try();
-          LOG("MSG", debug) << "IEEE Address: " << std::hex << response;
-
-        } catch (const std::exception& exc) {
-          LOG("MSG", debug)
-              << "Exception while getting IEEE Address: " << exc.what();
-        }
-      })
-      .detach();
-          */
 }
 
 int main() {
@@ -211,8 +242,15 @@ int main() {
                                    std::placeholders::_3));
   auto api = std::make_shared<znp::ZnpApi>(port);
 
+  auto mqtt_wrapper = MqttWrapper::Create(
+      [](boost::asio::io_service& io_service, std::string host,
+         std::uint16_t port) {
+        return mqtt::make_client(io_service, host, port);
+      },
+      io_service, "ArchServer", 1883);
+
   api->af_on_incoming_msg_.connect(
-      std::bind(&AfIncomingMsg, api, std::placeholders::_1));
+      std::bind(&AfIncomingMsg, api, mqtt_wrapper, std::placeholders::_1));
 
   // Reset device
   LOG("Main", info) << "Initializing";

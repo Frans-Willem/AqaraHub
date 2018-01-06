@@ -1,4 +1,11 @@
-- Generic signed integer encoding/decoding.
-- Generic unsigned integer encoding/decoding.
-- Handling RPC errors (try sending an unknown command).
-- Implement ZCL structure and string decoding/encoding/printing.
+- Boost program options for arguments:
+  - MQTT Hostname/Port/URL
+  - MQTT Root topic
+  - ZNP serial port
+- Push to GitHub
+- Send attributes from MQTT
+- Use names of ClusterID in MQTT reporting.
+- Use names of attributes in MQTT reporting.
+- Sanitize output, different topics for simple (true, 123, [true, 123]) or typed ({type:'bool',value:true}, {type:'uint8',value:123}, {type:'struct', value: [...]})
+- Cache short->IEEE address conversion.
+- Implement more ZCL structure and string decoding/encoding/printing.
