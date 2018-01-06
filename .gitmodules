@@ -1,0 +1,3 @@
+[submodule "submodules/mqtt_cpp"]
+	path = submodules/mqtt_cpp
+	url = https://github.com/redboltz/mqtt_cpp.git
