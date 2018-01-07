@@ -1,7 +1,4 @@
-- Boost program options for arguments:
-  - MQTT Hostname/Port/URL
-  - MQTT Root topic
-  - ZNP serial port
+- Rationale.md
 - Push to GitHub
 - Send attributes from MQTT
 - Use names of ClusterID in MQTT reporting.

@@ -1,6 +1,8 @@
 # AqaraHub
 
-This is an open-source Zigbee hub for Xiaomi Aqara devices, as pictured [here](https://des.gbtcdn.com/uploads/pdm-desc-pic/Electronic/image/2017/04/25/20170425155840_15186.jpg).
+This is an open-source Zigbee hub for Xiaomi Aqara devices, as pictured [here](https://des.gbtcdn.com/uploads/pdm-desc-pic/Electronic/image/2017/04/25/20170425155840_15186.jpg). It aims to be a replacement to the Xiaomi Gateway that does not require communication to outside servers, and a saner communication option (e.g. MQTT).
+
+This project is spefically aimed at Xiaomi Aqara devices, and there are no plans to support other Zigbee devices with this project.
 
 ## Getting Started
 
@@ -10,9 +12,9 @@ At this point, the project is in a very early stage, and getting it up and runni
 
 This project makes heavy use of C++14 language features, and some minor use of the experimental C++ coroutines extension. To compile this project your compiler should support both. Everything has been tested using Clang 5.0, but will likely also work with Microsoft Visual Studio 2017.
 
-On top of that it makes heavy use of both the [Boost C++ Libraries](http://www.boost.org/) and the [Adobe Software Technology Lab Concurrency Libraries](https://github.com/stlab/libraries/) (hereafter "STLab-libraries"), and uses Takatoshi Kondo's excellent [mqtt_cpp library](https://github.com/redboltz/mqtt_cpp) for MQTT communication.
+On top of that it makes heavy use of both the [Boost C++ Libraries](http://www.boost.org/) and the [Adobe Software Technology Lab Concurrency Libraries](https://github.com/stlab/libraries/) (hereafter "STLab-libraries"), and uses Takatoshi Kondo's excellent [mqtt\_cpp library](https://github.com/redboltz/mqtt_cpp) for MQTT communication.
 
-Both STLab-libraries and mqtt_cpp are included as Git submodules, and should be easy to pull in using:
+Both STLab-libraries and mqtt\_cpp are included as Git submodules, and should be easy to pull in using:
 ```
 git submodule update --init --recursive
 ```
@@ -52,7 +54,7 @@ To run AqaraHub, several things are needed:
 - One or more Xiaomi Aqara devices
 
 ### Flashing the Zigbee dongle
-The Zigbee dongle should be running the "Pro-Secure_LinkKeyJoin" firmware, available [here](https://github.com/mtornblad/zstack-1.2.2a.44539/blob/master/CC2531/CC2531ZNP-Pro-Secure_LinkKeyJoin.hex). You can use CC-Tool from [here](https://sourceforge.net/projects/cctool/files/) or [here](https://github.com/dashesy/cc-tool) to flash it on the device.
+The Zigbee dongle should be running the "Pro-Secure\_LinkKeyJoin" firmware, available [here](https://github.com/mtornblad/zstack-1.2.2a.44539/blob/master/CC2531/CC2531ZNP-Pro-Secure_LinkKeyJoin.hex). You can use CC-Tool from [here](https://sourceforge.net/projects/cctool/files/) or [here](https://github.com/dashesy/cc-tool) to flash it to the dongle.
 
 I've succesfully flashed my device using the following steps:
 ```
