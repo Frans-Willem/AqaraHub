@@ -160,7 +160,7 @@ void OnFrameDebug(std::string prefix, znp::ZnpCommandType cmdtype,
 
 void AfIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
                    std::shared_ptr<MqttWrapper> mqtt_wrapper,
-                   const znp::IncomingMsg& message) {
+                   std::string mqtt_prefix, const znp::IncomingMsg& message) {
   try {
     auto frame = znp::Decode<zcl::ZclFrame>(message.Data);
     LOG("MSG", debug) << "SrcAddr: " << message.SrcAddr
@@ -175,7 +175,8 @@ void AfIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
       unsigned int SrcEndpoint = (unsigned int)message.SrcEndpoint;
       uint16_t ClusterId = message.ClusterId;
       api->UtilAddrmgrNwkAddrLookup(message.SrcAddr)
-          .then([mqtt_wrapper, SrcEndpoint, ClusterId, frame](auto ieee_addr) {
+          .then([mqtt_wrapper, mqtt_prefix, SrcEndpoint, ClusterId,
+                 frame](auto ieee_addr) {
             std::vector<stlab::future<void>> publishes;
             std::vector<uint8_t>::const_iterator current =
                 frame.payload.begin();
@@ -190,10 +191,10 @@ void AfIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
                   << ", Attribute 0x" << std::get<0>(attribute) << ": "
                   << std::get<1>(attribute);
 
-              std::string topic_name =
-                  boost::str(boost::format("AqaraHub/%08X/%d/%04X/%04X") %
-                             ieee_addr % (unsigned int)SrcEndpoint % ClusterId %
-                             std::get<0>(attribute));
+              std::string topic_name = boost::str(
+                  boost::format("%s%08X/%d/%04X/%04X") % mqtt_prefix %
+                  ieee_addr % (unsigned int)SrcEndpoint % ClusterId %
+                  std::get<0>(attribute));
               std::stringstream message_stream;
               message_stream << std::get<1>(attribute);
               publishes.push_back(
@@ -350,8 +351,14 @@ int main(int argc, const char** argv) {
     return EXIT_FAILURE;
   }
 
-  api->af_on_incoming_msg_.connect(
-      std::bind(&AfIncomingMsg, api, mqtt_wrapper, std::placeholders::_1));
+  std::string mqtt_prefix = variables["topic"].as<std::string>();
+  if (mqtt_prefix.size() > 0 && mqtt_prefix[mqtt_prefix.size() - 1] != '/') {
+    mqtt_prefix += "/";
+  }
+  LOG("Main", info) << "Using MQTT prefix '" << mqtt_prefix << "'";
+
+  api->af_on_incoming_msg_.connect(std::bind(
+      &AfIncomingMsg, api, mqtt_wrapper, mqtt_prefix, std::placeholders::_1));
 
   // Reset device
   LOG("Main", info) << "Initializing ZNP device";
