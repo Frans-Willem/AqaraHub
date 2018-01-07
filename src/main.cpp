@@ -1,8 +1,11 @@
+// vim: set shiftwidth=2 tabstop=2 expandtab:
 #include <boost/asio.hpp>
 #include <boost/format.hpp>
 #include <boost/log/expressions.hpp>
 #include <boost/log/utility/manipulators/dump.hpp>
 #include <boost/log/utility/setup/console.hpp>
+#include <boost/program_options.hpp>
+#include <boost/regex.hpp>
 #include <iostream>
 #include <sstream>
 #include <stlab/concurrency/future.hpp>
@@ -220,10 +223,60 @@ void AfIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
   }
 }
 
-int main() {
-  boost::asio::io_service io_service;
-  boost::asio::io_service::work work(io_service);
+std::shared_ptr<MqttWrapper> MqttWrapperFromUrl(
+    boost::asio::io_service& io_service, std::string url) {
+  // TODO: Find some external URL parsing library to handle this for us
+  // properly, including username and password and such.
+  boost::regex re("([^:]*)://(.*?)(:([^:/]+))?/?");
+  boost::smatch match;
+  if (!boost::regex_match(url, match, re)) {
+    throw std::runtime_error("Malformed MQTT URL");
+  }
+  std::string protocol(match[1].first, match[1].second);
+  std::string host(match[2].first, match[2].second);
+  std::string port(match[4].first, match[4].second);
+  if (protocol == "mqtt") {
+    return MqttWrapper::Create(
+        [](boost::asio::io_service& io_service, std::string host,
+           std::string port) {
+          LOG("MqttWrapper", debug)
+              << "Creating connection to " << host << " : " << port;
+          return mqtt::make_client(io_service, host, port);
+        },
+        io_service, host, (port == "" ? "1883" : port));
+  }
+  if (protocol == "mqtts") {
+    return MqttWrapper::Create(
+        [](boost::asio::io_service& io_service, std::string host,
+           std::string port) {
+          return mqtt::make_tls_client(io_service, host, port);
+        },
+        io_service, host, (port == "" ? "8883" : port));
+  }
+#if defined(MQTT_USE_WS)
+  if (protocol == "ws") {
+    return MqttWrapper::Create(
+        [](boost::asio::io_service& io_service, std::string host,
+           std::string port) {
+          return mqtt::make_client_ws(io_service, host, port);
+        },
+        io_service, host, port);
+  }
+  if (protocol == "wss") {
+    return MqttWrapper::Create(
+        [](boost::asio::io_service& io_service, std::string host,
+           std::string port) {
+          return mqtt::make_tls_client_ws(io_service, host, port);
+        },
+        io_service, host, port);
+  }
+#endif
+  throw std::runtime_error("Unsupported MQTT protocol");
+  return std::shared_ptr<MqttWrapper>();
+}
 
+int main(int argc, const char** argv) {
+  // Set up logging to console (stderr)
   auto console_log = boost::log::add_console_log(std::cerr);
   boost::log::formatter formatter =
       boost::log::expressions::stream
@@ -232,8 +285,52 @@ int main() {
       << "[" << boost::log::expressions::attr<std::string>("Channel") << "] "
       << boost::log::expressions::message;
   console_log->set_formatter(formatter);
-  LOG("Main", info) << "Starting";
-  auto port = std::make_shared<znp::ZnpPort>(io_service, "/dev/ttyACM0");
+
+  // Parse command line
+  boost::program_options::options_description description(
+      "Open-source Xiaomi Aqara Zigbee Hub");
+
+  // clang-format off
+  description.add_options()
+    ("help,h",
+     "Produce this help message.")
+    ("port,p",
+     boost::program_options::value<std::string>(),
+     "Serial port where the ZNP dongle is attached")
+    ("mqtt,m",
+     boost::program_options::value<std::string>()->default_value("mqtt://127.0.0.1:1883/"),
+     "MQTT Server, e.g. mqtt://127.0.0.1:1883/")
+    ("topic,t",
+     boost::program_options::value<std::string>()->default_value("AqaraHub"),
+     "MQTT Root topic, e.g. AqaraHub")
+    ;
+  // clang-format on
+  boost::program_options::variables_map variables;
+  try {
+    boost::program_options::store(
+        boost::program_options::parse_command_line(argc, argv, description),
+        variables);
+  } catch (const boost::program_options::error& ex) {
+    std::cerr << ex.what() << std::endl;
+    return EXIT_FAILURE;
+  }
+  boost::program_options::notify(variables);
+
+  if (variables.count("help") || variables.count("port") == 0 ||
+      variables.count("mqtt") == 0 || variables.count("topic") == 0) {
+    std::cerr << description << std::endl;
+    return EXIT_SUCCESS;
+  }
+
+  std::string serial_port = variables["port"].as<std::string>();
+  LOG("Main", info) << "Serial port: " << serial_port;
+
+  // Start working
+  boost::asio::io_service io_service;
+  boost::asio::io_service::work work(io_service);
+
+  LOG("Main", info) << "Setting up ZNP connection";
+  auto port = std::make_shared<znp::ZnpPort>(io_service, serial_port);
   port->on_frame_.connect(std::bind(OnFrameDebug, "<<", std::placeholders::_1,
                                     std::placeholders::_2,
                                     std::placeholders::_3));
@@ -242,21 +339,25 @@ int main() {
                                    std::placeholders::_3));
   auto api = std::make_shared<znp::ZnpApi>(port);
 
-  auto mqtt_wrapper = MqttWrapper::Create(
-      [](boost::asio::io_service& io_service, std::string host,
-         std::uint16_t port) {
-        return mqtt::make_client(io_service, host, port);
-      },
-      io_service, "ArchServer", 1883);
+  LOG("Main", info) << "Setting up MQTT connection";
+
+  std::shared_ptr<MqttWrapper> mqtt_wrapper;
+  try {
+    mqtt_wrapper =
+        MqttWrapperFromUrl(io_service, variables["mqtt"].as<std::string>());
+  } catch (const std::exception& ex) {
+    std::cerr << ex.what() << std::endl;
+    return EXIT_FAILURE;
+  }
 
   api->af_on_incoming_msg_.connect(
       std::bind(&AfIncomingMsg, api, mqtt_wrapper, std::placeholders::_1));
 
   // Reset device
-  LOG("Main", info) << "Initializing";
+  LOG("Main", info) << "Initializing ZNP device";
 
   Initialize(api)
-      .then([]() { LOG("Main", info) << "Initialization complete?"; })
+      .then([]() { LOG("Main", info) << "Initialization complete!"; })
       .recover([](stlab::future<void> v) {
         LOG("Main", info) << "In final handler";
         try {
