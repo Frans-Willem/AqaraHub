@@ -8,7 +8,7 @@ if(EXISTS "${CMAKE_BINARY_DIR}/conanbuildinfo.cmake")
 endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic -Werror")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -fcoroutines-ts -stdlib=libc++")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -stdlib=libc++")
 
 find_package(Threads REQUIRED)
 
@@ -48,6 +48,7 @@ add_executable(AqaraHub
 	src/asio_executor.cpp
 	src/logging.cpp
 	src/zcl/zcl.cpp
+    src/coro.cpp
 	)
 target_include_directories(AqaraHub PUBLIC "src")
 target_link_libraries(AqaraHub stlab)
@@ -56,6 +57,7 @@ target_link_libraries(AqaraHub Boost::boost)
 target_link_libraries(AqaraHub Boost::system)
 target_link_libraries(AqaraHub Boost::log)
 target_link_libraries(AqaraHub Boost::program_options)
+target_link_libraries(AqaraHub Boost::coroutine)
 target_link_libraries(AqaraHub Threads::Threads)
 
 add_executable(tests

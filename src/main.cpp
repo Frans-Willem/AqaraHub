@@ -12,7 +12,7 @@
 #include <stlab/concurrency/immediate_executor.hpp>
 #include <stlab/concurrency/utility.hpp>
 #include "asio_executor.h"
-#include "coroutines.h"
+#include "coro.h"
 #include "logging.h"
 #include "mqtt_wrapper.h"
 #include "zcl/encoding.h"
@@ -97,13 +97,12 @@ stlab::future<void> WriteFullConfiguration(std::shared_ptr<znp::ZnpApi> api,
           config.zdo_direct_cb));
 }
 
-stlab::future<void> Initialize(std::shared_ptr<znp::ZnpApi> api) {
+void Initialize(coro::Await await, std::shared_ptr<znp::ZnpApi> api) {
   LOG("Initialize", debug)
       << "Doing initial reset, without clearing config or state";
-  co_await api
-      ->SapiWriteConfiguration<znp::ConfigurationOption::STARTUP_OPTION>(
-          znp::StartupOption::None);
-  std::ignore = co_await api->SysReset(true);
+  await(api->SapiWriteConfiguration<znp::ConfigurationOption::STARTUP_OPTION>(
+      znp::StartupOption::None));
+  std::ignore = await(api->SysReset(true));
   LOG("Initialize", debug) << "Building desired configuration";
   FullConfiguration desired_config;
   desired_config.startup_option = znp::StartupOption::None;
@@ -116,15 +115,14 @@ stlab::future<void> Initialize(std::shared_ptr<znp::ZnpApi> api) {
   desired_config.precfgkeys_enable = false;
   desired_config.zdo_direct_cb = true;
   LOG("Initialize", debug) << "Verifying full configuration";
-  auto current_config = co_await ReadFullConfiguration(api);
+  auto current_config = await(ReadFullConfiguration(api));
   if (current_config != desired_config) {
     LOG("Initialize", debug) << "Desired configuration does not match current "
                                 "configuration. Full reset is needed...";
-    co_await api
-        ->SapiWriteConfiguration<znp::ConfigurationOption::STARTUP_OPTION>(
-            znp::StartupOption::ClearConfig | znp::StartupOption::ClearState);
-    std::ignore = co_await api->SysReset(true);
-    co_await WriteFullConfiguration(api, desired_config);
+    await(api->SapiWriteConfiguration<znp::ConfigurationOption::STARTUP_OPTION>(
+        znp::StartupOption::ClearConfig | znp::StartupOption::ClearState));
+    std::ignore = await(api->SysReset(true));
+    await(WriteFullConfiguration(api, desired_config));
   } else {
     LOG("Initialize", debug) << "Desired configuration matches current "
                                 "configuration, ready to start!";
@@ -134,22 +132,22 @@ stlab::future<void> Initialize(std::shared_ptr<znp::ZnpApi> api) {
       api->WaitForState({znp::DeviceState::ZB_COORD},
                         {znp::DeviceState::COORD_STARTING,
                          znp::DeviceState::HOLD, znp::DeviceState::INIT});
-  uint8_t ret = co_await api->ZdoStartupFromApp(100);
+  uint8_t ret = await(api->ZdoStartupFromApp(100));
   LOG("Initialize", debug) << "ZDO Start return value: " << (unsigned int)ret;
-  uint8_t device_state = co_await future_state;
+  uint8_t device_state = await(future_state);
   LOG("Initialize", debug) << "Final device state "
                            << (unsigned int)device_state;
 
   auto first_join =
-      co_await api->ZdoMgmtPermitJoin(znp::AddrMode::ShortAddress, 0, 0, 0);
+      await(api->ZdoMgmtPermitJoin(znp::AddrMode::ShortAddress, 0, 0, 0));
   LOG("Initialize", debug) << "First PermitJoin OK " << first_join;
   auto second_join =
-      co_await api->ZdoMgmtPermitJoin((znp::AddrMode)15, 0xFFFC, 60, 0);
+      await(api->ZdoMgmtPermitJoin((znp::AddrMode)15, 0xFFFC, 60, 0));
   LOG("Initialize", debug) << "Second PermitJoin OK " << second_join;
 
-  co_await api->AfRegister(1, 0x0104, 5, 0, znp::Latency::NoLatency,
-                           std::vector<uint16_t>(), std::vector<uint16_t>());
-  co_return;
+  await(api->AfRegister(1, 0x0104, 5, 0, znp::Latency::NoLatency,
+                        std::vector<uint16_t>(), std::vector<uint16_t>()));
+  return;
 }
 
 void OnFrameDebug(std::string prefix, znp::ZnpCommandType cmdtype,
@@ -364,7 +362,7 @@ int main(int argc, const char** argv) {
   // Reset device
   LOG("Main", info) << "Initializing ZNP device";
 
-  Initialize(api)
+  coro::Run(AsioExecutor(io_service), Initialize, api)
       .then([]() { LOG("Main", info) << "Initialization complete!"; })
       .recover([](stlab::future<void> v) {
         LOG("Main", info) << "In final handler";
