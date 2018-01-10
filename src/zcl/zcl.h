@@ -32,6 +32,37 @@ struct ZclFrame {
 };
 std::ostream& operator<<(std::ostream& stream, const ZclFrame& header);
 
+enum class ZclClusterId : uint16_t {
+  Basic = 0x0000,
+  PowerConfiguration = 0x0001,
+  DeviceTemperatureConfiguration = 0x0002,
+  Identify = 0x0003,
+  Groups = 0x0004,
+  Scenes = 0x0005,
+  OnOff = 0x0006,
+  OnOffSwitchConfiguration = 0x0007,
+  LevelControl = 0x0008,
+  Alarms = 0x0009,
+  Time = 0x000a,
+  RSSILocation = 0x000b,
+  AnalogInput = 0x000c,
+  AnalogOutput = 0x000d,
+  AnalogValue = 0x000e,
+  BinaryInput = 0x000f,
+  BinaryOutput = 0x0010,
+  BinaryValue = 0x0011,
+  MultistateInput = 0x0012,
+  MultistateOutput = 0x0013,
+  MultistateValue = 0x0014,
+  PowerProfile = 0x001a,
+  PollControl = 0x0020,
+  MeterIdentification = 0x0b01,
+  Diagnostics = 0x0b05,
+};
+
+std::string to_string(const ZclClusterId& cluster_id);
+std::ostream& operator<<(std::ostream& stream, const ZclClusterId& cluster_id);
+
 enum class ZclGeneralCommand : uint8_t {
   ReadAttributes = 0x00,
   ReadAttributesResponse = 0x01,

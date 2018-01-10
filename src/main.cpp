@@ -190,10 +190,11 @@ void AfIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
                   << ", Attribute 0x" << std::get<0>(attribute) << ": "
                   << std::get<1>(attribute);
 
-              std::string topic_name = boost::str(
-                  boost::format("%s%08X/%d/%04X/%04X") % mqtt_prefix %
-                  ieee_addr % (unsigned int)SrcEndpoint % ClusterId %
-                  std::get<0>(attribute));
+              std::string topic_name =
+                  boost::str(boost::format("%s%08X/%d/%s/%04X") % mqtt_prefix %
+                             ieee_addr % (unsigned int)SrcEndpoint %
+                             zcl::to_string((zcl::ZclClusterId)ClusterId) %
+                             std::get<0>(attribute));
               std::stringstream message_stream;
               message_stream << std::get<1>(attribute);
               publishes.push_back(

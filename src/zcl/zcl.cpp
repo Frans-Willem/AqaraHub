@@ -1,4 +1,5 @@
 #include "zcl/zcl.h"
+#include <boost/format.hpp>
 #include <boost/log/utility/manipulators/dump.hpp>
 
 namespace zcl {
@@ -41,6 +42,67 @@ std::ostream& operator<<(std::ostream& stream, const ZclFrame& header) {
          << ", command_identifier: " << (unsigned int)header.command_identifier
          << "}";
   return stream;
+}
+
+std::string to_string(const ZclClusterId& cluster_id) {
+  switch (cluster_id) {
+    case ZclClusterId::Basic:
+      return "Basic";
+    case ZclClusterId::PowerConfiguration:
+      return "PowerConfiguration";
+    case ZclClusterId::DeviceTemperatureConfiguration:
+      return "DeviceTemperatureConfiguration";
+    case ZclClusterId::Identify:
+      return "Identify";
+    case ZclClusterId::Groups:
+      return "Groups";
+    case ZclClusterId::Scenes:
+      return "Scenes";
+    case ZclClusterId::OnOff:
+      return "OnOff";
+    case ZclClusterId::OnOffSwitchConfiguration:
+      return "OnOffSwitchConfiguration";
+    case ZclClusterId::LevelControl:
+      return "LevelControl";
+    case ZclClusterId::Alarms:
+      return "Alarms";
+    case ZclClusterId::Time:
+      return "Time";
+    case ZclClusterId::RSSILocation:
+      return "RSSILocation";
+    case ZclClusterId::AnalogInput:
+      return "AnalogInput";
+    case ZclClusterId::AnalogOutput:
+      return "AnalogOutput";
+    case ZclClusterId::AnalogValue:
+      return "AnalogValue";
+    case ZclClusterId::BinaryInput:
+      return "BinaryInput";
+    case ZclClusterId::BinaryOutput:
+      return "BinaryOutput";
+    case ZclClusterId::BinaryValue:
+      return "BinaryValue";
+    case ZclClusterId::MultistateInput:
+      return "MultistateInput";
+    case ZclClusterId::MultistateOutput:
+      return "MultistateOutput";
+    case ZclClusterId::MultistateValue:
+      return "MultistateValue";
+    case ZclClusterId::PowerProfile:
+      return "PowerProfile";
+    case ZclClusterId::PollControl:
+      return "PollControl";
+    case ZclClusterId::MeterIdentification:
+      return "MeterIdentification";
+    case ZclClusterId::Diagnostics:
+      return "Diagnostics";
+    default:
+      return boost::str(boost::format("ZclClusterId(%04X)") % cluster_id);
+  }
+}
+
+std::ostream& operator<<(std::ostream& stream, const ZclClusterId& cluster_id) {
+  return stream << to_string(cluster_id);
 }
 
 std::ostream& operator<<(std::ostream& stream, const ZclVariant& variant) {
