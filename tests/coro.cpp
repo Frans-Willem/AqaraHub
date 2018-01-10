@@ -1,9 +1,10 @@
+#define BOOST_TEST_MODULE "Coroutines"
 #include "coro.h"
 #include <boost/asio.hpp>
+#include <boost/test/included/unit_test.hpp>
 #include <cmath>
 #include <stlab/concurrency/default_executor.hpp>
 #include "asio_executor.h"
-#include "gtest/gtest.h"
 
 template <typename T>
 stlab::future<T> WrapInFuture(T value) {
@@ -35,7 +36,7 @@ void VoidCoro(coro::Await await, T input, T& output) {
   output = std::move(r);
 }
 
-TEST(Coroutines, Integers) {
+BOOST_AUTO_TEST_CASE(Integers) {
   boost::asio::io_service io_service;
   boost::asio::io_service::work work(io_service);
 
@@ -51,10 +52,10 @@ TEST(Coroutines, Integers) {
    })
       .detach();
   io_service.run();
-  EXPECT_EQ(result, 123);
+  BOOST_TEST(result == 123);
 }
 
-TEST(Coroutines, Movables) {
+BOOST_AUTO_TEST_CASE(Movables) {
   boost::asio::io_service io_service;
   boost::asio::io_service::work work(io_service);
 
@@ -72,10 +73,10 @@ TEST(Coroutines, Movables) {
       })
       .detach();
   io_service.run();
-  EXPECT_EQ(*result, 123);
+  BOOST_TEST(*result == 123);
 }
 
-TEST(Coroutines, VoidRetval) {
+BOOST_AUTO_TEST_CASE(VoidRetval) {
   boost::asio::io_service io_service;
   boost::asio::io_service::work work(io_service);
 
@@ -95,10 +96,10 @@ TEST(Coroutines, VoidRetval) {
       })
       .detach();
   io_service.run();
-  EXPECT_EQ(result, 123);
+  BOOST_TEST(result == 123);
 }
 
-TEST(Coroutines, MoveFunction) {
+BOOST_AUTO_TEST_CASE(MoveFunction) {
   boost::asio::io_service io_service;
   boost::asio::io_service::work work(io_service);
 
@@ -122,7 +123,7 @@ TEST(Coroutines, MoveFunction) {
       })
       .detach();
   io_service.run();
-  EXPECT_EQ(result, 123);
+  BOOST_TEST(result == 123);
 }
 
 class SillyString {
@@ -138,7 +139,7 @@ class SillyString {
   }
   std::string data_;
 };
-TEST(Coroutines, NonDefaultConstructible) {
+BOOST_AUTO_TEST_CASE(NonDefaultConstructible) {
   boost::asio::io_service io_service;
   boost::asio::io_service::work work(io_service);
 
@@ -156,5 +157,5 @@ TEST(Coroutines, NonDefaultConstructible) {
       })
       .detach();
   io_service.run();
-  EXPECT_EQ(result, "Hello world!");
+  BOOST_TEST(result == "Hello world!");
 }

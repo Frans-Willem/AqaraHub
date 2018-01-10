@@ -13,9 +13,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -fcoroutines-ts -stdlib=libc+
 find_package(Threads REQUIRED)
 
 set(Boost_USE_STATIC_LIBS ON)
-find_package(Boost 1.60.0 COMPONENTS system program_options log coroutine REQUIRED)
-
-find_package(GTest REQUIRED)
+find_package(Boost 1.60.0 COMPONENTS system program_options log coroutine unit_test_framework REQUIRED)
 
 # STLab library
 find_path(STLAB_INCLUDE_DIRS NAMES stlab/version.hpp PATHS ${CMAKE_SOURCE_DIR}/submodules/stlab-libraries/)
@@ -72,5 +70,4 @@ target_link_libraries(tests Boost::boost)
 target_link_libraries(tests Boost::system)
 target_link_libraries(tests Threads::Threads)
 target_link_libraries(tests Boost::coroutine)
-target_link_libraries(tests GTest::GTest)
-target_link_libraries(tests GTest::Main)
+target_link_libraries(tests Boost::unit_test_framework)
