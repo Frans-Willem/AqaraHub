@@ -1,8 +1,11 @@
-- Rationale.md
-- Push to GitHub
-- Send attributes from MQTT
+High priority:
 - Use names of ClusterID in MQTT reporting.
-- Use names of attributes in MQTT reporting.
+- Update README.md for simpler compiling.
 - Sanitize output, different topics for simple (true, 123, [true, 123]) or typed ({type:'bool',value:true}, {type:'uint8',value:123}, {type:'struct', value: [...]})
+Mid priority:
+- Send attributes from MQTT
+- Rationale.md
+- Use names of attributes in MQTT reporting.
+Low priority:
 - Cache short->IEEE address conversion.
 - Implement more ZCL structure and string decoding/encoding/printing.
