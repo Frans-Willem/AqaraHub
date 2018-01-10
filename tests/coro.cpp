@@ -124,3 +124,37 @@ TEST(Coroutines, MoveFunction) {
   io_service.run();
   EXPECT_EQ(result, 123);
 }
+
+class SillyString {
+ public:
+  SillyString(std::string data) : data_(data) {}
+  SillyString(const SillyString&) = delete;
+  SillyString(SillyString&& move) : data_(move.data_) {}
+  // Ideally, I'd like to remove this one too, but apparently stlab doesn't like
+  // that.
+  SillyString& operator=(SillyString&& move) {
+    data_ = move.data_;
+    return *this;
+  }
+  std::string data_;
+};
+TEST(Coroutines, NonDefaultConstructible) {
+  boost::asio::io_service io_service;
+  boost::asio::io_service::work work(io_service);
+
+  std::string result = "";
+  auto f = coro::Run(AsioExecutor(io_service), SimpleCoro<SillyString>,
+                     SillyString("Hello world!"));
+  std::move(f)
+      .recover([&io_service, &result](auto f) {
+        try {
+          result = std::move(f).get_try()->data_;
+        } catch (const std::exception& e) {
+          std::cerr << "Test failed, exception: " << e.what() << std::endl;
+        }
+        io_service.stop();
+      })
+      .detach();
+  io_service.run();
+  EXPECT_EQ(result, "Hello world!");
+}
