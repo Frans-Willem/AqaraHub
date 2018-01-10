@@ -8,8 +8,8 @@ class AqaraHubConan(ConanFile):
             "compiler": {"clang":{"version":["5.0"], "libcxx":["libc++"]}},
             "arch": None
             }
-    requires = "Boost/1.62.0@lasote/stable"
-    default_options = "Boost:shared=False", "Boost:without_iostreams=True"
+    requires = "Boost/1.62.0@lasote/stable", "gtest/1.8.0@lasote/stable"
+    default_options = "Boost:shared=False", "Boost:without_iostreams=True", "gtest:shared=False"
 
     def build(self):
         cmake = CMake(self)

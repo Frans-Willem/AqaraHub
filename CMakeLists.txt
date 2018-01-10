@@ -11,8 +11,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic -Werror")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -fcoroutines-ts -stdlib=libc++")
 
 find_package(Threads REQUIRED)
+
 set(Boost_USE_STATIC_LIBS ON)
-find_package(Boost 1.60.0 COMPONENTS system program_options log REQUIRED)
+find_package(Boost 1.60.0 COMPONENTS system program_options log coroutine REQUIRED)
+
+find_package(GTest REQUIRED)
 
 # STLab library
 find_path(STLAB_INCLUDE_DIRS NAMES stlab/version.hpp PATHS ${CMAKE_SOURCE_DIR}/submodules/stlab-libraries/)
@@ -56,3 +59,18 @@ target_link_libraries(AqaraHub Boost::system)
 target_link_libraries(AqaraHub Boost::log)
 target_link_libraries(AqaraHub Boost::program_options)
 target_link_libraries(AqaraHub Threads::Threads)
+
+add_executable(tests
+    src/asio_executor.cpp
+    src/coro.cpp
+    tests/coro.cpp
+)
+target_include_directories(tests PUBLIC "src")
+target_include_directories(tests PUBLIC "include")
+target_link_libraries(tests stlab)
+target_link_libraries(tests Boost::boost)
+target_link_libraries(tests Boost::system)
+target_link_libraries(tests Threads::Threads)
+target_link_libraries(tests Boost::coroutine)
+target_link_libraries(tests GTest::GTest)
+target_link_libraries(tests GTest::Main)
