@@ -1,5 +1,6 @@
 #ifndef _ZNP_API_H_
 #define _ZNP_API_H_
+#include <bitset>
 #include <boost/signals2/signal.hpp>
 #include <map>
 #include <queue>

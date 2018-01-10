@@ -89,7 +89,7 @@ class MqttWrapperImpl : public MqttWrapper {
       return false;
     }
     LOG("MqttWrapper", debug)
-        << "ConnAckHandler: " << (sp ? "clean" : "not clean");
+        << "ConnAckHandler: clean=" << sp;
     connected_ = true;
     io_service_.post([this]() { this->TrySend(); });
     return true;

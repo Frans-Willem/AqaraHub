@@ -30,7 +30,7 @@ class EncodeHelper<zcl::ZclFrame> {
     EncodeHelper<uint8_t>::Encode(value.transaction_sequence_number, begin,
                                   end);
     EncodeHelper<uint8_t>::Encode(value.command_identifier, begin, end);
-    if (end - begin != value.payload.size()) {
+    if (end - begin != value.payload.end() - value.payload.begin()) {
       throw std::runtime_error("Encoding buffer was of wrong size");
     }
     std::copy(value.payload.begin(), value.payload.end(), begin);

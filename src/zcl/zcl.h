@@ -277,13 +277,7 @@ class ZclVariant {
       return boost::none;
     }
     return boost::get<typename DataTypeHelper<T>::Type>(data_);
-  };
-  /*
-  template <>
-  boost::optional<void> Get<DataType::nodata>() {
-    return type_ == DataType::none;
   }
-  */
 
  private:
   boost::variant<bool, uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,

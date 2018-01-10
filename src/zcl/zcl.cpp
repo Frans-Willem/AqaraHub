@@ -19,6 +19,8 @@ std::ostream& operator<<(std::ostream& stream, const ZclDirection& direction) {
       return stream << "ClientToServer";
     case ZclDirection::ServerToClient:
       return stream << "ServerToClient";
+	default:
+	  return stream << "ZclDirection(" << (unsigned int)direction << ")";
   }
 }
 
