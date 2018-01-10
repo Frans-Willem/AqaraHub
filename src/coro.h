@@ -43,8 +43,12 @@ class Await {
   }
 };
 
+// Checks to see if coroutine is still active, and if so:
+// - gets the future it is waiting for
+// - Schedules a callback to continue the coroutine
+// - repeats
 template <typename E>
-void CoroutineResume(E executor, coro_t::pull_type source) {
+void ScheduleCoroutineResume(E executor, coro_t::pull_type source) {
   if (!source) {
     // Coroutine has ended
     return;
@@ -54,23 +58,23 @@ void CoroutineResume(E executor, coro_t::pull_type source) {
                [ source{std::move(source)},
                  executor{std::move(executor)} ](auto f) mutable {
                  source();
-                 CoroutineResume(executor, std::move(source));
+                 ScheduleCoroutineResume(executor, std::move(source));
                })
       .detach();
 }
 
+// Splits out functionalities in void return type and other cases.
 template <typename T>
 struct CoroHelpers {
   template <typename E>
   static auto CreatePackage(E e) {
     return stlab::package<T(std::exception_ptr, boost::optional<T>)>(
-        e, &FinalResolve);
-  }
-  static T FinalResolve(std::exception_ptr exc, boost::optional<T> value) {
-    if (exc) {
-      std::rethrow_exception(exc);
-    }  // namespace coro
-    return *std::move(value);
+        e, [](std::exception_ptr exc, boost::optional<T> value) {
+          if (exc) {
+            std::rethrow_exception(exc);
+          }
+          return *std::move(value);
+        });
   }
   template <typename F, typename... Args>
   static void RunInCoro(
@@ -89,12 +93,12 @@ template <>
 struct CoroHelpers<void> {
   template <typename E>
   static auto CreatePackage(E e) {
-    return stlab::package<void(std::exception_ptr)>(e, &FinalResolve);
-  }
-  static void FinalResolve(std::exception_ptr exc) {
-    if (exc) {
-      std::rethrow_exception(exc);
-    }
+    return stlab::package<void(std::exception_ptr)>(
+        e, [](std::exception_ptr exc) {
+          if (exc) {
+            std::rethrow_exception(exc);
+          }
+        });
   }
   template <typename F, typename... Args>
   static void RunInCoro(std::function<void(std::exception_ptr)> promise, F f,
@@ -109,6 +113,7 @@ struct CoroHelpers<void> {
   }
 };
 
+// Actually runs a coroutine F on an executor E with arguments Args
 template <typename E, typename F, typename... Args>
 auto Run(E executor, F f, Args... args) {
   typedef typename std::result_of<F(Await, Args...)>::type T;
@@ -128,7 +133,7 @@ auto Run(E executor, F f, Args... args) {
       CoroHelpers<T>::template RunInCoro<F, Await, Args...>(
           promise, f, std::move(full_args));
     });
-    CoroutineResume(executor, std::move(source));
+    ScheduleCoroutineResume(executor, std::move(source));
   });
   return std::move(package.second);
 }
