@@ -124,6 +124,7 @@ stlab::future<void> Initialize(std::shared_ptr<znp::ZnpApi> api) {
         ->SapiWriteConfiguration<znp::ConfigurationOption::STARTUP_OPTION>(
             znp::StartupOption::ClearConfig | znp::StartupOption::ClearState);
     std::ignore = co_await api->SysReset(true);
+    co_await WriteFullConfiguration(api, desired_config);
   } else {
     LOG("Initialize", debug) << "Desired configuration matches current "
                                 "configuration, ready to start!";
