@@ -16,6 +16,7 @@
 #include "logging.h"
 #include "mqtt_wrapper.h"
 #include "zcl/encoding.h"
+#include "zcl/to_json.h"
 #include "zcl/zcl.h"
 #include "znp/encoding.h"
 #include "znp/znp_api.h"
@@ -200,11 +201,12 @@ void AfIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
                              ieee_addr % (unsigned int)SrcEndpoint %
                              zcl::to_string((zcl::ZclClusterId)ClusterId) %
                              (unsigned int)std::get<0>(attribute));
-              std::stringstream message_stream;
-              message_stream << std::get<1>(attribute);
-              publishes.push_back(
-                  mqtt_wrapper->Publish(topic_name, message_stream.str(),
-                                        mqtt::qos::at_least_once, true));
+              tao::json::value json_value(zcl::to_json(std::get<1>(attribute)));
+              std::string message_content(tao::json::to_string(json_value));
+              LOG("MSG", debug)
+                  << "Publishing to " << topic_name << ": " << message_content;
+              publishes.push_back(mqtt_wrapper->Publish(
+                  topic_name, message_content, mqtt::qos::at_least_once, true));
             }
             return stlab::when_all(
                 stlab::immediate_executor,

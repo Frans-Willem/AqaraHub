@@ -293,6 +293,8 @@ class DataTypeHelper<DataType::_struct> {
   typedef std::vector<ZclVariant> Type;
 };
 
+template <typename T>
+struct to_json_helper;
 class ZclVariant {
  public:
   ZclVariant() { type_ = DataType::nodata; }
@@ -320,6 +322,7 @@ class ZclVariant {
   DataType type_;
 
   friend class znp::EncodeHelper<zcl::ZclVariant>;
+  friend class zcl::to_json_helper<zcl::ZclVariant>;
   friend std::ostream& operator<<(std::ostream& stream,
                                   const ZclVariant& variant);
 };
