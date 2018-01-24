@@ -146,6 +146,8 @@ enum class DataType : uint8_t {
   key128 = 0xf1,
   unk = 0xff
 };
+std::string to_string(const DataType& datatype);
+
 template <DataType T>
 class DataTypeHelper;
 
