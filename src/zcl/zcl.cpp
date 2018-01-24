@@ -20,8 +20,8 @@ std::ostream& operator<<(std::ostream& stream, const ZclDirection& direction) {
       return stream << "ClientToServer";
     case ZclDirection::ServerToClient:
       return stream << "ServerToClient";
-	default:
-	  return stream << "ZclDirection(" << (unsigned int)direction << ")";
+    default:
+      return stream << "ZclDirection(" << (unsigned int)direction << ")";
   }
 }
 
@@ -97,7 +97,8 @@ std::string to_string(const ZclClusterId& cluster_id) {
     case ZclClusterId::Diagnostics:
       return "Diagnostics";
     default:
-      return boost::str(boost::format("ZclClusterId(%04X)") % (unsigned int)cluster_id);
+      return boost::str(boost::format("ZclClusterId(%04X)") %
+                        (unsigned int)cluster_id);
   }
 }
 
