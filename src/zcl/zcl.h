@@ -149,7 +149,9 @@ enum class DataType : uint8_t {
 std::string to_string(const DataType& datatype);
 
 template <DataType DT>
-struct DataTypeHelper {};
+struct DataTypeHelper {
+  typedef void Type;
+};
 template <>
 struct DataTypeHelper<DataType::nodata> {
   typedef void Type;
@@ -255,13 +257,72 @@ struct DataTypeHelper<DataType::int64> {
   typedef int64_t Type;
 };
 template <>
+struct DataTypeHelper<DataType::octstr> {
+  typedef std::string Type;
+};
+template <>
 struct DataTypeHelper<DataType::string> {
+  typedef std::string Type;
+};
+template <>
+struct DataTypeHelper<DataType::octstr16> {
+  typedef std::string Type;
+};
+template <>
+struct DataTypeHelper<DataType::string16> {
   typedef std::string Type;
 };
 class ZclVariant;
 template <>
 struct DataTypeHelper<DataType::_struct> {
   typedef std::vector<ZclVariant> Type;
+};
+
+// Helper template-magic to check if type T is contained in types R...
+template <typename T, typename... R>
+struct TypeContained;
+template <typename T>
+struct TypeContained<T> : std::false_type {};
+template <typename T, typename... R>
+struct TypeContained<T, T, R...> : std::true_type {};
+template <typename T, typename T2, typename... R>
+struct TypeContained<T, T2, R...> : TypeContained<T, R...> {};
+
+// Combines a type T, with a boost::variant<...>, to a combined boost::variant
+// voids are ignored, and passing void instead of a boost::variant as the second
+// parameter attempts to create a new boost::variant.
+template <typename T, typename V>
+struct AddTypeToVariantHelper;
+template <typename T, typename... R>
+struct AddTypeToVariantHelper<T, boost::variant<R...>> {
+  typedef typename std::conditional<
+      TypeContained<T, R...>::value || std::is_void<T>::value,
+      boost::variant<R...>, boost::variant<T, R...>>::type Type;
+};
+template <typename T>
+struct AddTypeToVariantHelper<T, void> {
+  typedef boost::variant<T> Type;
+};
+template <>
+struct AddTypeToVariantHelper<void, void> {
+  typedef void Type;
+};
+
+// Create a boost::variant able to hold all types corresponding to to DataTypes
+// from begin to end (inclusive)
+template <DataType begin, DataType end>
+struct DataTypeVariantHelper;
+template <DataType DT>
+struct DataTypeVariantHelper<DT, DT> {
+  typedef typename AddTypeToVariantHelper<typename DataTypeHelper<DT>::Type,
+                                          void>::Type Type;
+};
+template <DataType B, DataType E>
+struct DataTypeVariantHelper {
+  typedef typename AddTypeToVariantHelper<
+      typename DataTypeHelper<B>::Type,
+      typename DataTypeVariantHelper<(DataType)((uint8_t)B + 1), E>::Type>::Type
+      Type;
 };
 
 template <typename T>
@@ -286,10 +347,7 @@ class ZclVariant {
   }
 
  private:
-  boost::variant<bool, uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,
-                 int32_t, int64_t, std::bitset<8>, std::string,
-                 std::vector<ZclVariant>>
-      data_;
+  typename DataTypeVariantHelper<DataType::nodata, DataType::unk>::Type data_;
   DataType type_;
 
   friend class znp::EncodeHelper<zcl::ZclVariant>;
