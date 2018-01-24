@@ -97,7 +97,7 @@ std::string to_string(const ZclClusterId& cluster_id) {
     case ZclClusterId::Diagnostics:
       return "Diagnostics";
     default:
-      return boost::str(boost::format("ZclClusterId(%04X)") % cluster_id);
+      return boost::str(boost::format("ZclClusterId(%04X)") % (unsigned int)cluster_id);
   }
 }
 
