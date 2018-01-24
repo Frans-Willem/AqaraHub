@@ -97,21 +97,26 @@ stlab::future<void> WriteFullConfiguration(std::shared_ptr<znp::ZnpApi> api,
           config.zdo_direct_cb));
 }
 
-void Initialize(coro::Await await, std::shared_ptr<znp::ZnpApi> api) {
+void Initialize(coro::Await await, std::shared_ptr<znp::ZnpApi> api,
+                std::array<uint8_t, 16> presharedkey) {
   LOG("Initialize", debug)
       << "Doing initial reset, without clearing config or state";
   await(api->SapiWriteConfiguration<znp::ConfigurationOption::STARTUP_OPTION>(
       znp::StartupOption::None));
   std::ignore = await(api->SysReset(true));
   LOG("Initialize", debug) << "Building desired configuration";
+  auto coord_ieee_addr =
+      await(api->SapiGetDeviceInfo<znp::DeviceInfo::DeviceIEEEAddress>());
+  LOG("Initialize", debug) << "Device IEEE Address: " << std::hex
+                           << coord_ieee_addr;
   FullConfiguration desired_config;
   desired_config.startup_option = znp::StartupOption::None;
-  desired_config.pan_id = 0x1A62;
-  desired_config.extended_pan_id = 0xDDDDDDDDDDDDDDDD;
-  desired_config.chan_list = 0x800;
+  desired_config.pan_id = coord_ieee_addr & 0xFFFF;
+  desired_config.extended_pan_id = coord_ieee_addr;
+  // TODO: Not entirely sure how to pick a right value for this.
+  desired_config.chan_list = 0x0800;
   desired_config.logical_type = znp::LogicalType::Coordinator;
-  desired_config.presharedkey = std::array<uint8_t, 16>(
-      {{1, 3, 5, 7, 9, 11, 13, 15, 0, 2, 4, 6, 8, 10, 12, 13}});
+  desired_config.presharedkey = presharedkey;
   desired_config.precfgkeys_enable = false;
   desired_config.zdo_direct_cb = true;
   LOG("Initialize", debug) << "Verifying full configuration";
@@ -304,6 +309,9 @@ int main(int argc, const char** argv) {
     ("topic,t",
      boost::program_options::value<std::string>()->default_value("AqaraHub"),
      "MQTT Root topic, e.g. AqaraHub")
+    ("psk",
+     boost::program_options::value<std::string>()->default_value("AqaraHub"),
+     "Zigbee Network pre-shared key. Maximum 16 characters, will be truncated when longer")
     ;
   // clang-format on
   boost::program_options::variables_map variables;
@@ -362,8 +370,18 @@ int main(int argc, const char** argv) {
 
   // Reset device
   LOG("Main", info) << "Initializing ZNP device";
+  std::string presharedkey_str(variables["psk"].as<std::string>());
+  std::array<uint8_t, 16> presharedkey;
+  presharedkey.fill(0);
+  std::copy_n(presharedkey_str.begin(),
+              std::min(presharedkey.size(), presharedkey_str.size()),
+              presharedkey.begin());
 
-  coro::Run(AsioExecutor(io_service), Initialize, api)
+  LOG("Main", info) << "Using PSK "
+                    << boost::log::dump(presharedkey.data(),
+                                        presharedkey.size());
+
+  coro::Run(AsioExecutor(io_service), Initialize, api, presharedkey)
       .then([]() { LOG("Main", info) << "Initialization complete!"; })
       .recover([](stlab::future<void> v) {
         LOG("Main", info) << "In final handler";
