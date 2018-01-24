@@ -4,3 +4,6 @@
 [submodule "submodules/stlab-libraries"]
 	path = submodules/stlab-libraries
 	url = https://github.com/stlab/libraries.git
+[submodule "submodules/taocpp-json"]
+	path = submodules/taocpp-json
+	url = https://github.com/taocpp/json.git

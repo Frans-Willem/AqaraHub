@@ -37,6 +37,16 @@ target_include_directories(mqtt_cpp INTERFACE ${MQTT_CPP_INCLUDE_DIRS})
 find_package(OpenSSL REQUIRED)
 target_link_libraries(mqtt_cpp INTERFACE OpenSSL::SSL)
 
+find_path(TAO_JSON_INCLUDE_DIRS NAMES tao/json.hpp PATHS ${CMAKE_SOURCE_DIR}/submodules/taocpp-json/include)
+if(NOT TAO_JSON_INCLUDE_DIRS)
+	message(FATAL_ERROR "taocpp-json not found")
+else()
+	message(STATUS "taocpp-json found at: ${TAO_JSON_INCLUDE_DIRS}")
+endif()
+add_library(taocpp_json INTERFACE)
+target_include_directories(taocpp_json INTERFACE ${TAO_JSON_INCLUDE_DIRS})
+add_library(taocpp::json ALIAS taocpp_json)
+
 # std::auto_ptr doesn't exist in C++17, so disable it just in case.
 add_definitions(-DBOOST_NO_AUTO_PTR)
 
@@ -59,6 +69,7 @@ target_link_libraries(AqaraHub Boost::log)
 target_link_libraries(AqaraHub Boost::program_options)
 target_link_libraries(AqaraHub Boost::coroutine)
 target_link_libraries(AqaraHub Threads::Threads)
+target_link_libraries(AqaraHub taocpp::json)
 
 add_executable(tests
     src/asio_executor.cpp
