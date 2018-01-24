@@ -148,148 +148,119 @@ enum class DataType : uint8_t {
 };
 std::string to_string(const DataType& datatype);
 
-template <DataType T>
-class DataTypeHelper;
-
+template <DataType DT>
+struct DataTypeHelper {};
 template <>
-class DataTypeHelper<DataType::nodata> {
- public:
+struct DataTypeHelper<DataType::nodata> {
   typedef void Type;
 };
 template <>
-class DataTypeHelper<DataType::_bool> {
- public:
+struct DataTypeHelper<DataType::_bool> {
   typedef bool Type;
 };
 template <>
-class DataTypeHelper<DataType::map8> {
- public:
+struct DataTypeHelper<DataType::map8> {
   typedef std::bitset<8> Type;
 };
 template <>
-class DataTypeHelper<DataType::map16> {
- public:
+struct DataTypeHelper<DataType::map16> {
   typedef std::bitset<16> Type;
 };
 template <>
-class DataTypeHelper<DataType::map24> {
- public:
+struct DataTypeHelper<DataType::map24> {
   typedef std::bitset<24> Type;
 };
 template <>
-class DataTypeHelper<DataType::map32> {
- public:
+struct DataTypeHelper<DataType::map32> {
   typedef std::bitset<32> Type;
 };
 template <>
-class DataTypeHelper<DataType::map40> {
- public:
+struct DataTypeHelper<DataType::map40> {
   typedef std::bitset<40> Type;
 };
 template <>
-class DataTypeHelper<DataType::map48> {
- public:
+struct DataTypeHelper<DataType::map48> {
   typedef std::bitset<48> Type;
 };
 template <>
-class DataTypeHelper<DataType::map56> {
- public:
+struct DataTypeHelper<DataType::map56> {
   typedef std::bitset<56> Type;
 };
 template <>
-class DataTypeHelper<DataType::map64> {
- public:
+struct DataTypeHelper<DataType::map64> {
   typedef std::bitset<64> Type;
 };
 template <>
-class DataTypeHelper<DataType::uint8> {
- public:
+struct DataTypeHelper<DataType::uint8> {
   typedef uint8_t Type;
 };
 template <>
-class DataTypeHelper<DataType::uint16> {
- public:
+struct DataTypeHelper<DataType::uint16> {
   typedef uint16_t Type;
 };
 template <>
-class DataTypeHelper<DataType::uint24> {
- public:
+struct DataTypeHelper<DataType::uint24> {
   typedef uint32_t Type;
 };
 template <>
-class DataTypeHelper<DataType::uint32> {
- public:
+struct DataTypeHelper<DataType::uint32> {
   typedef uint32_t Type;
 };
 template <>
-class DataTypeHelper<DataType::uint40> {
- public:
+struct DataTypeHelper<DataType::uint40> {
   typedef uint64_t Type;
 };
 template <>
-class DataTypeHelper<DataType::uint48> {
- public:
+struct DataTypeHelper<DataType::uint48> {
   typedef uint64_t Type;
 };
 template <>
-class DataTypeHelper<DataType::uint56> {
- public:
+struct DataTypeHelper<DataType::uint56> {
   typedef uint64_t Type;
 };
 template <>
-class DataTypeHelper<DataType::uint64> {
- public:
+struct DataTypeHelper<DataType::uint64> {
   typedef uint64_t Type;
 };
 template <>
-class DataTypeHelper<DataType::int8> {
- public:
+struct DataTypeHelper<DataType::int8> {
   typedef int8_t Type;
 };
 template <>
-class DataTypeHelper<DataType::int16> {
- public:
+struct DataTypeHelper<DataType::int16> {
   typedef int16_t Type;
 };
 template <>
-class DataTypeHelper<DataType::int24> {
- public:
+struct DataTypeHelper<DataType::int24> {
   typedef int32_t Type;
 };
 template <>
-class DataTypeHelper<DataType::int32> {
- public:
+struct DataTypeHelper<DataType::int32> {
   typedef int32_t Type;
 };
 template <>
-class DataTypeHelper<DataType::int40> {
- public:
+struct DataTypeHelper<DataType::int40> {
   typedef int64_t Type;
 };
 template <>
-class DataTypeHelper<DataType::int48> {
- public:
+struct DataTypeHelper<DataType::int48> {
   typedef int64_t Type;
 };
 template <>
-class DataTypeHelper<DataType::int56> {
- public:
+struct DataTypeHelper<DataType::int56> {
   typedef int64_t Type;
 };
 template <>
-class DataTypeHelper<DataType::int64> {
- public:
+struct DataTypeHelper<DataType::int64> {
   typedef int64_t Type;
 };
 template <>
-class DataTypeHelper<DataType::string> {
- public:
+struct DataTypeHelper<DataType::string> {
   typedef std::string Type;
 };
 class ZclVariant;
 template <>
-class DataTypeHelper<DataType::_struct> {
- public:
+struct DataTypeHelper<DataType::_struct> {
   typedef std::vector<ZclVariant> Type;
 };
 
