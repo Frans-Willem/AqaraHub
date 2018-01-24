@@ -1,8 +1,297 @@
 #ifndef _ZCL_ENCODING_H_
 #define _ZCL_ENCODING_H_
+#include <boost/format.hpp>
 #include "zcl/zcl.h"
 #include "znp/encoding.h"
 
+namespace zcl {
+// Template magic to define how to encode/decode a value of a specific datatype
+template <DataType DT>
+struct DataTypeEncodeHelper {
+  template <typename... T>
+  static inline std::size_t GetSize(const boost::variant<T...>& value) {
+    throw std::runtime_error(boost::str(
+        boost::format("Encoding/decoding for datatype %s not yet implemented") %
+        to_string(DT)));
+  }
+  template <typename... T>
+  static inline void Encode(const boost::variant<T...>& value,
+                            znp::EncodeTarget::iterator& begin,
+                            znp::EncodeTarget::iterator end) {
+    throw std::runtime_error(boost::str(
+        boost::format("Encoding/decoding for datatype %s not yet implemented") %
+        to_string(DT)));
+  }
+  template <typename... T>
+  static inline void Decode(boost::variant<T...>& value,
+                            znp::EncodeTarget::const_iterator& begin,
+                            znp::EncodeTarget::const_iterator& end) {
+    throw std::runtime_error(boost::str(
+        boost::format("Encoding/decoding for datatype %s not yet implemented") %
+        to_string(DT)));
+  }
+};
+// Normal encode helper for a datatype
+template <DataType DT>
+struct NormalDataTypeEncodeHelper {
+  typedef typename DataTypeHelper<DT>::Type Type;
+  template <typename... T>
+  static inline std::size_t GetSize(const boost::variant<T...>& value) {
+    return znp::EncodeHelper<Type>::GetSize(boost::get<Type>(value));
+  }
+  template <typename... T>
+  static inline void Encode(const boost::variant<T...>& value,
+                            znp::EncodeTarget::iterator& begin,
+                            znp::EncodeTarget::iterator end) {
+    znp::EncodeHelper<Type>::Encode(boost::get<Type>(value), begin, end);
+  }
+  template <typename... T>
+  static inline void Decode(boost::variant<T...>& value,
+                            znp::EncodeTarget::const_iterator& begin,
+                            znp::EncodeTarget::const_iterator& end) {
+    Type typed_value;
+    znp::EncodeHelper<Type>::Decode(typed_value, begin, end);
+    value = typed_value;
+  }
+};
+// Encode helper for (u)intXX
+template <DataType DT, std::size_t N>
+struct IntDataTypeEncodeHelper {
+  typedef typename DataTypeHelper<DT>::Type Type;
+  typedef typename std::make_unsigned<Type>::type UType;
+  template <typename... T>
+  static inline std::size_t GetSize(const boost::variant<T...>& value) {
+    return N / 8;
+  }
+  template <typename... T>
+  static inline void Encode(const boost::variant<T...>& value,
+                            znp::EncodeTarget::iterator& begin,
+                            znp::EncodeTarget::iterator end) {
+    UType unsigned_value = (UType)boost::get<Type>(value);
+    for (std::size_t shift = 0; shift < N; shift += 8) {
+      if (begin == end) {
+        throw std::runtime_error("Not enough space to encode ZCL integer");
+      }
+      *(begin++) = (uint8_t)((unsigned_value >> shift) & 0xFF);
+    }
+  }
+  template <typename... T>
+  static inline void Decode(boost::variant<T...>& value,
+                            znp::EncodeTarget::const_iterator& begin,
+                            znp::EncodeTarget::const_iterator end) {
+    UType unsigned_value = 0;
+    for (std::size_t shift = 0; shift < N; shift += 8) {
+      if (begin == end) {
+        throw std::runtime_error("Not enough space to decode ZCL integer");
+      }
+      unsigned_value |= ((UType) * (begin++)) << shift;
+    }
+    value = (Type)unsigned_value;
+  }
+};
+// Encode helper for octstr, string, octstr16, string16
+// LT = Length type (e.g. uint8_t or uint16_t)
+template <DataType DT, typename LT>
+struct VectorDataTypeEncodeHelper {
+  typedef typename DataTypeHelper<DT>::Type Type;
+  typedef typename Type::value_type ElType;
+
+  template <typename... T>
+  static inline std::size_t GetSize(const boost::variant<T...>& value) {
+    const auto& typed_value = boost::get<Type>(value);
+    auto length = typed_value.size();
+    std::size_t size = znp::EncodeHelper<LT>::GetSize((LT)length);
+    for (const auto& item : typed_value) {
+      size += znp::EncodeHelper<ElType>::GetSize(item);
+    }
+    return size;
+  }
+  template <typename... T>
+  static inline void Encode(const boost::variant<T...>& value,
+                            znp::EncodeTarget::iterator& begin,
+                            znp::EncodeTarget::iterator end) {
+    const auto& typed_value = boost::get<Type>(value);
+    auto length = typed_value.size();
+    znp::EncodeHelper<LT>::Encode((LT)length, begin, end);
+    for (const auto& item : typed_value) {
+      znp::EncodeHelper<ElType>::Encode(item, begin, end);
+    }
+  }
+  template <typename... T>
+  static inline void Decode(boost::variant<T...>& value,
+                            znp::EncodeTarget::const_iterator& begin,
+                            znp::EncodeTarget::const_iterator end) {
+    Type typed_value;
+    LT length = 0;
+    znp::EncodeHelper<LT>::Decode(length, begin, end);
+    typed_value.resize(length);
+    for (auto& item : typed_value) {
+      znp::EncodeHelper<ElType>::Decode(item, begin, end);
+    }
+    value = typed_value;
+  }
+};
+
+template <>
+struct DataTypeEncodeHelper<DataType::_bool>
+    : NormalDataTypeEncodeHelper<DataType::_bool> {};
+template <>
+struct DataTypeEncodeHelper<DataType::map8>
+    : NormalDataTypeEncodeHelper<DataType::map8> {};
+template <>
+struct DataTypeEncodeHelper<DataType::map16>
+    : NormalDataTypeEncodeHelper<DataType::map16> {};
+template <>
+struct DataTypeEncodeHelper<DataType::map24>
+    : NormalDataTypeEncodeHelper<DataType::map24> {};
+template <>
+struct DataTypeEncodeHelper<DataType::map32>
+    : NormalDataTypeEncodeHelper<DataType::map32> {};
+template <>
+struct DataTypeEncodeHelper<DataType::map40>
+    : NormalDataTypeEncodeHelper<DataType::map40> {};
+template <>
+struct DataTypeEncodeHelper<DataType::map56>
+    : NormalDataTypeEncodeHelper<DataType::map56> {};
+template <>
+struct DataTypeEncodeHelper<DataType::map64>
+    : NormalDataTypeEncodeHelper<DataType::map64> {};
+template <>
+struct DataTypeEncodeHelper<DataType::uint8>
+    : IntDataTypeEncodeHelper<DataType::uint8, 8> {};
+template <>
+struct DataTypeEncodeHelper<DataType::uint16>
+    : IntDataTypeEncodeHelper<DataType::uint16, 16> {};
+template <>
+struct DataTypeEncodeHelper<DataType::uint24>
+    : IntDataTypeEncodeHelper<DataType::uint24, 24> {};
+template <>
+struct DataTypeEncodeHelper<DataType::uint32>
+    : IntDataTypeEncodeHelper<DataType::uint32, 32> {};
+template <>
+struct DataTypeEncodeHelper<DataType::uint40>
+    : IntDataTypeEncodeHelper<DataType::uint40, 40> {};
+template <>
+struct DataTypeEncodeHelper<DataType::uint48>
+    : IntDataTypeEncodeHelper<DataType::uint48, 48> {};
+template <>
+struct DataTypeEncodeHelper<DataType::uint56>
+    : IntDataTypeEncodeHelper<DataType::uint56, 56> {};
+template <>
+struct DataTypeEncodeHelper<DataType::uint64>
+    : IntDataTypeEncodeHelper<DataType::uint64, 64> {};
+template <>
+struct DataTypeEncodeHelper<DataType::int8>
+    : IntDataTypeEncodeHelper<DataType::int8, 8> {};
+template <>
+struct DataTypeEncodeHelper<DataType::int16>
+    : IntDataTypeEncodeHelper<DataType::int16, 16> {};
+template <>
+struct DataTypeEncodeHelper<DataType::int24>
+    : IntDataTypeEncodeHelper<DataType::int24, 24> {};
+template <>
+struct DataTypeEncodeHelper<DataType::int32>
+    : IntDataTypeEncodeHelper<DataType::int32, 32> {};
+template <>
+struct DataTypeEncodeHelper<DataType::int40>
+    : IntDataTypeEncodeHelper<DataType::int40, 40> {};
+template <>
+struct DataTypeEncodeHelper<DataType::int48>
+    : IntDataTypeEncodeHelper<DataType::int48, 48> {};
+template <>
+struct DataTypeEncodeHelper<DataType::int56>
+    : IntDataTypeEncodeHelper<DataType::int56, 56> {};
+template <>
+struct DataTypeEncodeHelper<DataType::int64>
+    : IntDataTypeEncodeHelper<DataType::int64, 64> {};
+template <>
+struct DataTypeEncodeHelper<DataType::octstr>
+    : VectorDataTypeEncodeHelper<DataType::octstr, std::uint8_t> {};
+template <>
+struct DataTypeEncodeHelper<DataType::string>
+    : VectorDataTypeEncodeHelper<DataType::string, std::uint8_t> {};
+template <>
+struct DataTypeEncodeHelper<DataType::octstr16>
+    : VectorDataTypeEncodeHelper<DataType::octstr16, std::uint16_t> {};
+template <>
+struct DataTypeEncodeHelper<DataType::string16>
+    : VectorDataTypeEncodeHelper<DataType::string16, std::uint16_t> {};
+template <>
+struct DataTypeEncodeHelper<DataType::_struct>
+    : VectorDataTypeEncodeHelper<DataType::_struct, std::uint16_t> {};
+
+// Template magic to select the proper DataTypeEncodeHelper from a run-time
+// type.
+template <DataType MIN, DataType MAX>
+struct VariantEncodeHelper;
+template <DataType DT>
+struct VariantEncodeHelper<DT, DT> {
+  template <typename... T>
+  static inline std::size_t GetSize(DataType type,
+                                    const boost::variant<T...>& value) {
+    if (type != DT) {
+      throw std::runtime_error("DataType did not match!");
+    }
+    return DataTypeEncodeHelper<DT>::GetSize(value);
+  }
+  template <typename... T>
+  static inline void Encode(DataType type, const boost::variant<T...>& value,
+                            znp::EncodeTarget::iterator& begin,
+                            znp::EncodeTarget::iterator end) {
+    if (type != DT) {
+      throw std::runtime_error("DataType did not match!");
+    }
+    DataTypeEncodeHelper<DT>::Encode(value, begin, end);
+  }
+  template <typename... T>
+  static inline void Decode(DataType type, boost::variant<T...>& value,
+                            znp::EncodeTarget::const_iterator& begin,
+                            znp::EncodeTarget::const_iterator& end) {
+    if (type != DT) {
+      throw std::runtime_error("DataType did not match!");
+    }
+    DataTypeEncodeHelper<DT>::Decode(value, begin, end);
+  }
+};
+template <DataType MIN, DataType MAX>
+struct VariantEncodeHelper {
+  template <typename... T>
+  static inline std::size_t GetSize(DataType type,
+                                    const boost::variant<T...>& value) {
+    constexpr uint8_t mid = (((uint8_t)MIN) + ((uint8_t)MAX)) / 2;
+    if ((uint8_t)type > mid) {
+      return VariantEncodeHelper<(DataType)(mid + 1), MAX>::GetSize(type,
+                                                                    value);
+    } else {
+      return VariantEncodeHelper<MIN, (DataType)mid>::GetSize(type, value);
+    }
+  }
+  template <typename... T>
+  static inline void Encode(DataType type, const boost::variant<T...>& value,
+                            znp::EncodeTarget::iterator& begin,
+                            znp::EncodeTarget::iterator end) {
+    constexpr uint8_t mid = (((uint8_t)MIN) + ((uint8_t)MAX)) / 2;
+    if ((uint8_t)type > mid) {
+      VariantEncodeHelper<(DataType)(mid + 1), MAX>::Encode(type, value, begin,
+                                                            end);
+    } else {
+      VariantEncodeHelper<MIN, (DataType)mid>::Encode(type, value, begin, end);
+    }
+  }
+  template <typename... T>
+  static inline void Decode(DataType type, boost::variant<T...>& value,
+                            znp::EncodeTarget::const_iterator& begin,
+                            znp::EncodeTarget::const_iterator& end) {
+    constexpr uint8_t mid = (((uint8_t)MIN) + ((uint8_t)MAX)) / 2;
+    if ((uint8_t)type > mid) {
+      VariantEncodeHelper<(DataType)(mid + 1), MAX>::Decode(type, value, begin,
+                                                            end);
+    } else {
+      VariantEncodeHelper<MIN, (DataType)mid>::Decode(type, value, begin, end);
+    }
+  }
+};
+}  // namespace zcl
 namespace znp {
 template <>
 class EncodeHelper<zcl::ZclFrame> {
@@ -63,161 +352,27 @@ class EncodeHelper<zcl::ZclFrame> {
 };
 template <>
 class EncodeHelper<zcl::ZclVariant> {
- private:
-  template <zcl::DataType T>
-  static inline void DefaultDecode(zcl::ZclVariant& variant,
-                                   EncodeTarget::const_iterator& begin,
-                                   EncodeTarget::const_iterator end) {
-    typename zcl::DataTypeHelper<T>::Type value;
-    EncodeHelper<typename zcl::DataTypeHelper<T>::Type>::Decode(value, begin,
-                                                                end);
-    variant.data_ = value;
-  }
-  template <zcl::DataType T, std::size_t N>
-  static inline std::enable_if_t<
-      std::is_integral<typename zcl::DataTypeHelper<T>::Type>::value &&
-      std::is_unsigned<typename zcl::DataTypeHelper<T>::Type>::value>
-  IntDecode(zcl::ZclVariant& variant, EncodeTarget::const_iterator& begin,
-            EncodeTarget::const_iterator end) {
-    typedef typename zcl::DataTypeHelper<T>::Type VT;
-    VT value = 0;
-    for (std::size_t shift = 0; shift < N; shift += 8) {
-      if (begin == end) {
-        throw std::runtime_error(
-            "Not enough data to decode ZCL unsigned integer");
-      }
-      value |= ((VT) * (begin++)) << shift;
-    }
-    variant.data_ = value;
-  }
-  template <zcl::DataType T, std::size_t N>
-  static inline std::enable_if_t<
-      std::is_integral<typename zcl::DataTypeHelper<T>::Type>::value &&
-      std::is_signed<typename zcl::DataTypeHelper<T>::Type>::value>
-  IntDecode(zcl::ZclVariant& variant, EncodeTarget::const_iterator& begin,
-            EncodeTarget::const_iterator end) {
-    typedef typename zcl::DataTypeHelper<T>::Type VT;
-    typedef typename std::make_unsigned<VT>::type UVT;
-    UVT value = 0;
-    for (std::size_t shift = 0; shift < N; shift += 8) {
-      if (begin == end) {
-        throw std::runtime_error("Not enough data to decode ZCL integer");
-      }
-      value |= ((UVT) * (begin++)) << shift;
-    }
-    variant.data_ = (VT)value;
-  }
-
  public:
   static inline std::size_t GetSize(const zcl::ZclVariant& variant) {
-    switch (variant.type_) {
-      default:
-        LOG("Encoding", critical) << "(GetSize) Unsupported variant type: 0x"
-                                  << std::hex << (unsigned int)variant.type_;
-        throw std::runtime_error("Unsupported variant type");
-        return 0;
-    }
+    return EncodeHelper<zcl::DataType>::GetSize(variant.type_) +
+           zcl::VariantEncodeHelper<zcl::DataType::nodata,
+                                    zcl::DataType::unk>::GetSize(variant.type_,
+                                                                 variant.data_);
   }
   static inline void Encode(const zcl::ZclVariant& variant,
                             EncodeTarget::iterator& begin,
                             EncodeTarget::iterator end) {
     EncodeHelper<zcl::DataType>::Encode(variant.type_, begin, end);
-    switch (variant.type_) {
-      default:
-        LOG("Encoding", critical) << "(Encode) Unsupported variant type: 0x"
-                                  << std::hex << (unsigned int)variant.type_;
-        throw std::runtime_error("Unsupported variant type");
-    }
+    zcl::VariantEncodeHelper<zcl::DataType::nodata, zcl::DataType::unk>::Encode(
+        variant.type_, variant.data_, begin, end);
   }
 
   static inline void Decode(zcl::ZclVariant& variant,
                             EncodeTarget::const_iterator& begin,
                             EncodeTarget::const_iterator end) {
     EncodeHelper<zcl::DataType>::Decode(variant.type_, begin, end);
-    switch (variant.type_) {
-      case zcl::DataType::nodata:
-        break;
-      case zcl::DataType::map8:
-        DefaultDecode<zcl::DataType::map8>(variant, begin, end);
-        break;
-      case zcl::DataType::_bool:
-        DefaultDecode<zcl::DataType::_bool>(variant, begin, end);
-        break;
-      case zcl::DataType::uint8:
-        IntDecode<zcl::DataType::uint8, 8>(variant, begin, end);
-        break;
-      case zcl::DataType::uint16:
-        IntDecode<zcl::DataType::uint16, 16>(variant, begin, end);
-        break;
-      case zcl::DataType::uint24:
-        IntDecode<zcl::DataType::uint24, 24>(variant, begin, end);
-        break;
-      case zcl::DataType::uint32:
-        IntDecode<zcl::DataType::uint32, 32>(variant, begin, end);
-        break;
-      case zcl::DataType::uint40:
-        IntDecode<zcl::DataType::uint40, 40>(variant, begin, end);
-        break;
-      case zcl::DataType::uint48:
-        IntDecode<zcl::DataType::uint48, 48>(variant, begin, end);
-        break;
-      case zcl::DataType::uint56:
-        IntDecode<zcl::DataType::uint56, 56>(variant, begin, end);
-        break;
-      case zcl::DataType::uint64:
-        IntDecode<zcl::DataType::uint64, 64>(variant, begin, end);
-        break;
-      case zcl::DataType::int8:
-        IntDecode<zcl::DataType::int8, 8>(variant, begin, end);
-        break;
-      case zcl::DataType::int16:
-        IntDecode<zcl::DataType::int16, 16>(variant, begin, end);
-        break;
-      case zcl::DataType::int24:
-        IntDecode<zcl::DataType::int24, 24>(variant, begin, end);
-        break;
-      case zcl::DataType::int32:
-        IntDecode<zcl::DataType::int32, 32>(variant, begin, end);
-        break;
-      case zcl::DataType::int40:
-        IntDecode<zcl::DataType::int40, 40>(variant, begin, end);
-        break;
-      case zcl::DataType::int48:
-        IntDecode<zcl::DataType::int48, 48>(variant, begin, end);
-        break;
-      case zcl::DataType::int56:
-        IntDecode<zcl::DataType::int56, 56>(variant, begin, end);
-        break;
-      case zcl::DataType::int64:
-        IntDecode<zcl::DataType::int64, 64>(variant, begin, end);
-        break;
-      case zcl::DataType::string: {
-        uint8_t length;
-        EncodeHelper<uint8_t>::Decode(length, begin, end);
-        if (end - begin < length) {
-          throw std::runtime_error("Not enough data for ZCL string");
-        }
-        variant.data_ = std::string(begin, begin + length);
-        begin = begin + length;
-        break;
-      }
-      case zcl::DataType::_struct: {
-        uint16_t length;
-        EncodeHelper<uint16_t>::Decode(length, begin, end);
-        std::vector<zcl::ZclVariant> value((std::size_t)length);
-        for (auto& item : value) {
-          EncodeHelper<zcl::ZclVariant>::Decode(item, begin, end);
-        }
-        LOG("Encoding", debug)
-            << "Length: " << length << ", Size: " << value.size();
-        variant.data_ = value;
-        break;
-      }
-      default:
-        LOG("Encoding", critical) << "(Decode) Unsupported variant type: 0x"
-                                  << std::hex << (unsigned int)variant.type_;
-        throw std::runtime_error("Unsupported variant type");
-    }
+    zcl::VariantEncodeHelper<zcl::DataType::nodata, zcl::DataType::unk>::Decode(
+        variant.type_, variant.data_, begin, end);
   }
 };
 }  // namespace znp
