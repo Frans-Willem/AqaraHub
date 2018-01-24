@@ -201,7 +201,8 @@ void AfIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
                              ieee_addr % (unsigned int)SrcEndpoint %
                              zcl::to_string((zcl::ZclClusterId)ClusterId) %
                              (unsigned int)std::get<0>(attribute));
-              tao::json::value json_value(zcl::to_json(std::get<1>(attribute)));
+              tao::json::value json_value(
+                  zcl::to_json(std::get<1>(attribute), true));
               std::string message_content(tao::json::to_string(json_value));
               LOG("MSG", debug)
                   << "Publishing to " << topic_name << ": " << message_content;
