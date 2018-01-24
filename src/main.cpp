@@ -220,7 +220,7 @@ void AfIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
             try {
               f.get_try();
             } catch (const std::exception& ex) {
-              LOG("MSG", debug) << "Exception while handling message";
+              LOG("MSG", debug) << "Exception while handling message:" << ex.what();
               return;
             }
             LOG("MSG", debug) << "Attributes reported to MQTT";
