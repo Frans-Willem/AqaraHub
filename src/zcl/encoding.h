@@ -2,6 +2,7 @@
 #define _ZCL_ENCODING_H_
 #include <boost/format.hpp>
 #include "zcl/zcl.h"
+#include "zcl/zcl_string_enum.h"
 #include "znp/encoding.h"
 
 namespace zcl {
@@ -12,7 +13,7 @@ struct DataTypeEncodeHelper {
   static inline std::size_t GetSize(const boost::variant<T...>& value) {
     throw std::runtime_error(boost::str(
         boost::format("Encoding/decoding for datatype %s not yet implemented") %
-        to_string(DT)));
+        enum_to_string(DT)));
   }
   template <typename... T>
   static inline void Encode(const boost::variant<T...>& value,
@@ -20,7 +21,7 @@ struct DataTypeEncodeHelper {
                             znp::EncodeTarget::iterator end) {
     throw std::runtime_error(boost::str(
         boost::format("Encoding/decoding for datatype %s not yet implemented") %
-        to_string(DT)));
+        enum_to_string(DT)));
   }
   template <typename... T>
   static inline void Decode(boost::variant<T...>& value,
@@ -28,7 +29,7 @@ struct DataTypeEncodeHelper {
                             znp::EncodeTarget::const_iterator& end) {
     throw std::runtime_error(boost::str(
         boost::format("Encoding/decoding for datatype %s not yet implemented") %
-        to_string(DT)));
+        enum_to_string(DT)));
   }
 };
 // Normal encode helper for a datatype

@@ -15,9 +15,11 @@
 #include "coro.h"
 #include "logging.h"
 #include "mqtt_wrapper.h"
+#include "string_enum.h"
 #include "zcl/encoding.h"
 #include "zcl/to_json.h"
 #include "zcl/zcl.h"
+#include "zcl/zcl_string_enum.h"
 #include "znp/encoding.h"
 #include "znp/znp_api.h"
 #include "znp/znp_port.h"
@@ -199,7 +201,7 @@ void AfIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
               std::string topic_name =
                   boost::str(boost::format("%s%08X/%d/%s/%04X") % mqtt_prefix %
                              ieee_addr % (unsigned int)SrcEndpoint %
-                             zcl::to_string((zcl::ZclClusterId)ClusterId) %
+                             enum_to_string((zcl::ZclClusterId)ClusterId) %
                              (unsigned int)std::get<0>(attribute));
               tao::json::value json_value(
                   zcl::to_json(std::get<1>(attribute), true));

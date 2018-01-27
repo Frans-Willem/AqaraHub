@@ -36,7 +36,7 @@ struct to_json_helper<std::vector<T>> {
 template <>
 struct to_json_helper<DataType> {
   static tao::json::value convert(const DataType& x, bool typed) {
-    return to_string(x);
+    return enum_to_string(x);
   }
 };
 
