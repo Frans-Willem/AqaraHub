@@ -87,6 +87,48 @@
 0x000A "Time"
 0x000B "RSSI Location"
 0x000C "Analog Input"
+{
+  0x001C "Description"
+  {
+    type string
+  }
+  0x0041 "MaxPresentValue"
+  {
+    type single
+  }
+  0x0045 "MinPresentValue"
+  {
+    type single
+  }
+  0x0051 "OutOfService"
+  {
+    type bool
+  }
+  0x0055 "PresentValue"
+  {
+    type single
+  }
+  0x0067 "Reliability"
+  {
+    type enum8
+  }
+  0x006A "Resolution"
+  {
+    type single
+  }
+  0x006F "StatusFlags"
+  {
+    type map8
+  }
+  0x0075 "EngineeringUnits"
+  {
+    type enum16
+  }
+  0x0100 "ApplicationType"
+  {
+    type uint32
+  }
+}
 0x000D "Analog Output"
 0x000E "Analog Value"
 0x000F "Binary Input"
