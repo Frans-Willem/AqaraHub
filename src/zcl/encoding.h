@@ -160,23 +160,20 @@ struct FloatDataTypeEncodeHelper {
     Type result;
     if (exponent == ((IT)1 << EXP) - 1) {
       if (mantissa != 0) {
-        result = NAN;
+        result = std::numeric_limits<Type>::quiet_NaN();
       } else {
-        result = is_negative ? -INFINITY : INFINITY;
+        result = is_negative ? -std::numeric_limits<Type>::infinity()
+                             : std::numeric_limits<Type>::infinity();
       }
     } else if (exponent == 0 && mantissa == 0) {
       result = 0.0;
     } else {
       IT hidden = (exponent == 0) ? 0 : mantissa_divisor;
       result = ((Type)(hidden + mantissa) / (Type)mantissa_divisor) *
-               std::pow(2.0f, (Type)exponent - (Type)half_exponent) *
-               (is_negative ? -1.0f : 1.0f);
+               std::pow((Type)2.0, (Type)exponent - (Type)half_exponent) *
+               (Type)(is_negative ? -1 : 1);
     }
     value = result;
-    std::cout << "Floating point: " << result << ", sign: " << is_negative
-              << ", exponent: " << exponent
-              << ", mantissa: " << ((Type)mantissa / (Type)mantissa_divisor)
-              << std::endl;
   }
 };
 
