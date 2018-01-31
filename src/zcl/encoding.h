@@ -299,9 +299,9 @@ class EncodeHelper<zcl::ZclFrame> {
  public:
   static inline std::size_t GetSize(const zcl::ZclFrame& value) {
     if (value.manufacturer_code) {
-      return 3 + value.payload.size();
-    } else {
       return 5 + value.payload.size();
+    } else {
+      return 3 + value.payload.size();
     }
   }
   static inline void Encode(const zcl::ZclFrame& value,
