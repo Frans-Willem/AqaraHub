@@ -59,6 +59,7 @@ add_executable(AqaraHub
 	src/logging.cpp
 	src/zcl/zcl.cpp
     src/coro.cpp
+	src/zcl/name_registry.cpp
 	)
 target_include_directories(AqaraHub PUBLIC "src")
 target_link_libraries(AqaraHub stlab)

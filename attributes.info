@@ -1,0 +1,234 @@
+0x0000 "Basic"
+{
+  0x0000 "ZCLVersion"
+  {
+    type uint8
+  }
+  0x0001 "ApplicationVersion"
+  {
+    type uint8
+  }
+  0x0002 "StackVersion"
+  {
+    type uint8
+  }
+  0x0003 "HWVersion"
+  {
+    type uint8
+  }
+  0x0004 "ManufacturerName"
+  {
+    type string
+  }
+  0x0005 "ModelIdentifier"
+  {
+    type string
+  }
+  0x0006 "DateCode"
+  {
+    type string
+  }
+  0x0007 "PowerSource"
+  {
+    type enum8
+  }
+  0x0010 "LocationDescription"
+  {
+    type string
+  }
+  0x0011 "PhysicalEnvironment"
+  {
+    type enum8
+  }
+  0x0012 "DeviceEnabled"
+  {
+    type bool
+  }
+  0x0013 "AlarmMask"
+  {
+    type map8
+  }
+  0x0014 "DisableLocalConfig"
+  {
+    type map8
+  }
+  0x4000 "SWBuildID"
+  {
+    type string
+  }
+}
+0x0001 "Power Configuration"
+0x0002 "Device Temperature Configuration"
+0x0003 "Identify"
+0x0004 "Groups"
+0x0005 "Scenes"
+0x0006 "On/Off"
+{
+  0x0000 "OnOff"
+  {
+    type bool
+  }
+  0x4000 "GlobalSceneControl"
+  {
+    type bool
+  }
+  0x4001 "OnTime"
+  {
+    type uint16
+  }
+  0x4002 "OffWaitTime"
+  {
+    type uint16
+  }
+}
+0x0007 "On/Off Switch Configuration"
+0x0008 "Level Control"
+0x0009 "Alarms"
+0x000A "Time"
+0x000B "RSSI Location"
+0x000C "Analog Input"
+0x000D "Analog Output"
+0x000E "Analog Value"
+0x000F "Binary Input"
+0x0010 "Binary Output"
+0x0011 "Binary Value"
+0x0012 "Multistate Input"
+0x0013 "Multistate Output"
+0x0014 "Multistate Value"
+0x0015 "Commissioning"
+0x0016 "Partition"
+0x0019 "OTA"
+0x001A "Power Profile"
+0x001B "EN50523 Appliance Control"
+0x0020 "Poll Control"
+0x0022 "Mobile Device Configuration"
+0x0023 "Neighbor Cleaning"
+0x0024 "Nearest Gateway"
+0x0100 "Shade Configuration"
+0x0101 "Door Lock"
+0x0102 "Window Covering"
+0x0200 "Pump Configuration and Control"
+0x0201 "Thermostat"
+0x0202 "Fan Control"
+0x0203 "Dehumidification Control"
+0x0204 "Thermostat User Interface Configuration"
+0x0300 "Color Control"
+0x0301 "Ballast Configuration"
+0x0400 "Illuminance Measurement"
+0x0401 "Illuminance Level Sensing"
+0x0402 "Temperature Measurement"
+{
+  0x0000 "MeasuredValue"
+  {
+    type int16
+  }
+  0x0001 "MinMeasuredValue"
+  {
+    type int16
+  }
+  0x0002 "MaxMeasuredValue"
+  {
+    type int16
+  }
+  0x0003 "Tolerance"
+  {
+    type uint16
+  }
+}
+0x0403 "Pressure Measurement"
+0x0404 "Flow Measurement"
+0x0405 "Relative Humidity Measurement"
+{
+  0x0000 "MeasuredValue"
+  {
+    type uint16
+  }
+  0x0001 "MinMeasuredValue"
+  {
+    type uint16
+  }
+  0x0002 "MaxMeasuredValue"
+  {
+    type uint16
+  }
+  0x0003 "Tolerance"
+  {
+    type uint16
+  }
+}
+0x0406 "Occupancy Sensing"
+{
+  0x0000 "Occupancy"
+  {
+    type map8
+  }
+  0x0001 "OccupancySensorType"
+  {
+    type enum8
+  }
+  0x0010 "PIROccupiedToUnoccupiedDelay"
+  {
+    type uint16
+  }
+  0x0011 "PIRUnoccupiedToOccupiedDelay"
+  {
+    type uint16
+  }
+  0x0012 "PIRUnoccupiedToOccupiedThreshold"
+  {
+    type uint8
+  }
+  0x0020 "UltrasonicOccupiedToUnoccupiedDelay"
+  {
+    type uint16
+  }
+  0x0021 "UltrasonicUnoccupiedToOccupiedDelay"
+  {
+    type uint16
+  }
+  0x0022 "UltrasonicUnoccupiedToOccupiedThreshold"
+  {
+    type uint8
+  }
+}
+0x0500 "IAS Zone"
+0x0501 "IAS ACE"
+0x0502 "IAS WD"
+0x0600 "Generic tunnel"
+0x0601 "BACnet protocol tunnel"
+0x0602 "Analog input (BACnet regular)"
+0x0603 "Analog input (BACnet extended)"
+0x0604 "Analog output (BACnet regular)"
+0x0605 "Analog output (BACnet extended)"
+0x0606 "Analog value (BACnet regular)"
+0x0607 "Analog value (BACnet extended)"
+0x0608 "Binary input (BACnet regular)"
+0x0609 "Binary input (BACnet extended)"
+0x060A "Binary output (BACnet regular)"
+0x060B "Binary output (BACnet extended)"
+0x060C "Binary value (BACnet regular)"
+0x060D "Binary value (BACnet extended)"
+0x060E "Multistate input (BACnet regular)"
+0x060F "Multistate input (BACnet extended)"
+0x0610 "Multistate output (BACnet regular)"
+0x0611 "Multistate output (BACnet extended)"
+0x0612 "Multistate value (BACnet regular)"
+0x0613 "Multistate value (BACnet extended)"
+0x0614 "11073 ProtocolTunnel"
+0x0615 "ISO7816 Tunnel"
+0x0617 "Retail Tunnel"
+0x0700 "Price"
+0x0701 "Demand Response and Load Control"
+0x0702 "Metering"
+0x0703 "Messaging"
+0x0704 "Tunneling"
+0x0900 "Information"
+0x0905 "Chatting"
+0x0904 "Voice Over Zigbee"
+0x0B00 "EN50523 Appliance Identification"
+0x0B01 "Meter Identification"
+0x0B02 "EN50523 Appliance Events and Alerts"
+0x0B03 "EN50523 Appliance Statistics"
+0x0B04 "Electrical Measurement"
+0x0B05 "Diagnostics"
+0x1000 "Touchlink Commissioning"
