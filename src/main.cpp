@@ -285,6 +285,11 @@ std::shared_ptr<MqttWrapper> MqttWrapperFromUrl(
   return std::shared_ptr<MqttWrapper>();
 }
 
+std::string MakeNameSafeForMqtt(std::string name) {
+  auto new_end = std::remove(name.begin(), name.end(), '/');
+  return std::string(name.begin(), new_end);
+}
+
 int main(int argc, const char** argv) {
   // Set up logging to console (stderr)
   auto console_log = boost::log::add_console_log(std::cerr);
@@ -343,8 +348,8 @@ int main(int argc, const char** argv) {
 
   // Read cluster & attribute names
   auto name_registry = std::make_shared<zcl::NameRegistry>();
-  if (!name_registry->ReadFromInfo(
-          variables["name-registry"].as<std::string>())) {
+  if (!name_registry->ReadFromInfo(variables["name-registry"].as<std::string>(),
+                                   MakeNameSafeForMqtt)) {
     LOG("Main", warning) << "Unable to read '"
                          << variables["name-registry"].as<std::string>()
                          << "' name registry";

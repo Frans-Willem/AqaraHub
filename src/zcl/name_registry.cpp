@@ -6,11 +6,13 @@
 #include "logging.h"
 
 namespace zcl {
-bool NameRegistry::ReadFromInfo(const std::string& filename) {
+bool NameRegistry::ReadFromInfo(
+    const std::string& filename,
+    std::function<std::string(std::string)> name_mangler) {
   boost::property_tree::ptree tree;
   boost::property_tree::info_parser::read_info(filename, tree);
   for (const auto& entry : tree) {
-    std::string name = entry.second.data();
+    std::string name = name_mangler(entry.second.data());
     std::string s_id = entry.first;
     std::size_t end_parsed;
     unsigned long id = std::stoul(s_id, &end_parsed, 0);
@@ -24,7 +26,7 @@ bool NameRegistry::ReadFromInfo(const std::string& filename) {
     }
     cluster_names_.insert({(zcl::ZclClusterId)(std::uint16_t)id, name});
     for (const auto& attr_entry : entry.second) {
-      std::string a_name = attr_entry.second.data();
+      std::string a_name = name_mangler(attr_entry.second.data());
       std::string s_a_id = attr_entry.first;
       unsigned long a_id = std::stoul(s_a_id, &end_parsed, 0);
       if (end_parsed != s_a_id.size()) {

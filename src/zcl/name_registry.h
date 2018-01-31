@@ -10,7 +10,8 @@ class NameRegistry {
  public:
   NameRegistry() = default;
   ~NameRegistry() = default;
-  bool ReadFromInfo(const std::string& filename);
+  bool ReadFromInfo(const std::string& filename,
+                    std::function<std::string(std::string)> name_mangler);
   std::string ClusterToString(zcl::ZclClusterId cluster_id);
   boost::optional<zcl::ZclClusterId> ClusterFromString(
       const std::string& cluster_name);
