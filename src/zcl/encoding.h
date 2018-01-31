@@ -1,6 +1,7 @@
 #ifndef _ZCL_ENCODING_H_
 #define _ZCL_ENCODING_H_
 #include <boost/format.hpp>
+#include <cmath>
 #include "zcl/zcl.h"
 #include "zcl/zcl_string_enum.h"
 #include "znp/encoding.h"
@@ -132,6 +133,52 @@ struct VectorDataTypeEncodeHelper {
     value = typed_value;
   }
 };
+template <DataType DT, typename IT, std::size_t MAN, std::size_t EXP>
+struct FloatDataTypeEncodeHelper {
+  typedef typename DataTypeHelper<DT>::Type Type;
+  template <typename... T>
+  static inline std::size_t GetSize(const boost::variant<T...>& value) {
+    return znp::EncodeHelper<IT>::GetSize(0);
+  }
+  template <typename... T>
+  static inline void Encode(const boost::variant<T...>& value,
+                            znp::EncodeTarget::iterator& begin,
+                            znp::EncodeTarget::iterator end) {
+    throw std::runtime_error("IEEE 754 encoding not yet supported");
+  }
+  template <typename... T>
+  static inline void Decode(boost::variant<T...>& value,
+                            znp::EncodeTarget::const_iterator& begin,
+                            znp::EncodeTarget::const_iterator end) {
+    IT raw_value;
+    znp::EncodeHelper<IT>::Decode(raw_value, begin, end);
+    bool is_negative = ((raw_value >> (MAN + EXP)) != 0);
+    IT exponent = (raw_value >> MAN) & (((IT)1 << EXP) - 1);
+    IT half_exponent = ((IT)1 << (EXP - 1)) - 1;
+    IT mantissa_divisor = ((IT)1 << MAN);
+    IT mantissa = raw_value & (((IT)1 << MAN) - 1);
+    Type result;
+    if (exponent == ((IT)1 << EXP) - 1) {
+      if (mantissa != 0) {
+        result = NAN;
+      } else {
+        result = is_negative ? -INFINITY : INFINITY;
+      }
+    } else if (exponent == 0 && mantissa == 0) {
+      result = 0.0;
+    } else {
+      IT hidden = (exponent == 0) ? 0 : mantissa_divisor;
+      result = ((Type)(hidden + mantissa) / (Type)mantissa_divisor) *
+               std::pow(2.0f, (Type)exponent - (Type)half_exponent) *
+               (is_negative ? -1.0f : 1.0f);
+    }
+    value = result;
+    std::cout << "Floating point: " << result << ", sign: " << is_negative
+              << ", exponent: " << exponent
+              << ", mantissa: " << ((Type)mantissa / (Type)mantissa_divisor)
+              << std::endl;
+  }
+};
 
 template <>
 struct DataTypeEncodeHelper<DataType::_bool>
@@ -205,6 +252,15 @@ struct DataTypeEncodeHelper<DataType::int56>
 template <>
 struct DataTypeEncodeHelper<DataType::int64>
     : IntDataTypeEncodeHelper<DataType::int64, 64> {};
+template <>
+struct DataTypeEncodeHelper<DataType::semi>
+    : FloatDataTypeEncodeHelper<DataType::semi, uint16_t, 10, 5> {};
+template <>
+struct DataTypeEncodeHelper<DataType::single>
+    : FloatDataTypeEncodeHelper<DataType::single, uint32_t, 23, 8> {};
+template <>
+struct DataTypeEncodeHelper<DataType::_double>
+    : FloatDataTypeEncodeHelper<DataType::_double, uint64_t, 52, 11> {};
 template <>
 struct DataTypeEncodeHelper<DataType::octstr>
     : VectorDataTypeEncodeHelper<DataType::octstr, std::uint8_t> {};

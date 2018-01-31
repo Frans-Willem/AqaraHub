@@ -249,6 +249,20 @@ struct DataTypeHelper<DataType::int64> {
   typedef int64_t Type;
 };
 template <>
+struct DataTypeHelper<DataType::semi> {
+  typedef double Type;  // Double instead of float, as boost::variant only
+                        // allows 20 types :(
+};
+template <>
+struct DataTypeHelper<DataType::single> {
+  typedef double Type;  // Double instead of float, as boost::variant only
+                        // allows 20 types :(
+};
+template <>
+struct DataTypeHelper<DataType::_double> {
+  typedef double Type;
+};
+template <>
 struct DataTypeHelper<DataType::octstr> {
   typedef std::string Type;
 };
