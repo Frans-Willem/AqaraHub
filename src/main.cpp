@@ -17,6 +17,7 @@
 #include "mqtt_wrapper.h"
 #include "string_enum.h"
 #include "zcl/encoding.h"
+#include "zcl/name_registry.h"
 #include "zcl/to_json.h"
 #include "zcl/zcl.h"
 #include "zcl/zcl_string_enum.h"
@@ -167,7 +168,9 @@ void OnFrameDebug(std::string prefix, znp::ZnpCommandType cmdtype,
 
 void AfIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
                    std::shared_ptr<MqttWrapper> mqtt_wrapper,
-                   std::string mqtt_prefix, const znp::IncomingMsg& message) {
+                   std::string mqtt_prefix,
+                   std::shared_ptr<zcl::NameRegistry> name_registry,
+                   const znp::IncomingMsg& message) {
   try {
     auto frame = znp::Decode<zcl::ZclFrame>(message.Data);
     LOG("MSG", debug) << "SrcAddr: " << message.SrcAddr
@@ -182,8 +185,8 @@ void AfIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
       unsigned int SrcEndpoint = (unsigned int)message.SrcEndpoint;
       uint16_t ClusterId = message.ClusterId;
       api->UtilAddrmgrNwkAddrLookup(message.SrcAddr)
-          .then([mqtt_wrapper, mqtt_prefix, SrcEndpoint, ClusterId,
-                 frame](auto ieee_addr) {
+          .then([mqtt_wrapper, mqtt_prefix, name_registry, SrcEndpoint,
+                 ClusterId, frame](auto ieee_addr) {
             std::vector<stlab::future<void>> publishes;
             std::vector<uint8_t>::const_iterator current =
                 frame.payload.begin();
@@ -198,11 +201,13 @@ void AfIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
                   << ", Attribute 0x" << std::get<0>(attribute) << ": "
                   << std::get<1>(attribute);
 
-              std::string topic_name =
-                  boost::str(boost::format("%s%08X/%d/%s/%04X") % mqtt_prefix %
-                             ieee_addr % (unsigned int)SrcEndpoint %
-                             enum_to_string((zcl::ZclClusterId)ClusterId) %
-                             (unsigned int)std::get<0>(attribute));
+              std::string topic_name = boost::str(
+                  boost::format("%s%08X/%d/%s/%04X") % mqtt_prefix % ieee_addr %
+                  (unsigned int)SrcEndpoint %
+                  name_registry->ClusterToString((zcl::ZclClusterId)ClusterId) %
+                  name_registry->AttributeToString(
+                      (zcl::ZclClusterId)ClusterId,
+                      (zcl::ZclAttributeId)std::get<0>(attribute)));
               tao::json::value json_value(
                   zcl::to_json(std::get<1>(attribute), true));
               std::string message_content(tao::json::to_string(json_value));
@@ -222,7 +227,8 @@ void AfIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
             try {
               f.get_try();
             } catch (const std::exception& ex) {
-              LOG("MSG", debug) << "Exception while handling message:" << ex.what();
+              LOG("MSG", debug)
+                  << "Exception while handling message:" << ex.what();
               return;
             }
             LOG("MSG", debug) << "Attributes reported to MQTT";
@@ -317,6 +323,9 @@ int main(int argc, const char** argv) {
     ("psk",
      boost::program_options::value<std::string>()->default_value("AqaraHub"),
      "Zigbee Network pre-shared key. Maximum 16 characters, will be truncated when longer")
+    ("name-registry",
+     boost::program_options::value<std::string>()->default_value("../attributes.info"),
+     "Boost property-tree info file containing cluster and attribute names")
     ;
   // clang-format on
   boost::program_options::variables_map variables;
@@ -338,6 +347,15 @@ int main(int argc, const char** argv) {
 
   std::string serial_port = variables["port"].as<std::string>();
   LOG("Main", info) << "Serial port: " << serial_port;
+
+  // Read cluster & attribute names
+  auto name_registry = std::make_shared<zcl::NameRegistry>();
+  if (!name_registry->ReadFromInfo(
+          variables["name-registry"].as<std::string>())) {
+    LOG("Main", warning) << "Unable to read '"
+                         << variables["name-registry"].as<std::string>()
+                         << "' name registry";
+  }
 
   // Start working
   boost::asio::io_service io_service;
@@ -370,8 +388,9 @@ int main(int argc, const char** argv) {
   }
   LOG("Main", info) << "Using MQTT prefix '" << mqtt_prefix << "'";
 
-  api->af_on_incoming_msg_.connect(std::bind(
-      &AfIncomingMsg, api, mqtt_wrapper, mqtt_prefix, std::placeholders::_1));
+  api->af_on_incoming_msg_.connect(std::bind(&AfIncomingMsg, api, mqtt_wrapper,
+                                             mqtt_prefix, name_registry,
+                                             std::placeholders::_1));
 
   // Reset device
   LOG("Main", info) << "Initializing ZNP device";

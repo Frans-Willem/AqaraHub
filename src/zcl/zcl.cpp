@@ -33,7 +33,8 @@ std::ostream& operator<<(std::ostream& stream, const ZclFrame& header) {
 }
 
 std::ostream& operator<<(std::ostream& stream, const ZclClusterId& cluster_id) {
-  return stream << enum_to_string(cluster_id);
+  return stream << boost::str(boost::format("0x%04X") %
+                              (unsigned long)cluster_id);
 }
 
 std::ostream& operator<<(std::ostream& stream, const ZclVariant& variant) {
