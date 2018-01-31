@@ -20,6 +20,7 @@
 #include "zcl/name_registry.h"
 #include "zcl/to_json.h"
 #include "zcl/zcl.h"
+#include "zcl/zcl_endpoint.h"
 #include "zcl/zcl_string_enum.h"
 #include "znp/encoding.h"
 #include "znp/znp_api.h"
@@ -101,8 +102,60 @@ stlab::future<void> WriteFullConfiguration(std::shared_ptr<znp::ZnpApi> api,
           config.zdo_direct_cb));
 }
 
-void Initialize(coro::Await await, std::shared_ptr<znp::ZnpApi> api,
-                std::array<uint8_t, 16> presharedkey) {
+void OnReportAttributes(std::shared_ptr<znp::ZnpApi> api,
+                        std::shared_ptr<zcl::ZclEndpoint> endpoint,
+                        std::shared_ptr<MqttWrapper> mqtt_wrapper,
+                        std::string mqtt_prefix,
+                        std::shared_ptr<zcl::NameRegistry> name_registry,
+                        const zcl::ZclEndpoint::AttributeReport& report) {
+  LOG("Report", debug) << "Attempting to look up full source address";
+  auto source_endpoint = (unsigned int)report.source_endpoint;
+  auto cluster_id = report.cluster_id;
+  auto attributes = report.attributes;
+  api->UtilAddrmgrNwkAddrLookup(report.source_address)
+      .then([mqtt_wrapper, mqtt_prefix, name_registry, source_endpoint,
+             cluster_id, attributes](auto ieee_addr) {
+        std::vector<stlab::future<void>> publishes;
+        auto cluster_name = name_registry->ClusterToString(cluster_id);
+        for (const auto& attribute : attributes) {
+          auto attribute_name = name_registry->AttributeToString(
+              cluster_id, std::get<0>(attribute));
+          tao::json::value json_value(
+              zcl::to_json(std::get<1>(attribute), true));
+          std::string topic_name = boost::str(
+              boost::format("%s%08X/%d/%s/%04X") % mqtt_prefix % ieee_addr %
+              (unsigned int)source_endpoint % cluster_name % attribute_name);
+          std::string message_content(tao::json::to_string(json_value));
+          LOG("Report", debug)
+              << "Publishing to " << topic_name << ": " << message_content;
+          publishes.push_back(mqtt_wrapper->Publish(
+              topic_name, message_content, mqtt::qos::at_least_once, true));
+        }
+        return stlab::when_all(
+            stlab::immediate_executor,
+            []() {
+
+            },
+            std::make_pair(publishes.begin(), publishes.end()));
+      })
+      .recover([](auto f) {
+        try {
+          f.get_try();
+        } catch (const std::exception& ex) {
+          LOG("Report", debug)
+              << "Exception while handling report: " << ex.what();
+          return;
+        }
+        LOG("Report", debug) << "All done";
+      })
+      .detach();
+}
+
+std::shared_ptr<zcl::ZclEndpoint> Initialize(
+    coro::Await await, std::shared_ptr<znp::ZnpApi> api,
+    std::array<uint8_t, 16> presharedkey,
+    std::shared_ptr<MqttWrapper> mqtt_wrapper, std::string mqtt_prefix,
+    std::shared_ptr<zcl::NameRegistry> name_registry) {
   LOG("Initialize", debug)
       << "Doing initial reset, without clearing config or state";
   await(api->SapiWriteConfiguration<znp::ConfigurationOption::STARTUP_OPTION>(
@@ -154,9 +207,23 @@ void Initialize(coro::Await await, std::shared_ptr<znp::ZnpApi> api,
       await(api->ZdoMgmtPermitJoin((znp::AddrMode)15, 0xFFFC, 60, 0));
   LOG("Initialize", debug) << "Second PermitJoin OK " << second_join;
 
-  await(api->AfRegister(1, 0x0104, 5, 0, znp::Latency::NoLatency,
-                        std::vector<uint16_t>(), std::vector<uint16_t>()));
-  return;
+  auto endpoint = await(zcl::ZclEndpoint::Create(
+      api, 1, 0x0104, 5, 0, znp::Latency::NoLatency, {}, {}));
+  std::weak_ptr<zcl::ZclEndpoint> weak_endpoint(endpoint);
+  std::weak_ptr<znp::ZnpApi> weak_api(api);
+
+  endpoint->on_report_attributes_.connect(
+      [weak_api, weak_endpoint, mqtt_wrapper, mqtt_prefix,
+       name_registry](const zcl::ZclEndpoint::AttributeReport& report) {
+        if (auto api = weak_api.lock()) {
+          if (auto endpoint = weak_endpoint.lock()) {
+            OnReportAttributes(api, endpoint, mqtt_wrapper, mqtt_prefix,
+                               name_registry, report);
+          }
+        }
+      });
+
+  return endpoint;
 }
 
 void OnFrameDebug(std::string prefix, znp::ZnpCommandType cmdtype,
@@ -164,80 +231,6 @@ void OnFrameDebug(std::string prefix, znp::ZnpCommandType cmdtype,
                   const std::vector<uint8_t>& payload) {
   LOG("FRAME", debug) << prefix << " " << cmdtype << " " << command << " "
                       << boost::log::dump(payload.data(), payload.size());
-}
-
-void AfIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
-                   std::shared_ptr<MqttWrapper> mqtt_wrapper,
-                   std::string mqtt_prefix,
-                   std::shared_ptr<zcl::NameRegistry> name_registry,
-                   const znp::IncomingMsg& message) {
-  try {
-    auto frame = znp::Decode<zcl::ZclFrame>(message.Data);
-    LOG("MSG", debug) << "SrcAddr: " << message.SrcAddr
-                      << ", ClusterId: " << message.ClusterId
-                      << ", SrcEndpoint: " << (unsigned int)message.SrcEndpoint;
-    LOG("MSG", debug) << "Payload: "
-                      << boost::log::dump(frame.payload.data(),
-                                          frame.payload.size());
-    if (frame.frame_type == zcl::ZclFrameType::Global &&
-        frame.command_identifier == 0x0a) {  // Report
-
-      unsigned int SrcEndpoint = (unsigned int)message.SrcEndpoint;
-      uint16_t ClusterId = message.ClusterId;
-      api->UtilAddrmgrNwkAddrLookup(message.SrcAddr)
-          .then([mqtt_wrapper, mqtt_prefix, name_registry, SrcEndpoint,
-                 ClusterId, frame](auto ieee_addr) {
-            std::vector<stlab::future<void>> publishes;
-            std::vector<uint8_t>::const_iterator current =
-                frame.payload.begin();
-            while (current != frame.payload.end()) {
-              std::tuple<uint16_t, zcl::ZclVariant> attribute;
-              znp::EncodeHelper<std::tuple<uint16_t, zcl::ZclVariant>>::Decode(
-                  attribute, current, frame.payload.end());
-              LOG("MSG", debug)
-                  << "Source: " << ieee_addr
-                  << ", SrcEndpoint: " << (unsigned int)SrcEndpoint
-                  << ", ClusterId 0x" << std::hex << ClusterId
-                  << ", Attribute 0x" << std::get<0>(attribute) << ": "
-                  << std::get<1>(attribute);
-
-              std::string topic_name = boost::str(
-                  boost::format("%s%08X/%d/%s/%04X") % mqtt_prefix % ieee_addr %
-                  (unsigned int)SrcEndpoint %
-                  name_registry->ClusterToString((zcl::ZclClusterId)ClusterId) %
-                  name_registry->AttributeToString(
-                      (zcl::ZclClusterId)ClusterId,
-                      (zcl::ZclAttributeId)std::get<0>(attribute)));
-              tao::json::value json_value(
-                  zcl::to_json(std::get<1>(attribute), true));
-              std::string message_content(tao::json::to_string(json_value));
-              LOG("MSG", debug)
-                  << "Publishing to " << topic_name << ": " << message_content;
-              publishes.push_back(mqtt_wrapper->Publish(
-                  topic_name, message_content, mqtt::qos::at_least_once, true));
-            }
-            return stlab::when_all(
-                stlab::immediate_executor,
-                []() {
-
-                },
-                std::make_pair(publishes.begin(), publishes.end()));
-          })
-          .recover([](auto f) {
-            try {
-              f.get_try();
-            } catch (const std::exception& ex) {
-              LOG("MSG", debug)
-                  << "Exception while handling message:" << ex.what();
-              return;
-            }
-            LOG("MSG", debug) << "Attributes reported to MQTT";
-          })
-          .detach();
-    }
-  } catch (const std::exception& exc) {
-    LOG("MSG", debug) << "Exception: " << exc.what();
-  }
 }
 
 std::shared_ptr<MqttWrapper> MqttWrapperFromUrl(
@@ -388,12 +381,7 @@ int main(int argc, const char** argv) {
   }
   LOG("Main", info) << "Using MQTT prefix '" << mqtt_prefix << "'";
 
-  api->af_on_incoming_msg_.connect(std::bind(&AfIncomingMsg, api, mqtt_wrapper,
-                                             mqtt_prefix, name_registry,
-                                             std::placeholders::_1));
-
-  // Reset device
-  LOG("Main", info) << "Initializing ZNP device";
+  // Creating pre-shared-key
   std::string presharedkey_str(variables["psk"].as<std::string>());
   std::array<uint8_t, 16> presharedkey;
   presharedkey.fill(0);
@@ -405,17 +393,24 @@ int main(int argc, const char** argv) {
                     << boost::log::dump(presharedkey.data(),
                                         presharedkey.size());
 
-  coro::Run(AsioExecutor(io_service), Initialize, api, presharedkey)
-      .then([]() { LOG("Main", info) << "Initialization complete!"; })
-      .recover([](stlab::future<void> v) {
-        LOG("Main", info) << "In final handler";
-        try {
-          v.get_try();
-        } catch (const std::exception& exc) {
-          LOG("Main", critical) << "Exception: " << exc.what();
-        }
-      })
-      .detach();
+  // Initializing
+  auto endpoint =
+      coro::Run(AsioExecutor(io_service), Initialize, api, presharedkey,
+                mqtt_wrapper, mqtt_prefix, name_registry)
+          .then([](auto r) {
+            LOG("Main", info) << "Initialization complete!";
+            return r;
+          })
+          .recover([](auto f) {
+            LOG("Main", info) << "In final handler";
+            try {
+              return f.get_try();
+            } catch (const std::exception& exc) {
+              LOG("Main", critical) << "Exception: " << exc.what();
+              return (boost::optional<std::shared_ptr<zcl::ZclEndpoint>>)
+                  boost::none;
+            }
+          });
 
   std::cout << "IO Service starting" << std::endl;
   io_service.run();
