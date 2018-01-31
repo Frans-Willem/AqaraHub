@@ -32,6 +32,23 @@ struct ZclFrame {
 };
 std::ostream& operator<<(std::ostream& stream, const ZclFrame& header);
 
+enum class ZclGlobalCommandId : uint8_t {
+  ReadAttributes = 0x00,
+  ReadAttributesResponse = 0x01,
+  WriteAttributes = 0x02,
+  WriteAttributesUndivided = 0x03,
+  WriteAttributesResponse = 0x04,
+  WriteAttributesNoResponse = 0x05,
+  ConfigureReporting = 0x06,
+  ConfigureReportingResponse = 0x07,
+  ReadReportingConfiguration = 0x08,
+  ReadReportingConfigurationResponse = 0x09,
+  ReportAttributes = 0x0a,
+  DefaultResponse = 0x0b,
+  DiscoverAttributes = 0x0c,
+  DiscoverAttributesResponse = 0x0d
+};
+
 enum class ZclClusterId : uint16_t {
   // Deliberately left empty
 };
