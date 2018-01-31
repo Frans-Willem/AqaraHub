@@ -79,6 +79,35 @@ stlab::future<void> ZnpApi::AfRegister(uint8_t endpoint, uint16_t profile_id,
       .then(CheckOnlyStatus);
 }
 
+stlab::future<void> ZnpApi::AfDataRequest(ShortAddress DstAddr,
+                                          uint8_t DstEndpoint,
+                                          uint8_t SrcEndpoint,
+                                          uint16_t ClusterId, uint8_t TransId,
+                                          uint8_t Options, uint8_t Radius,
+                                          std::vector<uint8_t> Data) {
+  return WaitAfter(
+             RawSReq(AfCommand::DATA_REQUEST,
+                     znp::EncodeT(DstAddr, DstEndpoint, SrcEndpoint, ClusterId,
+                                  TransId, Options, Radius, Data))
+                 .then(CheckOnlyStatus),
+             ZnpCommandType::AREQ, AfCommand::DATA_CONFIRM)
+      .then(&CheckStatus)
+      .then(&znp::DecodeT<uint8_t, uint8_t>)
+      .then([DstEndpoint,
+             TransId](const std::tuple<uint8_t, uint8_t>& response) {
+        // TODO: I would love some better management of request/response, e.g.
+        // matching the endpoint and transid instead of only the DATA_CONFIRM
+        // message.
+        if (std::make_tuple(DstEndpoint, TransId) != response) {
+          LOG("ZnpApi", warning)
+              << "AF_DATA_REQUEST & AF_DATA_CONFIRM synchronization mismatch!";
+          throw std::runtime_error(
+              "AF_DATA_REQUEST & AF_DATA_CONFIRM synchronization mismatch!");
+        }
+      });
+  ;
+}
+
 stlab::future<StartupFromAppResponse> ZnpApi::ZdoStartupFromApp(
     uint16_t start_delay_ms) {
   return RawSReq(ZdoCommand::STARTUP_FROM_APP, znp::Encode(start_delay_ms))

@@ -40,6 +40,10 @@ class ZnpApi {
                                  Latency latency,
                                  std::vector<uint16_t> input_clusters,
                                  std::vector<uint16_t> output_clusters);
+  stlab::future<void> AfDataRequest(ShortAddress DstAddr, uint8_t DstEndpoint,
+                                    uint8_t SrcEndpoint, uint16_t ClusterId,
+                                    uint8_t TransId, uint8_t Options,
+                                    uint8_t Radius, std::vector<uint8_t> Data);
   // AF events
   boost::signals2::signal<void(const IncomingMsg&)> af_on_incoming_msg_;
 
