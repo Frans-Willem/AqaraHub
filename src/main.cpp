@@ -123,8 +123,9 @@ void OnReportAttributes(std::shared_ptr<znp::ZnpApi> api,
           tao::json::value json_value(
               zcl::to_json(std::get<1>(attribute), true));
           std::string topic_name = boost::str(
-              boost::format("%s%08X/%d/%s/%04X") % mqtt_prefix % ieee_addr %
-              (unsigned int)source_endpoint % cluster_name % attribute_name);
+              boost::format("%sreport/%08X/%d/%s/%04X") % mqtt_prefix %
+              ieee_addr % (unsigned int)source_endpoint % cluster_name %
+              attribute_name);
           std::string message_content(tao::json::to_string(json_value));
           LOG("Report", debug)
               << "Publishing to " << topic_name << ": " << message_content;
