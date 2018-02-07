@@ -1,46 +1,50 @@
 # AqaraHub
 
-This is an open-source Zigbee hub for Xiaomi Aqara devices, as pictured [here](https://des.gbtcdn.com/uploads/pdm-desc-pic/Electronic/image/2017/04/25/20170425155840_15186.jpg). It aims to be a replacement to the Xiaomi Gateway that does not require communication to outside servers, and a saner communication option (e.g. MQTT).
+This is an open-source Zigbee hub for Xiaomi Aqara devices, as pictured [here](https://des.gbtcdn.com/uploads/pdm-desc-pic/Electronic/image/2017/04/25/20170425155840_15186.jpg). It aims to be a replacement to the Xiaomi Gateway that does not require communication to outside servers, and uses a saner communication option (e.g. MQTT).
 
-This project is spefically aimed at Xiaomi Aqara devices, and there are no plans to support other Zigbee devices with this project.
+This project is spefically aimed at Xiaomi Aqara devices, and there are currently no plans to support other Zigbee devices with this project.
+
+## Get in touch!
+I've been writing this thing on my own, and it appears to solve my use-case fairly well, but I'd love to get feedback from others!
+
+Some of the things I'd like to know:
+
+* Is anyone else even interested in a project like this?
+* Were others able to compile it ?
+* Has anyone actually got it to run ?
+* Is anyone missing specific functionality ?
+
+So instead of only following or starring this project, just drop me a message at fw@hardijzer.nl too :)
 
 ## Getting Started
 
-At this point, the project is in a very early stage, and getting it up and running can be a bit cumbersome. Nevertheless, if you can make it past the compilation, actually running the application should be relatively easy.
+At this point, reporting attributes received from the Xiaomi devices to MQTT appears to be working quite well. If this is all that you require, I encourage you to give it a shot.
+Support for sending things back, like turning the Smart Plug on or off, is still on the to-do list.
 
 ### Libraries and tools used
 
-This project makes heavy use of C++14 language features, and some minor use of the experimental C++ coroutines extension. To compile this project your compiler should support both. Everything has been tested using Clang 5.0, but will likely also work with Microsoft Visual Studio 2017.
+This project uses a lot of C++14 features, so obviously a compiler supporting these is required. GCC 5 or later, Clang 3.4 or later, or Microsoft Visual Studio 2017 should fit the bill.
 
-On top of that it makes heavy use of both the [Boost C++ Libraries](http://www.boost.org/) and the [Adobe Software Technology Lab Concurrency Libraries](https://github.com/stlab/libraries/) (hereafter "STLab-libraries"), and uses Takatoshi Kondo's excellent [mqtt\_cpp library](https://github.com/redboltz/mqtt_cpp) for MQTT communication.
+On top of that it makes heavy use of the [Boost C++ Libraries](http://www.boost.org/), the [Adobe Software Technology Lab Concurrency Libraries](https://github.com/stlab/libraries/) (hereafter "STLab-libraries"), Takatoshi Kondo's excellent [mqtt\_cpp library](https://github.com/redboltz/mqtt_cpp), and [The Art of C++ / JSON](https://github.com/taocpp/json) libraries.
 
-Both STLab-libraries and mqtt\_cpp are included as Git submodules, and should be easy to pull in using:
+All dependencies except for Boost can be pulled in as git submodules:
 ```
 git submodule update --init --recursive
 ```
-There is no need to compile these libraries, as they are both header-only.
+There is no need to compile these libraries, as they are all header-only.
 
-The Boost libraries can be more cumbersome. Most (Linux) distributions come with them installed, but on my system these are compiled using GCC and the default C++ library, whereas the project is using Clang and it's libc++. I have used the [Conan C/C++ package manager](https://www.conan.io/) to pull in and compile a Boost version.
+The Boost libraries should be available on most Linux distributions, likely named either ```boost-devel```, ```boost-libs```, or just ```boost```.
 
-### Prerequisites
-To summarize, on your typical Linux machine you will need the following to compile this project.
-
-- Clang 5.0
-- libc++
-- Conan
-
-Other requirements will be pulled in through git submodules and Conan.
-
-### Compiling using Conan
+### Compiling using CMake
 On my machine, I can compile using the following commands:
 ```
 git submodule update --init --recursive
 mkdir build
 cd build
-conan install .. --profile ../conanprofile.txt
-conan build ..
+cmake ..
+make
 ```
-Afterwards a binary should have appeared in ./build/bin/
+Afterwards a binary named ```AqaraHub``` should have appeared in the build folder.
 
 ## Deployment
 
@@ -76,7 +80,7 @@ Finally disconnect both the dongle and the programmer from your computer, discon
 ### Running AqaraHub
 Running AqaraHub is relatively simple. Simply instruct it to which serial port the USB dongle is using, the MQTT server to connect to, and the topic under which to publish all received information:
 ```
-./bin/AqaraHub --port /dev/ttyACM0 --mqtt mqtt://ArchServer/ --topic AqaraHub
+./AqaraHub --port /dev/ttyACM0 --mqtt mqtt://ArchServer/ --topic AqaraHub
 ```
 
 ## Contributing
