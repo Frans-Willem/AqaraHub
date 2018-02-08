@@ -65,6 +65,7 @@ class ZnpApi {
 
   // ZDO events
   boost::signals2::signal<void(DeviceState)> zdo_on_state_change_;
+  boost::signals2::signal<void(uint8_t)> zdo_on_permit_join_;
 
   // SAPI commands
   stlab::future<std::vector<uint8_t>> SapiReadConfigurationRaw(

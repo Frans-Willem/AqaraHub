@@ -15,6 +15,8 @@ ZnpApi::ZnpApi(std::shared_ptr<ZnpRawInterface> interface)
                         sys_on_reset_, false);
   AddSimpleEventHandler(ZnpCommandType::AREQ, ZdoCommand::STATE_CHANGE_IND,
                         zdo_on_state_change_, false);
+  AddSimpleEventHandler(ZnpCommandType::AREQ, ZdoCommand::PERMIT_JOIN_IND,
+                        zdo_on_permit_join_, false);
   // NOTE: INCOMING_MSG sometimes has 3 extra trailing bytes, so allow a partial
   // decoding.
   AddSimpleEventHandler(ZnpCommandType::AREQ, AfCommand::INCOMING_MSG,
