@@ -1,4 +1,5 @@
 // vim: set shiftwidth=2 tabstop=2 expandtab:
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/asio.hpp>
 #include <boost/format.hpp>
 #include <boost/log/expressions.hpp>
@@ -152,6 +153,53 @@ void OnReportAttributes(std::shared_ptr<znp::ZnpApi> api,
       .detach();
 }
 
+void OnPublishWrite(std::shared_ptr<znp::ZnpApi> api,
+                    std::shared_ptr<zcl::ZclEndpoint> endpoint,
+                    std::shared_ptr<zcl::NameRegistry> name_registry,
+                    std::string topic, std::string message) {
+  if (topic == "permitjoin") {
+    std::size_t endpos;
+    unsigned long seconds = stoul(message, &endpos, 0);
+    if (endpos != message.size()) {
+      LOG("OnPublishWrite", warning)
+          << "Unable to parse permitjoin contents '" << message << "'";
+      return;
+    }
+    if (seconds >= 0xFF) {
+      seconds = 0xFE;
+    }
+    api->ZdoMgmtPermitJoin((znp::AddrMode)15, 0xFFFC, seconds, 0)
+        .recover([](auto f) {
+          try {
+            f.get_try();
+            LOG("PermitJoin", debug) << "Permit join OK";
+          } catch (const std::exception& ex) {
+            LOG("PermitJoin", debug) << "Permit join failed: " << ex.what();
+          }
+
+        })
+        .detach();
+    return;
+  }
+  LOG("OnPublishWrite", debug) << "Topic '" << topic << "' not handled";
+}
+
+void OnPublish(std::shared_ptr<znp::ZnpApi> api,
+               std::shared_ptr<zcl::ZclEndpoint> endpoint,
+               std::string mqtt_prefix,
+               std::shared_ptr<zcl::NameRegistry> name_registry,
+               std::string topic, std::string message, std::uint8_t qos,
+               bool retain) {
+  std::string write_prefix(mqtt_prefix + "write/");
+  if (boost::starts_with(topic, write_prefix)) {
+    OnPublishWrite(api, endpoint, name_registry,
+                   topic.substr(write_prefix.size()), message);
+    return;
+  }
+
+  LOG("OnPublish", debug) << "Unhandled MQTT publish to " << topic;
+}
+
 std::shared_ptr<zcl::ZclEndpoint> Initialize(
     coro::Await await, std::shared_ptr<znp::ZnpApi> api,
     std::array<uint8_t, 16> presharedkey,
@@ -201,12 +249,8 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
   LOG("Initialize", debug) << "Final device state "
                            << (unsigned int)device_state;
 
-  auto first_join =
+  std::ignore =
       await(api->ZdoMgmtPermitJoin(znp::AddrMode::ShortAddress, 0, 0, 0));
-  LOG("Initialize", debug) << "First PermitJoin OK " << first_join;
-  auto second_join =
-      await(api->ZdoMgmtPermitJoin((znp::AddrMode)15, 0xFFFC, 60, 0));
-  LOG("Initialize", debug) << "Second PermitJoin OK " << second_join;
 
   auto endpoint = await(zcl::ZclEndpoint::Create(
       api, 1, 0x0104, 5, 0, znp::Latency::NoLatency, {}, {}));
@@ -224,6 +268,12 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
         }
       });
 
+  mqtt_wrapper->on_publish_.connect(
+      std::bind(&OnPublish, api, endpoint, mqtt_prefix, name_registry,
+                std::placeholders::_1, std::placeholders::_2,
+                std::placeholders::_3, std::placeholders::_4));
+  await(mqtt_wrapper->Subscribe(
+      {{mqtt_prefix + "write/#", mqtt::qos::at_least_once}}));
   return endpoint;
 }
 
