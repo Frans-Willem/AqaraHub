@@ -200,6 +200,23 @@ void OnPublish(std::shared_ptr<znp::ZnpApi> api,
   LOG("OnPublish", debug) << "Unhandled MQTT publish to " << topic;
 }
 
+void OnPermitJoin(std::shared_ptr<MqttWrapper> mqtt_wrapper,
+                  std::string mqtt_prefix, uint8_t duration) {
+  mqtt_wrapper
+      ->Publish(mqtt_prefix + "report/permitjoin",
+                boost::str(boost::format("%d") % (unsigned int)duration),
+                mqtt::qos::at_least_once, false)
+      .recover([](auto f) {
+        try {
+          f.get_try();
+          LOG("OnPermitJoin", debug) << "Published OK";
+        } catch (const std::exception& ex) {
+          LOG("OnPermitJoin", debug) << "Publish failure: " << ex.what();
+        }
+      })
+      .detach();
+}
+
 std::shared_ptr<zcl::ZclEndpoint> Initialize(
     coro::Await await, std::shared_ptr<znp::ZnpApi> api,
     std::array<uint8_t, 16> presharedkey,
@@ -267,6 +284,9 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
           }
         }
       });
+
+  api->zdo_on_permit_join_.connect(std::bind(
+      &OnPermitJoin, mqtt_wrapper, mqtt_prefix, std::placeholders::_1));
 
   mqtt_wrapper->on_publish_.connect(
       std::bind(&OnPublish, api, endpoint, mqtt_prefix, name_registry,
