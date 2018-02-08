@@ -47,7 +47,17 @@ void ZclEndpoint::OnIncomingMsg(const znp::IncomingMsg& message) {
     OnIncomingReportAttributes(message, frame);
     return;
   }
-  LOG("ZclEndpoint", debug) << "ZCL Frame not handled";
+  if (frame.frame_type == ZclFrameType::Global &&
+      (ZclGlobalCommandId)frame.command_identifier ==
+          ZclGlobalCommandId::ReadAttributes) {
+    LOG("ZclEndpoint", debug)
+        << "Attempt to read coordinator attributes. ClusterID "
+        << message.ClusterId << " Attributes "
+        << boost::log::dump(frame.payload.data(), frame.payload.size());
+    return;
+  }
+  LOG("ZclEndpoint", debug) << "ZCL Frame not handled " << frame.frame_type
+                            << " " << (unsigned int)frame.command_identifier;
 }
 
 void ZclEndpoint::OnIncomingReportAttributes(const znp::IncomingMsg& message,
