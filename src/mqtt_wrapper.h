@@ -1,6 +1,7 @@
 #ifndef _MQTT_WRAPPER_H_
 #define _MQTT_WRAPPER_H_
 #include <boost/asio.hpp>
+#include <boost/signals2.hpp>
 #include <mqtt_client_cpp.hpp>
 #include <queue>
 #include <set>
@@ -19,6 +20,9 @@ class MqttWrapper {
   template <typename F, typename... Args>
   static std::shared_ptr<MqttWrapper> Create(
       F f, boost::asio::io_service& io_service, Args... args);
+  boost::signals2::signal<void(std::string topic, std::string message,
+                               std::uint8_t qos, bool retain)>
+      on_publish_;
 };
 
 template <typename C>
@@ -287,8 +291,8 @@ class MqttWrapperImpl
   void PublishHandler(std::uint8_t fixed_header,
                       boost::optional<std::uint16_t> packet_id,
                       std::string topic_name, std::string message) {
-    LOG("MqttWrapper", debug)
-        << "PublishHandler: " << topic_name << ": " << message;
+    this->on_publish_(topic_name, message, mqtt::publish::get_qos(fixed_header),
+                      mqtt::publish::is_retain(fixed_header));
   }
 };
 
