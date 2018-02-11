@@ -178,6 +178,32 @@
   }
 }
 0x0403 "Pressure Measurement"
+{
+  0x0000 "MeasuredValue"
+  {
+    type int16
+  }
+  0x0001 "MinMeasuredValue"
+  {
+    type int16
+  }
+  0x0002 "MaxMeasuredValue"
+  {
+    type int16
+  }
+  0x0003 "Tolerance"
+  {
+    type uint16
+  }
+  0x00010 "ScaledValue"
+  {
+    type uint16
+  }
+  0x00014 "Scale"
+  {
+    type int8
+  }
+}
 0x0404 "Flow Measurement"
 0x0405 "Relative Humidity Measurement"
 {
