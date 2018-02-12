@@ -62,6 +62,7 @@ add_executable(AqaraHub
 	src/zcl/name_registry.cpp
 	src/zcl/zcl_endpoint.cpp
 	src/mqtt_wrapper.cpp
+	src/xiaomi/ff01_attribute.cpp
 	src/zcl/to_json.cpp
 	)
 target_include_directories(AqaraHub PUBLIC "src")
