@@ -16,7 +16,7 @@
 #include "logging.h"
 #include "mqtt_wrapper.h"
 #include "string_enum.h"
-//#include "zcl/encoding.h"
+#include "xiaomi/ff01_attribute.h"
 #include "zcl/name_registry.h"
 #include "zcl/to_json.h"
 #include "zcl/zcl.h"
@@ -120,8 +120,12 @@ void OnReportAttributes(std::shared_ptr<znp::ZnpApi> api,
         for (const auto& attribute : attributes) {
           auto attribute_name = name_registry->AttributeToString(
               cluster_id, std::get<0>(attribute));
+          boost::optional<std::map<uint8_t, zcl::ZclVariant>> opt_xiaomi_ff01(
+              xiaomi::DecodeFF01Attribute(cluster_id, std::get<0>(attribute),
+                                          std::get<1>(attribute)));
           tao::json::value json_value(
-              zcl::to_json(std::get<1>(attribute), true));
+              opt_xiaomi_ff01 ? xiaomi::FF01AttributeToJson(*opt_xiaomi_ff01)
+                              : zcl::to_json(std::get<1>(attribute), true));
           std::string topic_name = boost::str(
               boost::format("%sreport/%08X/%d/%s/%04X") % mqtt_prefix %
               ieee_addr % (unsigned int)source_endpoint % cluster_name %
