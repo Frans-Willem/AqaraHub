@@ -39,13 +39,13 @@ struct NormalDataTypeEncodeHelper {
   typedef typename DataTypeHelper<DT>::Type Type;
   template <typename... T>
   static inline std::size_t GetSize(const boost::variant<T...>& value) {
-    return znp::EncodeHelper<Type>::GetSize(boost::get<Type>(value));
+    return znp::EncodeHelper<Type>::GetSize(GetVariant<DT>(value));
   }
   template <typename... T>
   static inline void Encode(const boost::variant<T...>& value,
                             znp::EncodeTarget::iterator& begin,
                             znp::EncodeTarget::iterator end) {
-    znp::EncodeHelper<Type>::Encode(boost::get<Type>(value), begin, end);
+    znp::EncodeHelper<Type>::Encode(GetVariant<DT>(value), begin, end);
   }
   template <typename... T>
   static inline void Decode(boost::variant<T...>& value,
@@ -53,7 +53,7 @@ struct NormalDataTypeEncodeHelper {
                             znp::EncodeTarget::const_iterator& end) {
     Type typed_value;
     znp::EncodeHelper<Type>::Decode(typed_value, begin, end);
-    value = typed_value;
+    SetVariant<DT>(value, typed_value);
   }
 };
 // Encode helper for (u)intXX
@@ -69,7 +69,7 @@ struct IntDataTypeEncodeHelper {
   static inline void Encode(const boost::variant<T...>& value,
                             znp::EncodeTarget::iterator& begin,
                             znp::EncodeTarget::iterator end) {
-    UType unsigned_value = (UType)boost::get<Type>(value);
+    UType unsigned_value = (UType)GetVariant<DT>(value);
     for (std::size_t shift = 0; shift < N; shift += 8) {
       if (begin == end) {
         throw std::runtime_error("Not enough space to encode ZCL integer");
@@ -88,7 +88,7 @@ struct IntDataTypeEncodeHelper {
       }
       unsigned_value |= ((UType) * (begin++)) << shift;
     }
-    value = (Type)unsigned_value;
+    SetVariant<DT>(value, (Type)unsigned_value);
   }
 };
 // Encode helper for octstr, string, octstr16, string16
@@ -100,7 +100,7 @@ struct VectorDataTypeEncodeHelper {
 
   template <typename... T>
   static inline std::size_t GetSize(const boost::variant<T...>& value) {
-    const auto& typed_value = boost::get<Type>(value);
+    const auto& typed_value = GetVariant<DT>(value);
     auto length = typed_value.size();
     std::size_t size = znp::EncodeHelper<LT>::GetSize((LT)length);
     for (const auto& item : typed_value) {
@@ -112,7 +112,7 @@ struct VectorDataTypeEncodeHelper {
   static inline void Encode(const boost::variant<T...>& value,
                             znp::EncodeTarget::iterator& begin,
                             znp::EncodeTarget::iterator end) {
-    const auto& typed_value = boost::get<Type>(value);
+    const auto& typed_value = GetVariant<DT>(value);
     auto length = typed_value.size();
     znp::EncodeHelper<LT>::Encode((LT)length, begin, end);
     for (const auto& item : typed_value) {
@@ -130,7 +130,7 @@ struct VectorDataTypeEncodeHelper {
     for (auto& item : typed_value) {
       znp::EncodeHelper<ElType>::Decode(item, begin, end);
     }
-    value = typed_value;
+    SetVariant<DT>(value, typed_value);
   }
 };
 template <DataType DT, typename IT, std::size_t MAN, std::size_t EXP>
@@ -173,7 +173,7 @@ struct FloatDataTypeEncodeHelper {
                std::pow((Type)2.0, (Type)exponent - (Type)half_exponent) *
                (Type)(is_negative ? -1 : 1);
     }
-    value = result;
+    SetVariant<DT>(value, result);
   }
 };
 
