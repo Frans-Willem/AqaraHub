@@ -6,7 +6,6 @@
 #include <boost/log/utility/manipulators/dump.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/program_options.hpp>
-#include <boost/regex.hpp>
 #include <iostream>
 #include <sstream>
 #include <stlab/concurrency/future.hpp>
@@ -17,7 +16,7 @@
 #include "logging.h"
 #include "mqtt_wrapper.h"
 #include "string_enum.h"
-#include "zcl/encoding.h"
+//#include "zcl/encoding.h"
 #include "zcl/name_registry.h"
 #include "zcl/to_json.h"
 #include "zcl/zcl.h"
@@ -294,6 +293,14 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
                 std::placeholders::_3, std::placeholders::_4));
   await(mqtt_wrapper->Subscribe(
       {{mqtt_prefix + "write/#", mqtt::qos::at_least_once}}));
+
+  /*
+  auto bool_true=zcl::ZclVariant::Create<zcl::DataType::_bool>(false);
+  await(endpoint->WriteAttributes(0x1b0b, 1, (zcl::ZclClusterId)0x0006,
+  {{(zcl::ZclAttributeId)0x0000, bool_true}}));
+  */
+  // await(endpoint->SendCommand(0x1b0b, 1, (zcl::ZclClusterId)0x0006, 0x02,
+  // {}));
   return endpoint;
 }
 
@@ -302,58 +309,6 @@ void OnFrameDebug(std::string prefix, znp::ZnpCommandType cmdtype,
                   const std::vector<uint8_t>& payload) {
   LOG("FRAME", debug) << prefix << " " << cmdtype << " " << command << " "
                       << boost::log::dump(payload.data(), payload.size());
-}
-
-std::shared_ptr<MqttWrapper> MqttWrapperFromUrl(
-    boost::asio::io_service& io_service, std::string url) {
-  // TODO: Find some external URL parsing library to handle this for us
-  // properly, including username and password and such.
-  boost::regex re("([^:]*)://(.*?)(:([^:/]+))?/?");
-  boost::smatch match;
-  if (!boost::regex_match(url, match, re)) {
-    throw std::runtime_error("Malformed MQTT URL");
-  }
-  std::string protocol(match[1].first, match[1].second);
-  std::string host(match[2].first, match[2].second);
-  std::string port(match[4].first, match[4].second);
-  if (protocol == "mqtt") {
-    return MqttWrapper::Create(
-        [](boost::asio::io_service& io_service, std::string host,
-           std::string port) {
-          LOG("MqttWrapper", debug)
-              << "Creating connection to " << host << " : " << port;
-          return mqtt::make_client(io_service, host, port);
-        },
-        io_service, host, (port == "" ? "1883" : port));
-  }
-  if (protocol == "mqtts") {
-    return MqttWrapper::Create(
-        [](boost::asio::io_service& io_service, std::string host,
-           std::string port) {
-          return mqtt::make_tls_client(io_service, host, port);
-        },
-        io_service, host, (port == "" ? "8883" : port));
-  }
-#if defined(MQTT_USE_WS)
-  if (protocol == "ws") {
-    return MqttWrapper::Create(
-        [](boost::asio::io_service& io_service, std::string host,
-           std::string port) {
-          return mqtt::make_client_ws(io_service, host, port);
-        },
-        io_service, host, port);
-  }
-  if (protocol == "wss") {
-    return MqttWrapper::Create(
-        [](boost::asio::io_service& io_service, std::string host,
-           std::string port) {
-          return mqtt::make_tls_client_ws(io_service, host, port);
-        },
-        io_service, host, port);
-  }
-#endif
-  throw std::runtime_error("Unsupported MQTT protocol");
-  return std::shared_ptr<MqttWrapper>();
 }
 
 std::string MakeNameSafeForMqtt(std::string name) {
@@ -445,7 +400,7 @@ int main(int argc, const char** argv) {
   std::shared_ptr<MqttWrapper> mqtt_wrapper;
   try {
     mqtt_wrapper =
-        MqttWrapperFromUrl(io_service, variables["mqtt"].as<std::string>());
+        MqttWrapper::FromUrl(io_service, variables["mqtt"].as<std::string>());
   } catch (const std::exception& ex) {
     std::cerr << ex.what() << std::endl;
     return EXIT_FAILURE;

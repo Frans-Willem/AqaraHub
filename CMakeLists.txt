@@ -61,6 +61,7 @@ add_executable(AqaraHub
     src/coro.cpp
 	src/zcl/name_registry.cpp
 	src/zcl/zcl_endpoint.cpp
+	src/mqtt_wrapper.cpp
 	)
 target_include_directories(AqaraHub PUBLIC "src")
 target_link_libraries(AqaraHub stlab)
