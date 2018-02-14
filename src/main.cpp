@@ -270,6 +270,28 @@ void OnPermitJoin(std::shared_ptr<MqttWrapper> mqtt_wrapper,
       .detach();
 }
 
+void OnIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
+                   std::shared_ptr<MqttWrapper> mqtt_wrapper,
+                   std::string mqtt_prefix, const znp::IncomingMsg& message) {
+  api->UtilAddrmgrNwkAddrLookup(message.SrcAddr)
+      .then([message, mqtt_wrapper, mqtt_prefix](znp::IEEEAddress ieee_addr) {
+        return mqtt_wrapper->Publish(
+            boost::str(boost::format("%sreport/%08X/linkquality") %
+                       mqtt_prefix % ieee_addr),
+            boost::str(boost::format("%d") % (unsigned int)message.LinkQuality),
+            mqtt::qos::at_least_once, false);
+      })
+      .recover([](auto f) {
+        try {
+          f.get_try();
+        } catch (const std::exception& ex) {
+          LOG("OnIncomingMsg", warning)
+              << "Unable to publish link quality: " << ex.what();
+        }
+      })
+      .detach();
+}
+
 std::shared_ptr<zcl::ZclEndpoint> Initialize(
     coro::Await await, std::shared_ptr<znp::ZnpApi> api,
     std::array<uint8_t, 16> presharedkey,
@@ -340,6 +362,8 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
 
   api->zdo_on_permit_join_.connect(std::bind(
       &OnPermitJoin, mqtt_wrapper, mqtt_prefix, std::placeholders::_1));
+  api->af_on_incoming_msg_.connect(std::bind(
+      &OnIncomingMsg, api, mqtt_wrapper, mqtt_prefix, std::placeholders::_1));
 
   mqtt_wrapper->on_publish_.connect(
       std::bind(&OnPublish, api, endpoint, mqtt_prefix, name_registry,
