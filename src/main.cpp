@@ -348,14 +348,6 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
   await(mqtt_wrapper->Subscribe(
       {{mqtt_prefix + "write/#", mqtt::qos::at_least_once},
        {mqtt_prefix + "command/#", mqtt::qos::at_least_once}}));
-
-  /*
-  auto bool_true=zcl::ZclVariant::Create<zcl::DataType::_bool>(false);
-  await(endpoint->WriteAttributes(0x1b0b, 1, (zcl::ZclClusterId)0x0006,
-  {{(zcl::ZclAttributeId)0x0000, bool_true}}));
-  */
-  // await(endpoint->SendCommand(0x1b0b, 1, (zcl::ZclClusterId)0x0006, 0x02,
-  // {}));
   return endpoint;
 }
 
@@ -427,7 +419,7 @@ int main(int argc, const char** argv) {
   std::string serial_port = variables["port"].as<std::string>();
   LOG("Main", info) << "Serial port: " << serial_port;
 
-  // Read cluster & attribute names
+  // Read cluster, command, & attribute names
   auto name_registry = std::make_shared<zcl::NameRegistry>();
   if (!name_registry->ReadFromInfo(variables["name-registry"].as<std::string>(),
                                    MakeNameSafeForMqtt)) {
