@@ -109,7 +109,8 @@ void OnReportAttributes(std::shared_ptr<znp::ZnpApi> api,
                         std::string mqtt_prefix,
                         std::shared_ptr<zcl::NameRegistry> name_registry,
                         const zcl::ZclEndpoint::AttributeReport& report) {
-  LOG("Report", debug) << "Attempting to look up full source address";
+  LOG("Report", debug) << "Attempting to look up full source address for "
+                       << (unsigned int)report.source_address;
   auto source_endpoint = (unsigned int)report.source_endpoint;
   auto cluster_id = report.cluster_id;
   auto attributes = report.attributes;
