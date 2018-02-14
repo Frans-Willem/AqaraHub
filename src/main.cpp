@@ -7,6 +7,7 @@
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/program_options.hpp>
 #include <iostream>
+#include <regex>
 #include <sstream>
 #include <stlab/concurrency/future.hpp>
 #include <stlab/concurrency/immediate_executor.hpp>
@@ -156,35 +157,69 @@ void OnReportAttributes(std::shared_ptr<znp::ZnpApi> api,
       .detach();
 }
 
-void OnPublishWrite(std::shared_ptr<znp::ZnpApi> api,
-                    std::shared_ptr<zcl::ZclEndpoint> endpoint,
-                    std::shared_ptr<zcl::NameRegistry> name_registry,
-                    std::string topic, std::string message) {
-  if (topic == "permitjoin") {
-    std::size_t endpos;
-    unsigned long seconds = stoul(message, &endpos, 0);
-    if (endpos != message.size()) {
-      LOG("OnPublishWrite", warning)
-          << "Unable to parse permitjoin contents '" << message << "'";
-      return;
-    }
-    if (seconds >= 0xFF) {
-      seconds = 0xFE;
-    }
-    api->ZdoMgmtPermitJoin((znp::AddrMode)15, 0xFFFC, seconds, 0)
-        .recover([](auto f) {
-          try {
-            f.get_try();
-            LOG("PermitJoin", debug) << "Permit join OK";
-          } catch (const std::exception& ex) {
-            LOG("PermitJoin", debug) << "Permit join failed: " << ex.what();
-          }
-
-        })
-        .detach();
+void OnPublishPermitJoin(std::shared_ptr<znp::ZnpApi> api,
+                         std::string message) {
+  std::size_t endpos;
+  unsigned long seconds = stoul(message, &endpos, 0);
+  if (endpos != message.size()) {
+    LOG("OnPublishPermitJoin", warning)
+        << "Unable to parse permitjoin contents '" << message << "'";
     return;
   }
-  LOG("OnPublishWrite", debug) << "Topic '" << topic << "' not handled";
+  if (seconds >= 0xFF) {
+    seconds = 0xFE;
+  }
+  api->ZdoMgmtPermitJoin((znp::AddrMode)15, 0xFFFC, seconds, 0)
+      .recover([](auto f) {
+        try {
+          f.get_try();
+          LOG("PermitJoin", debug) << "Permit join OK";
+        } catch (const std::exception& ex) {
+          LOG("PermitJoin", debug) << "Permit join failed: " << ex.what();
+        }
+
+      })
+      .detach();
+  return;
+}
+
+void OnPublishCommand(std::shared_ptr<znp::ZnpApi> api,
+                      std::shared_ptr<zcl::ZclEndpoint> endpoint,
+                      std::shared_ptr<zcl::NameRegistry> name_registry,
+                      znp::IEEEAddress destination_address,
+                      std::uint8_t destination_endpoint,
+                      std::string cluster_name, std::string command_name,
+                      std::string message) {
+  boost::optional<zcl::ZclClusterId> cluster_id =
+      name_registry->ClusterFromString(cluster_name);
+  if (!cluster_id) {
+    LOG("OnPublishCommand", warning)
+        << "Unable to look up cluster id '" << cluster_name << "'";
+    return;
+  }
+  boost::optional<zcl::ZclCommandId> command =
+      name_registry->CommandFromString(*cluster_id, command_name);
+  if (!command) {
+    LOG("OnPublishCommand", warning)
+        << "Unable to look up command '" << command_name << "' in cluster '"
+        << cluster_name << "'";
+    return;
+  }
+  api->UtilAddrmgrExtAddrLookup(destination_address)
+      .then([endpoint, destination_endpoint, cluster_id, command,
+             message](znp::ShortAddress short_address) {
+        return endpoint->SendCommand(short_address, destination_endpoint,
+                                     *cluster_id, *command, {});
+      })
+      .recover([](auto f) {
+        try {
+          f.get_try();
+        } catch (const std::exception& ex) {
+          LOG("OnPublishCommand", warning)
+              << "Exception while sending command: " << ex.what();
+        }
+      })
+      .detach();
 }
 
 void OnPublish(std::shared_ptr<znp::ZnpApi> api,
@@ -193,10 +228,24 @@ void OnPublish(std::shared_ptr<znp::ZnpApi> api,
                std::shared_ptr<zcl::NameRegistry> name_registry,
                std::string topic, std::string message, std::uint8_t qos,
                bool retain) {
-  std::string write_prefix(mqtt_prefix + "write/");
-  if (boost::starts_with(topic, write_prefix)) {
-    OnPublishWrite(api, endpoint, name_registry,
-                   topic.substr(write_prefix.size()), message);
+  if (!boost::starts_with(topic, mqtt_prefix)) {
+    LOG("OnPublish", debug) << "Ignoring publish not starting with our prefix";
+    return;
+  }
+  topic = topic.substr(mqtt_prefix.size());
+
+  std::smatch match;
+  static std::regex re_write_permitjoin("write/permitjoin");
+  if (std::regex_match(topic, re_write_permitjoin)) {
+    OnPublishPermitJoin(api, message);
+    return;
+  }
+
+  static std::regex re_command(
+      "command/([0-9a-fA-F]+)/([0-9]+)/([^/]+)/([^/]+)");
+  if (std::regex_match(topic, match, re_command)) {
+    OnPublishCommand(api, endpoint, name_registry, std::stoul(match[1], 0, 16),
+                     std::stoul(match[2], 0, 10), match[3], match[4], message);
     return;
   }
 
@@ -296,7 +345,8 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
                 std::placeholders::_1, std::placeholders::_2,
                 std::placeholders::_3, std::placeholders::_4));
   await(mqtt_wrapper->Subscribe(
-      {{mqtt_prefix + "write/#", mqtt::qos::at_least_once}}));
+      {{mqtt_prefix + "write/#", mqtt::qos::at_least_once},
+       {mqtt_prefix + "command/#", mqtt::qos::at_least_once}}));
 
   /*
   auto bool_true=zcl::ZclVariant::Create<zcl::DataType::_bool>(false);
