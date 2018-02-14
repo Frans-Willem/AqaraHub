@@ -1,60 +1,63 @@
 0x0000 "Basic"
 {
-  0x0000 "ZCLVersion"
+  attributes
   {
-    type uint8
-  }
-  0x0001 "ApplicationVersion"
-  {
-    type uint8
-  }
-  0x0002 "StackVersion"
-  {
-    type uint8
-  }
-  0x0003 "HWVersion"
-  {
-    type uint8
-  }
-  0x0004 "ManufacturerName"
-  {
-    type string
-  }
-  0x0005 "ModelIdentifier"
-  {
-    type string
-  }
-  0x0006 "DateCode"
-  {
-    type string
-  }
-  0x0007 "PowerSource"
-  {
-    type enum8
-  }
-  0x0010 "LocationDescription"
-  {
-    type string
-  }
-  0x0011 "PhysicalEnvironment"
-  {
-    type enum8
-  }
-  0x0012 "DeviceEnabled"
-  {
-    type bool
-  }
-  0x0013 "AlarmMask"
-  {
-    type map8
-  }
-  0x0014 "DisableLocalConfig"
-  {
-    type map8
-  }
-  0x4000 "SWBuildID"
-  {
-    type string
+    0x0000 "ZCLVersion"
+    {
+      type uint8
+    }
+    0x0001 "ApplicationVersion"
+    {
+      type uint8
+    }
+    0x0002 "StackVersion"
+    {
+      type uint8
+    }
+    0x0003 "HWVersion"
+    {
+      type uint8
+    }
+    0x0004 "ManufacturerName"
+    {
+      type string
+    }
+    0x0005 "ModelIdentifier"
+    {
+      type string
+    }
+    0x0006 "DateCode"
+    {
+      type string
+    }
+    0x0007 "PowerSource"
+    {
+      type enum8
+    }
+    0x0010 "LocationDescription"
+    {
+      type string
+    }
+    0x0011 "PhysicalEnvironment"
+    {
+      type enum8
+    }
+    0x0012 "DeviceEnabled"
+    {
+      type bool
+    }
+    0x0013 "AlarmMask"
+    {
+      type map8
+    }
+    0x0014 "DisableLocalConfig"
+    {
+      type map8
+    }
+    0x4000 "SWBuildID"
+    {
+      type string
+    }
   }
 }
 0x0001 "Power Configuration"
@@ -64,21 +67,33 @@
 0x0005 "Scenes"
 0x0006 "On/Off"
 {
-  0x0000 "OnOff"
+  attributes
   {
-    type bool
+    0x0000 "OnOff"
+    {
+      type bool
+    }
+    0x4000 "GlobalSceneControl"
+    {
+      type bool
+    }
+    0x4001 "OnTime"
+    {
+      type uint16
+    }
+    0x4002 "OffWaitTime"
+    {
+      type uint16
+    }
   }
-  0x4000 "GlobalSceneControl"
+  commands
   {
-    type bool
-  }
-  0x4001 "OnTime"
-  {
-    type uint16
-  }
-  0x4002 "OffWaitTime"
-  {
-    type uint16
+    0x00 "Off"
+    0x01 "On"
+    0x02 "Toggle"
+    0x40 "Off with effect"
+    0x41 "On with recall global scene"
+    0x042 "On with timed off"
   }
 }
 0x0007 "On/Off Switch Configuration"
@@ -88,45 +103,48 @@
 0x000B "RSSI Location"
 0x000C "Analog Input"
 {
-  0x001C "Description"
+  attributes
   {
-    type string
-  }
-  0x0041 "MaxPresentValue"
-  {
-    type single
-  }
-  0x0045 "MinPresentValue"
-  {
-    type single
-  }
-  0x0051 "OutOfService"
-  {
-    type bool
-  }
-  0x0055 "PresentValue"
-  {
-    type single
-  }
-  0x0067 "Reliability"
-  {
-    type enum8
-  }
-  0x006A "Resolution"
-  {
-    type single
-  }
-  0x006F "StatusFlags"
-  {
-    type map8
-  }
-  0x0075 "EngineeringUnits"
-  {
-    type enum16
-  }
-  0x0100 "ApplicationType"
-  {
-    type uint32
+    0x001C "Description"
+    {
+      type string
+    }
+    0x0041 "MaxPresentValue"
+    {
+      type single
+    }
+    0x0045 "MinPresentValue"
+    {
+      type single
+    }
+    0x0051 "OutOfService"
+    {
+      type bool
+    }
+    0x0055 "PresentValue"
+    {
+      type single
+    }
+    0x0067 "Reliability"
+    {
+      type enum8
+    }
+    0x006A "Resolution"
+    {
+      type single
+    }
+    0x006F "StatusFlags"
+    {
+      type map8
+    }
+    0x0075 "EngineeringUnits"
+    {
+      type enum16
+    }
+    0x0100 "ApplicationType"
+    {
+      type uint32
+    }
   }
 }
 0x000D "Analog Output"
@@ -160,103 +178,115 @@
 0x0401 "Illuminance Level Sensing"
 0x0402 "Temperature Measurement"
 {
-  0x0000 "MeasuredValue"
+  attributes
   {
-    type int16
-  }
-  0x0001 "MinMeasuredValue"
-  {
-    type int16
-  }
-  0x0002 "MaxMeasuredValue"
-  {
-    type int16
-  }
-  0x0003 "Tolerance"
-  {
-    type uint16
+    0x0000 "MeasuredValue"
+    {
+      type int16
+    }
+    0x0001 "MinMeasuredValue"
+    {
+      type int16
+    }
+    0x0002 "MaxMeasuredValue"
+    {
+      type int16
+    }
+    0x0003 "Tolerance"
+    {
+      type uint16
+    }
   }
 }
 0x0403 "Pressure Measurement"
 {
-  0x0000 "MeasuredValue"
+  attributes
   {
-    type int16
-  }
-  0x0001 "MinMeasuredValue"
-  {
-    type int16
-  }
-  0x0002 "MaxMeasuredValue"
-  {
-    type int16
-  }
-  0x0003 "Tolerance"
-  {
-    type uint16
-  }
-  0x00010 "ScaledValue"
-  {
-    type uint16
-  }
-  0x00014 "Scale"
-  {
-    type int8
+    0x0000 "MeasuredValue"
+    {
+      type int16
+    }
+    0x0001 "MinMeasuredValue"
+    {
+      type int16
+    }
+    0x0002 "MaxMeasuredValue"
+    {
+      type int16
+    }
+    0x0003 "Tolerance"
+    {
+      type uint16
+    }
+    0x00010 "ScaledValue"
+    {
+      type uint16
+    }
+    0x00014 "Scale"
+    {
+      type int8
+    }
   }
 }
 0x0404 "Flow Measurement"
 0x0405 "Relative Humidity Measurement"
 {
-  0x0000 "MeasuredValue"
+  attributes
   {
-    type uint16
-  }
-  0x0001 "MinMeasuredValue"
-  {
-    type uint16
-  }
-  0x0002 "MaxMeasuredValue"
-  {
-    type uint16
-  }
-  0x0003 "Tolerance"
-  {
-    type uint16
+    0x0000 "MeasuredValue"
+    {
+      type uint16
+    }
+    0x0001 "MinMeasuredValue"
+    {
+      type uint16
+    }
+    0x0002 "MaxMeasuredValue"
+    {
+      type uint16
+    }
+    0x0003 "Tolerance"
+    {
+      type uint16
+    }
   }
 }
 0x0406 "Occupancy Sensing"
 {
-  0x0000 "Occupancy"
+  attributes
   {
-    type map8
-  }
-  0x0001 "OccupancySensorType"
-  {
-    type enum8
-  }
-  0x0010 "PIROccupiedToUnoccupiedDelay"
-  {
-    type uint16
-  }
-  0x0011 "PIRUnoccupiedToOccupiedDelay"
-  {
-    type uint16
-  }
-  0x0012 "PIRUnoccupiedToOccupiedThreshold"
-  {
-    type uint8
-  }
-  0x0020 "UltrasonicOccupiedToUnoccupiedDelay"
-  {
-    type uint16
-  }
-  0x0021 "UltrasonicUnoccupiedToOccupiedDelay"
-  {
-    type uint16
-  }
-  0x0022 "UltrasonicUnoccupiedToOccupiedThreshold"
-  {
-    type uint8
+    0x0000 "Occupancy"
+    {
+      type map8
+    }
+    0x0001 "OccupancySensorType"
+    {
+      type enum8
+    }
+    0x0010 "PIROccupiedToUnoccupiedDelay"
+    {
+      type uint16
+    }
+    0x0011 "PIRUnoccupiedToOccupiedDelay"
+    {
+      type uint16
+    }
+    0x0012 "PIRUnoccupiedToOccupiedThreshold"
+    {
+      type uint8
+    }
+    0x0020 "UltrasonicOccupiedToUnoccupiedDelay"
+    {
+      type uint16
+    }
+    0x0021 "UltrasonicUnoccupiedToOccupiedDelay"
+    {
+      type uint16
+    }
+    0x0022 "UltrasonicUnoccupiedToOccupiedThreshold"
+    {
+      type uint8
+    }
   }
 }
 0x0500 "IAS Zone"

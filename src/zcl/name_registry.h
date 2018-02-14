@@ -19,11 +19,17 @@ class NameRegistry {
                                 zcl::ZclAttributeId attribute_id);
   boost::optional<zcl::ZclAttributeId> AttributeFromString(
       zcl::ZclClusterId cluster_id, const std::string& attribute_name);
+  std::string CommandToString(zcl::ZclClusterId cluster_id,
+                              ZclCommandId command);
+  boost::optional<zcl::ZclCommandId> CommandFromString(
+      zcl::ZclClusterId cluster_id, const std::string& command_name);
 
  private:
   boost::bimap<zcl::ZclClusterId, std::string> cluster_names_;
   std::map<zcl::ZclClusterId, boost::bimap<zcl::ZclAttributeId, std::string>>
       attribute_names_;
+  std::map<zcl::ZclClusterId, boost::bimap<zcl::ZclCommandId, std::string>>
+      command_names_;
 };
 }  // namespace zcl
 #endif  //_ZCL_NAME_REGISTRY_H_
