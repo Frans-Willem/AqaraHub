@@ -20,6 +20,16 @@ std::ostream& operator<<(std::ostream& stream, const ZclFrameType& frame_type);
 enum class ZclDirection : uint8_t { ClientToServer = 0, ServerToClient = 1 };
 std::ostream& operator<<(std::ostream& stream, const ZclDirection& direction);
 
+enum class ZclClusterId : uint16_t {
+  // Deliberately left empty
+};
+enum class ZclAttributeId : uint16_t {
+  // Deliberately left empty
+};
+enum class ZclCommandId : uint8_t {
+  // Deliberately left empty
+};
+
 struct ZclFrame {
   ZclFrameType frame_type;
   boost::optional<uint16_t> manufacturer_code;
@@ -27,7 +37,7 @@ struct ZclFrame {
   bool disable_default_response;
   uint8_t reserved;
   uint8_t transaction_sequence_number;
-  uint8_t command_identifier;
+  ZclCommandId command_identifier;
   std::vector<uint8_t> payload;
 };
 std::ostream& operator<<(std::ostream& stream, const ZclFrame& header);
@@ -47,13 +57,6 @@ enum class ZclGlobalCommandId : uint8_t {
   DefaultResponse = 0x0b,
   DiscoverAttributes = 0x0c,
   DiscoverAttributesResponse = 0x0d
-};
-
-enum class ZclClusterId : uint16_t {
-  // Deliberately left empty
-};
-enum class ZclAttributeId : uint16_t {
-  // Deliberately left empty
 };
 
 enum class ZclGeneralCommand : uint8_t {

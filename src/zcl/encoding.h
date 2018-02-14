@@ -372,7 +372,8 @@ class EncodeHelper<zcl::ZclFrame> {
     }
     EncodeHelper<uint8_t>::Encode(value.transaction_sequence_number, begin,
                                   end);
-    EncodeHelper<uint8_t>::Encode(value.command_identifier, begin, end);
+    EncodeHelper<zcl::ZclCommandId>::Encode(value.command_identifier, begin,
+                                            end);
     if (end - begin != value.payload.end() - value.payload.begin()) {
       throw std::runtime_error("Encoding buffer was of wrong size");
     }
@@ -399,7 +400,8 @@ class EncodeHelper<zcl::ZclFrame> {
     }
     EncodeHelper<uint8_t>::Decode(value.transaction_sequence_number, begin,
                                   end);
-    EncodeHelper<uint8_t>::Decode(value.command_identifier, begin, end);
+    EncodeHelper<zcl::ZclCommandId>::Decode(value.command_identifier, begin,
+                                            end);
     value.payload = std::vector<uint8_t>(begin, end);
     begin = end;
   }

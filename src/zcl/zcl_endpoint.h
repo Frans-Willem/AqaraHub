@@ -29,7 +29,8 @@ class ZclEndpoint : public std::enable_shared_from_this<ZclEndpoint> {
       znp::ShortAddress address, uint8_t endpoint, ZclClusterId cluster_id,
       std::vector<std::tuple<ZclAttributeId, ZclVariant>> attributes);
   stlab::future<void> SendCommand(znp::ShortAddress address, uint8_t endpoint,
-                                  ZclClusterId cluster_id, uint8_t command_id,
+                                  ZclClusterId cluster_id,
+                                  ZclCommandId command_id,
                                   std::vector<uint8_t> payload);
 
   boost::signals2::signal<void(AttributeReport)> on_report_attributes_;

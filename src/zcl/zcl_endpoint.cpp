@@ -99,7 +99,8 @@ stlab::future<void> ZclEndpoint::WriteAttributes(
   frame.disable_default_response = false;
   frame.reserved = 0;
   frame.transaction_sequence_number = NextTransSeqNumFor(address);
-  frame.command_identifier = (uint8_t)ZclGlobalCommandId::WriteAttributes;
+  frame.command_identifier =
+      (zcl::ZclCommandId)ZclGlobalCommandId::WriteAttributes;
   for (const auto& attribute : attributes) {
     auto encoded =
         znp::Encode<std::tuple<ZclAttributeId, ZclVariant>>(attribute);
@@ -113,7 +114,7 @@ stlab::future<void> ZclEndpoint::WriteAttributes(
 stlab::future<void> ZclEndpoint::SendCommand(znp::ShortAddress address,
                                              uint8_t endpoint,
                                              ZclClusterId cluster_id,
-                                             uint8_t command_id,
+                                             ZclCommandId command_id,
                                              std::vector<uint8_t> payload) {
   ZclFrame frame;
   frame.frame_type = ZclFrameType::Local;
