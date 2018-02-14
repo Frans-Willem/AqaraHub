@@ -1,6 +1,5 @@
 #ifndef _ZCL_ZCL_ENDPOINT_H_
 #define _ZCL_ZCL_ENDPOINT_H_
-#include "zcl/trans_id_manager.h"
 #include "zcl/zcl.h"
 #include "znp/znp_api.h"
 
