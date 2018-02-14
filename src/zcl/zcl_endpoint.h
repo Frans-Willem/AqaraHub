@@ -1,5 +1,6 @@
 #ifndef _ZCL_ZCL_ENDPOINT_H_
 #define _ZCL_ZCL_ENDPOINT_H_
+#include "zcl/trans_id_manager.h"
 #include "zcl/zcl.h"
 #include "znp/znp_api.h"
 
@@ -25,7 +26,12 @@ class ZclEndpoint : public std::enable_shared_from_this<ZclEndpoint> {
       znp::Latency latency, std::vector<uint16_t> input_clusters,
       std::vector<uint16_t> output_clusters);
   stlab::future<ZclVariant> ReadAttribute();
-  stlab::future<void> WriteAttribute();
+  stlab::future<void> WriteAttributes(
+      znp::ShortAddress address, uint8_t endpoint, ZclClusterId cluster_id,
+      std::vector<std::tuple<ZclAttributeId, ZclVariant>> attributes);
+  stlab::future<void> SendCommand(znp::ShortAddress address, uint8_t endpoint,
+                                  ZclClusterId cluster_id, uint8_t command_id,
+                                  std::vector<uint8_t> payload);
 
   boost::signals2::signal<void(AttributeReport)> on_report_attributes_;
 
@@ -35,10 +41,13 @@ class ZclEndpoint : public std::enable_shared_from_this<ZclEndpoint> {
   void OnIncomingMsg(const znp::IncomingMsg& message);
   void OnIncomingReportAttributes(const znp::IncomingMsg& message,
                                   const ZclFrame& frame);
+  uint8_t NextTransSeqNumFor(znp::ShortAddress address);
 
   std::shared_ptr<znp::ZnpApi> znp_api_;
   const uint8_t endpoint_;
   std::vector<boost::signals2::connection> listeners_;
+  std::map<znp::ShortAddress, uint8_t> send_trans_seq_nums_;
+  std::map<znp::ShortAddress, std::vector<uint8_t>> last_msg_;
 };
 }  // namespace zcl
 #endif  // _ZCL_ZCL_ENDPOINT_H_

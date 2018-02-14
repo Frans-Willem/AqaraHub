@@ -41,6 +41,12 @@ void ZclEndpoint::OnIncomingMsg(const znp::IncomingMsg& message) {
   if (message.DstEndpoint != endpoint_) {
     return;
   }
+  if (last_msg_[message.SrcAddr] == message.Data) {
+    LOG("ZclEndpoint", debug)
+        << "Ignoring duplicate message from " << (unsigned int)message.SrcAddr;
+    return;
+  }
+  last_msg_[message.SrcAddr] = message.Data;
   auto frame = znp::Decode<ZclFrame>(message.Data);
   if (frame.frame_type == ZclFrameType::Global &&
       (ZclGlobalCommandId)frame.command_identifier ==
@@ -82,5 +88,47 @@ void ZclEndpoint::OnIncomingReportAttributes(const znp::IncomingMsg& message,
     report.attributes.push_back(std::move(attribute));
   }
   on_report_attributes_(report);
+}
+
+stlab::future<void> ZclEndpoint::WriteAttributes(
+    znp::ShortAddress address, uint8_t endpoint, ZclClusterId cluster_id,
+    std::vector<std::tuple<ZclAttributeId, ZclVariant>> attributes) {
+  ZclFrame frame;
+  frame.frame_type = ZclFrameType::Global;
+  frame.direction = ZclDirection::ClientToServer;
+  frame.disable_default_response = false;
+  frame.reserved = 0;
+  frame.transaction_sequence_number = NextTransSeqNumFor(address);
+  frame.command_identifier = (uint8_t)ZclGlobalCommandId::WriteAttributes;
+  for (const auto& attribute : attributes) {
+    auto encoded =
+        znp::Encode<std::tuple<ZclAttributeId, ZclVariant>>(attribute);
+    frame.payload.insert(frame.payload.end(), encoded.begin(), encoded.end());
+  }
+  return znp_api_->AfDataRequest(address, endpoint, endpoint_,
+                                 (uint16_t)cluster_id, 0, 0, 30,
+                                 znp::Encode(frame));
+}
+
+stlab::future<void> ZclEndpoint::SendCommand(znp::ShortAddress address,
+                                             uint8_t endpoint,
+                                             ZclClusterId cluster_id,
+                                             uint8_t command_id,
+                                             std::vector<uint8_t> payload) {
+  ZclFrame frame;
+  frame.frame_type = ZclFrameType::Local;
+  frame.direction = ZclDirection::ClientToServer;
+  frame.disable_default_response = false;
+  frame.reserved = 0;
+  frame.transaction_sequence_number = NextTransSeqNumFor(address);
+  frame.command_identifier = command_id;
+  frame.payload = std::move(payload);
+  return znp_api_->AfDataRequest(address, endpoint, endpoint_,
+                                 (uint16_t)cluster_id, 0, 0, 30,
+                                 znp::Encode(frame));
+}
+
+uint8_t ZclEndpoint::NextTransSeqNumFor(znp::ShortAddress address) {
+  return send_trans_seq_nums_[address]++;
 }
 }  // namespace zcl
