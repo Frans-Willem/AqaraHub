@@ -97,6 +97,7 @@ class ZnpApi {
 
   // UTIL commands
   stlab::future<IEEEAddress> UtilAddrmgrNwkAddrLookup(ShortAddress address);
+  stlab::future<ShortAddress> UtilAddrmgrExtAddrLookup(IEEEAddress address);
   // UTIL events
 
   // Helper functions

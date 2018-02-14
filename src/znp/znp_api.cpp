@@ -212,6 +212,12 @@ stlab::future<IEEEAddress> ZnpApi::UtilAddrmgrNwkAddrLookup(
       .then(&znp::Decode<IEEEAddress>);
 }
 
+stlab::future<ShortAddress> ZnpApi::UtilAddrmgrExtAddrLookup(
+    IEEEAddress address) {
+  return RawSReq(UtilCommand::ADDRMGR_EXT_ADDR_LOOKUP, znp::Encode(address))
+      .then(&znp::Decode<ShortAddress>);
+}
+
 void ZnpApi::OnFrame(ZnpCommandType type, ZnpCommand command,
                      const std::vector<uint8_t>& payload) {
   for (auto it = handlers_.begin(); it != handlers_.end();) {
