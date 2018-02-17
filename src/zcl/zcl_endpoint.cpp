@@ -1,6 +1,7 @@
 #include "zcl/zcl_endpoint.h"
 #include <boost/log/utility/manipulators/dump.hpp>
 #include "logging.h"
+#include "xiaomi/ff01_attribute.h"
 #include "zcl/encoding.h"
 
 namespace zcl {
@@ -80,11 +81,13 @@ void ZclEndpoint::OnIncomingReportAttributes(const znp::IncomingMsg& message,
   report.timestamp = message.TimeStamp;
   report.trans_seq_number = message.TransSeqNumber;
 
-  std::vector<uint8_t>::const_iterator current_data = frame.payload.begin();
-  while (current_data != frame.payload.end()) {
+  std::vector<uint8_t> payload(frame.payload);
+  xiaomi::FixupFF01ReportLength(report.cluster_id, payload);
+  std::vector<uint8_t>::const_iterator current_data = payload.begin();
+  while (current_data != payload.end()) {
     std::tuple<ZclAttributeId, ZclVariant> attribute;
     znp::EncodeHelper<std::tuple<ZclAttributeId, ZclVariant>>::Decode(
-        attribute, current_data, frame.payload.end());
+        attribute, current_data, payload.end());
     report.attributes.push_back(std::move(attribute));
   }
   on_report_attributes_(report);
