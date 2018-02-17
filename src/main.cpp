@@ -191,6 +191,10 @@ void OnPublishCommand(std::shared_ptr<znp::ZnpApi> api,
                       std::uint8_t destination_endpoint,
                       std::string cluster_name, std::string command_name,
                       std::string message) {
+  LOG("OnPublishCommand", debug)
+      << "Destination " << destination_address << ", endpoint "
+      << (unsigned int)destination_endpoint << ", cluster name '"
+      << cluster_name << "', command name '" << command_name << "'";
   boost::optional<zcl::ZclClusterId> cluster_id =
       name_registry->ClusterFromString(cluster_name);
   if (!cluster_id) {
@@ -206,15 +210,19 @@ void OnPublishCommand(std::shared_ptr<znp::ZnpApi> api,
         << cluster_name << "'";
     return;
   }
+  LOG("OnPublishCommand", info) << "Looking up Short Address from IEEE address";
   api->UtilAddrmgrExtAddrLookup(destination_address)
       .then([endpoint, destination_endpoint, cluster_id, command,
              message](znp::ShortAddress short_address) {
+        LOG("OnPublishCommand", info) << "Response received, short address: "
+                                      << (unsigned int)short_address;
         return endpoint->SendCommand(short_address, destination_endpoint,
                                      *cluster_id, *command, {});
       })
       .recover([](auto f) {
         try {
           f.get_try();
+          LOG("OnPublishCommand", info) << "Command sent";
         } catch (const std::exception& ex) {
           LOG("OnPublishCommand", warning)
               << "Exception while sending command: " << ex.what();
