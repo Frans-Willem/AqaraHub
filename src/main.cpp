@@ -237,28 +237,34 @@ void OnPublish(std::shared_ptr<znp::ZnpApi> api,
                std::shared_ptr<zcl::NameRegistry> name_registry,
                std::string topic, std::string message, std::uint8_t qos,
                bool retain) {
-  if (!boost::starts_with(topic, mqtt_prefix)) {
-    LOG("OnPublish", debug) << "Ignoring publish not starting with our prefix";
-    return;
-  }
-  topic = topic.substr(mqtt_prefix.size());
+  try {
+    if (!boost::starts_with(topic, mqtt_prefix)) {
+      LOG("OnPublish", debug)
+          << "Ignoring publish not starting with our prefix";
+      return;
+    }
+    topic = topic.substr(mqtt_prefix.size());
 
-  std::smatch match;
-  static std::regex re_write_permitjoin("write/permitjoin");
-  if (std::regex_match(topic, re_write_permitjoin)) {
-    OnPublishPermitJoin(api, message);
-    return;
-  }
+    std::smatch match;
+    static std::regex re_write_permitjoin("write/permitjoin");
+    if (std::regex_match(topic, re_write_permitjoin)) {
+      OnPublishPermitJoin(api, message);
+      return;
+    }
 
-  static std::regex re_command(
-      "command/([0-9a-fA-F]+)/([0-9]+)/([^/]+)/([^/]+)");
-  if (std::regex_match(topic, match, re_command)) {
-    OnPublishCommand(api, endpoint, name_registry, std::stoul(match[1], 0, 16),
-                     std::stoul(match[2], 0, 10), match[3], match[4], message);
-    return;
-  }
+    static std::regex re_command(
+        "command/([0-9a-fA-F]+)/([0-9]+)/([^/]+)/([^/]+)");
+    if (std::regex_match(topic, match, re_command)) {
+      OnPublishCommand(
+          api, endpoint, name_registry, std::stoull(match[1], 0, 16),
+          std::stoul(match[2], 0, 10), match[3], match[4], message);
+      return;
+    }
 
-  LOG("OnPublish", debug) << "Unhandled MQTT publish to " << topic;
+    LOG("OnPublish", debug) << "Unhandled MQTT publish to " << topic;
+  } catch (const std::exception& ex) {
+    LOG("OnPublish", debug) << "Exception: " << ex.what();
+  }
 }
 
 void OnPermitJoin(std::shared_ptr<MqttWrapper> mqtt_wrapper,
