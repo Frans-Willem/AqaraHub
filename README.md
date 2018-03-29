@@ -52,7 +52,7 @@ Afterwards a binary named ```AqaraHub``` should have appeared in the build folde
 To run AqaraHub, several things are needed:
 
 - A CC2531 Zigbee USB dongle, like one of [these](https://www.aliexpress.com/wholesale?SearchText=CC2531+USB+Dongle)
-- A programmer to flash the CC2531, like one of [these](https://www.aliexpress.com/wholesale?SearchText=CC2531+Programmer)
+- A programmer to flash the CC2531, like one of [these](https://www.aliexpress.com/wholesale?catId=0&initiative_id=SB_20180329140214&SearchText=CC+Debugger+ZIGBEE+emulator)
 - A cable from the standard double-row 2.54-spaced connector to the teeny-tiny connector on the CC2531, like one of [these](https://www.aliexpress.com/wholesale?SearchText=CC2531+Cable)
 - A functioning MQTT Server
 - One or more Xiaomi Aqara devices
