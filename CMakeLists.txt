@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.6 FATAL_ERROR)
 
 project(AqaraHub VERSION 0.1.0 LANGUAGES CXX)
 
+include(GNUInstallDirs)
+
 if(EXISTS "${CMAKE_BINARY_DIR}/conanbuildinfo.cmake")
 	include("${CMAKE_BINARY_DIR}/conanbuildinfo.cmake")
 	conan_basic_setup(TARGETS)
@@ -75,6 +77,13 @@ target_link_libraries(AqaraHub Boost::program_options)
 target_link_libraries(AqaraHub Boost::coroutine)
 target_link_libraries(AqaraHub Threads::Threads)
 target_link_libraries(AqaraHub taocpp::json)
+
+install(TARGETS AqaraHub
+	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES attributes.info DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/AqaraHub/)
+install(FILES AqaraHub.service DESTINATION ${CMAKE_INSTALL_LIBDIR}/systemd/system/)
 
 add_executable(tests
     src/asio_executor.cpp

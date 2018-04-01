@@ -1,0 +1,11 @@
+[Unit]
+Description=AqaraHub Xiaomi to MQTT Bridge
+
+[Service]
+EnvironmentFile=/etc/default/AqaraHub
+ExecStart=/usr/bin/env AqaraHub ${AQARAHUB_CMDLINE}
+Restart=on-failure
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
