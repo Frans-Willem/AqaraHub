@@ -66,6 +66,7 @@ add_executable(AqaraHub
 	src/mqtt_wrapper.cpp
 	src/xiaomi/ff01_attribute.cpp
 	src/zcl/to_json.cpp
+	src/zcl/from_json.cpp
 	)
 target_include_directories(AqaraHub PUBLIC "src")
 target_link_libraries(AqaraHub stlab)
