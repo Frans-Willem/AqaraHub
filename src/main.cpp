@@ -18,6 +18,8 @@
 #include "mqtt_wrapper.h"
 #include "string_enum.h"
 #include "xiaomi/ff01_attribute.h"
+#include "zcl/encoding.h"
+#include "zcl/from_json.h"
 #include "zcl/name_registry.h"
 #include "zcl/to_json.h"
 #include "zcl/zcl.h"
@@ -178,7 +180,6 @@ void OnPublishPermitJoin(std::shared_ptr<znp::ZnpApi> api,
         } catch (const std::exception& ex) {
           LOG("PermitJoin", debug) << "Permit join failed: " << ex.what();
         }
-
       })
       .detach();
   return;
@@ -210,14 +211,49 @@ void OnPublishCommand(std::shared_ptr<znp::ZnpApi> api,
         << cluster_name << "'";
     return;
   }
+
+  tao::json::value json_arguments = tao::json::value::array({});
+  if (message.size() > 0) {
+    try {
+      json_arguments = tao::json::from_string(message);
+    } catch (const std::exception& ex) {
+      LOG("OnPublishCommand", error)
+          << "Unable to decode message payload: " << ex.what();
+      return;
+    }
+  }
+  if (!json_arguments.is_array()) {
+    json_arguments = tao::json::value::array({json_arguments});
+  }
+  std::vector<uint8_t> payload;
+  try {
+    for (const auto& json_argument : json_arguments.get_array()) {
+      zcl::ZclVariant variant_argument = zcl::from_json(json_argument);
+      std::vector<uint8_t> encoded_argument = znp::Encode(variant_argument);
+      payload.insert(payload.end(),
+                     encoded_argument.begin() +
+                         znp::EncodedSize(variant_argument.GetType()),
+                     encoded_argument.end());
+    }
+  } catch (const std::exception& ex) {
+    LOG("OnPublishCommand", error)
+        << "Unable to convert JSON to Zigbee Cluster Library datatype: "
+        << ex.what();
+    return;
+  }
+
+  LOG("OnPublishCommand", info)
+      << "Encoded payload: "
+      << boost::log::dump(payload.data(), payload.size());
+
   LOG("OnPublishCommand", info) << "Looking up Short Address from IEEE address";
   api->UtilAddrmgrExtAddrLookup(destination_address)
       .then([endpoint, destination_endpoint, cluster_id, command,
-             message](znp::ShortAddress short_address) {
+             payload](znp::ShortAddress short_address) {
         LOG("OnPublishCommand", info) << "Response received, short address: "
                                       << (unsigned int)short_address;
         return endpoint->SendCommand(short_address, destination_endpoint,
-                                     *cluster_id, *command, {});
+                                     *cluster_id, *command, payload);
       })
       .recover([](auto f) {
         try {
