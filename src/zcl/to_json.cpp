@@ -31,6 +31,16 @@ struct to_json_helper<std::vector<T>> {
     return array;
   }
 };
+template <typename T, std::size_t N>
+struct to_json_helper<std::array<T, N>> {
+  static tao::json::value convert(const std::array<T, N>& x, bool typed) {
+    tao::json::value array(tao::json::empty_array);
+    for (const auto& item : x) {
+      array.push_back(to_json_helper<T>::convert(item, typed));
+    }
+    return array;
+  }
+};
 template <>
 struct to_json_helper<DataType> {
   static tao::json::value convert(const DataType& x, bool typed) {

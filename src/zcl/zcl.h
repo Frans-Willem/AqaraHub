@@ -91,7 +91,8 @@ enum class DataType : uint8_t {
   data16 = 0x09,
   data24 = 0x0a,
   data32 = 0x0b,
-  data40 = 0x0d,
+  data40 = 0x0c,
+  data48 = 0x0d,
   data56 = 0x0e,
   data64 = 0x0f,
   _bool = 0x10,  // Prefixed with _ to not clash with C++ keyword.
@@ -150,6 +151,38 @@ struct DataTypeHelper {
 template <>
 struct DataTypeHelper<DataType::nodata> {
   typedef void Type;
+};
+template <>
+struct DataTypeHelper<DataType::data8> {
+  typedef std::array<std::uint8_t, 1> Type;
+};
+template <>
+struct DataTypeHelper<DataType::data16> {
+  typedef std::array<std::uint8_t, 2> Type;
+};
+template <>
+struct DataTypeHelper<DataType::data24> {
+  typedef std::array<std::uint8_t, 3> Type;
+};
+template <>
+struct DataTypeHelper<DataType::data32> {
+  typedef std::array<std::uint8_t, 4> Type;
+};
+template <>
+struct DataTypeHelper<DataType::data40> {
+  typedef std::array<std::uint8_t, 5> Type;
+};
+template <>
+struct DataTypeHelper<DataType::data48> {
+  typedef std::array<std::uint8_t, 6> Type;
+};
+template <>
+struct DataTypeHelper<DataType::data56> {
+  typedef std::array<std::uint8_t, 7> Type;
+};
+template <>
+struct DataTypeHelper<DataType::data64> {
+  typedef std::array<std::uint8_t, 8> Type;
 };
 template <>
 struct DataTypeHelper<DataType::_bool> {
@@ -335,6 +368,22 @@ struct VariantStorageHelper<bool> {
   static StorageType ToStorage(bool input) { return input ? 1 : 0; }
   static bool FromStorage(StorageType storage) { return storage > 0; }
 };
+template <std::size_t N>
+struct VariantStorageHelper<std::array<std::uint8_t, N>> {
+  typedef std::string StorageType;
+  static StorageType ToStorage(const std::array<std::uint8_t, N>& input) {
+    return StorageType(input.begin(), input.end());
+  }
+  static std::array<std::uint8_t, N> FromStorage(const StorageType& storage) {
+    std::array<std::uint8_t, N> ret;
+    if (storage.size() >= N) {
+      std::copy(storage.begin(), storage.begin() + N, ret.begin());
+    } else {
+      std::copy(storage.begin(), storage.end(), ret.begin());
+    }
+    return ret;
+  };
+};
 
 template <DataType DT, typename... I>
 typename DataTypeHelper<DT>::Type GetVariant(
@@ -365,6 +414,12 @@ class ZclVariant {
     SetVariant<T>(retval.data_, value);
     return retval;
   }
+  template <DataType T>
+  static ZclVariant Create() {
+    ZclVariant retval;
+    retval.type_ = T;
+    return retval;
+  }
   inline DataType GetType() const { return type_; }
   template <DataType T>
   boost::optional<typename DataTypeHelper<T>::Type> Get() const {
@@ -379,6 +434,8 @@ class ZclVariant {
     }
     return VariantStorageHelper<ValueType>::FromStorage(*storage_ptr);
   }
+
+  bool operator==(const ZclVariant& other) const;
 
  private:
   boost::variant<uint64_t, int64_t, double, std::string,

@@ -110,9 +110,22 @@ std::ostream& operator<<(std::ostream& stream, const ZclVariant& variant) {
       }
       return stream << "]";
     }
+    case DataType::semi: {
+      return stream << "(semi " << *variant.Get<DataType::semi>() << ")";
+    };
+    case DataType::single: {
+      return stream << "(single " << *variant.Get<DataType::single>() << ")";
+    };
+    case DataType::_double: {
+      return stream << "(double " << *variant.Get<DataType::_double>() << ")";
+    };
     default:
       return stream << "(type " << std::hex << (unsigned int)variant.type_
                     << ")";
   }
+}
+
+bool ZclVariant::operator==(const ZclVariant& other) const {
+  return type_ == other.type_ && data_ == other.data_;
 }
 }  // namespace zcl
