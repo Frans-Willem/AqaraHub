@@ -52,8 +52,7 @@ add_library(taocpp::json ALIAS taocpp_json)
 # std::auto_ptr doesn't exist in C++17, so disable it just in case.
 add_definitions(-DBOOST_NO_AUTO_PTR)
 
-add_executable(AqaraHub
-	src/main.cpp
+add_library(common
 	src/znp/znp.cpp
 	src/znp/znp_port.cpp
 	src/znp/znp_api.cpp
@@ -67,17 +66,24 @@ add_executable(AqaraHub
 	src/xiaomi/ff01_attribute.cpp
 	src/zcl/to_json.cpp
 	src/zcl/from_json.cpp
+	src/zcl/encoding.cpp
+	)
+target_include_directories(common PUBLIC "src")
+target_link_libraries(common stlab)
+target_link_libraries(common mqtt_cpp)
+target_link_libraries(common Boost::boost)
+target_link_libraries(common Boost::system)
+target_link_libraries(common Boost::log)
+target_link_libraries(common Boost::program_options)
+target_link_libraries(common Boost::coroutine)
+target_link_libraries(common Threads::Threads)
+target_link_libraries(common taocpp::json)
+
+add_executable(AqaraHub
+	src/main.cpp
 	)
 target_include_directories(AqaraHub PUBLIC "src")
-target_link_libraries(AqaraHub stlab)
-target_link_libraries(AqaraHub mqtt_cpp)
-target_link_libraries(AqaraHub Boost::boost)
-target_link_libraries(AqaraHub Boost::system)
-target_link_libraries(AqaraHub Boost::log)
-target_link_libraries(AqaraHub Boost::program_options)
-target_link_libraries(AqaraHub Boost::coroutine)
-target_link_libraries(AqaraHub Threads::Threads)
-target_link_libraries(AqaraHub taocpp::json)
+target_link_libraries(AqaraHub common)
 
 install(TARGETS AqaraHub
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -87,15 +93,13 @@ install(FILES attributes.info DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/AqaraHub/
 install(FILES AqaraHub.service DESTINATION ${CMAKE_INSTALL_LIBDIR}/systemd/system/)
 
 add_executable(tests
-    src/asio_executor.cpp
-    src/coro.cpp
+	tests/main.cpp
     tests/coro.cpp
+	tests/template_lookup.cpp
+	tests/variant_encoding.cpp
 )
+target_link_libraries(tests common)
 target_include_directories(tests PUBLIC "src")
 target_include_directories(tests PUBLIC "include")
-target_link_libraries(tests stlab)
-target_link_libraries(tests Boost::boost)
-target_link_libraries(tests Boost::system)
-target_link_libraries(tests Threads::Threads)
-target_link_libraries(tests Boost::coroutine)
+#target_compile_definitions(tests PUBLIC -DBOOST_TEST_DYN_LINK)
 target_link_libraries(tests Boost::unit_test_framework)

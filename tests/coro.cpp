@@ -1,7 +1,6 @@
-#define BOOST_TEST_MODULE "Coroutines"
 #include "coro.h"
 #include <boost/asio.hpp>
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 #include <cmath>
 #include <stlab/concurrency/default_executor.hpp>
 #include "asio_executor.h"
