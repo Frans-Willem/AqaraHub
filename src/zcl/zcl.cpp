@@ -39,8 +39,13 @@ std::ostream& operator<<(std::ostream& stream, const ZclClusterId& cluster_id) {
 
 std::ostream& operator<<(std::ostream& stream, const ZclVariant& variant) {
   switch (variant.type_) {
-    case DataType::_bool:
+    case DataType::_bool: {
+      boost::optional<bool> value = variant.Get<DataType::_bool>();
+      if (!value) {
+        return stream << "(invalid bool)";
+      }
       return stream << (*variant.Get<DataType::_bool>() ? "true" : "false");
+    }
     case DataType::map8:
       return stream << "(map8) " << variant.Get<DataType::map8>()->to_string();
     case DataType::uint8:

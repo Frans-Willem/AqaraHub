@@ -386,16 +386,7 @@ struct VariantStorageHelper<std::array<std::uint8_t, N>> {
 };
 
 template <DataType DT, typename... I>
-typename DataTypeHelper<DT>::Type GetVariant(
-    const boost::variant<I...>& value) {
-  typedef typename DataTypeHelper<DT>::Type ValueType;
-  typedef VariantStorageHelper<ValueType> StorageHelper;
-  typedef typename StorageHelper::StorageType StorageType;
-  return StorageHelper::FromStorage(boost::get<StorageType>(value));
-}
-
-template <DataType DT, typename... I>
-void SetVariant(boost::variant<I...>& storage,
+void SetVariant(boost::optional<boost::variant<I...>>& storage,
                 typename DataTypeHelper<DT>::Type value) {
   typedef typename DataTypeHelper<DT>::Type ValueType;
   typedef VariantStorageHelper<ValueType> StorageHelper;
@@ -418,6 +409,7 @@ class ZclVariant {
   static ZclVariant Create() {
     ZclVariant retval;
     retval.type_ = T;
+    retval.data_ = boost::none;
     return retval;
   }
   inline DataType GetType() const { return type_; }
@@ -425,10 +417,13 @@ class ZclVariant {
   boost::optional<typename DataTypeHelper<T>::Type> Get() const {
     typedef typename DataTypeHelper<T>::Type ValueType;
     typedef typename VariantStorageHelper<ValueType>::StorageType StorageType;
+    if (!data_) {
+      return boost::none;
+    }
     if (type_ != T) {
       return boost::none;
     }
-    const StorageType* storage_ptr = boost::get<StorageType>(&data_);
+    const StorageType* storage_ptr = boost::relaxed_get<StorageType>(&*data_);
     if (!storage_ptr) {
       return boost::none;
     }
@@ -438,8 +433,8 @@ class ZclVariant {
   bool operator==(const ZclVariant& other) const;
 
  private:
-  boost::variant<uint64_t, int64_t, double, std::string,
-                 std::vector<ZclVariant>>
+  boost::optional<boost::variant<uint64_t, int64_t, double, std::string,
+                                 std::vector<ZclVariant>>>
       data_;
   DataType type_;
 
