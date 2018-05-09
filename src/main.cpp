@@ -130,7 +130,7 @@ void OnReportAttributes(std::shared_ptr<znp::ZnpApi> api,
               opt_xiaomi_ff01 ? xiaomi::FF01AttributeToJson(*opt_xiaomi_ff01)
                               : zcl::to_json(std::get<1>(attribute)));
           std::string topic_name = boost::str(
-              boost::format("%sreport/%08X/%d/%s/%04X") % mqtt_prefix %
+              boost::format("%sreport/%016X/%d/%s/%04X") % mqtt_prefix %
               ieee_addr % (unsigned int)source_endpoint % cluster_name %
               attribute_name);
           std::string message_content(tao::json::to_string(json_value));
@@ -325,7 +325,7 @@ void OnIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
   api->UtilAddrmgrNwkAddrLookup(message.SrcAddr)
       .then([message, mqtt_wrapper, mqtt_prefix](znp::IEEEAddress ieee_addr) {
         return mqtt_wrapper->Publish(
-            boost::str(boost::format("%sreport/%08X/linkquality") %
+            boost::str(boost::format("%sreport/%016X/linkquality") %
                        mqtt_prefix % ieee_addr),
             boost::str(boost::format("%d") % (unsigned int)message.LinkQuality),
             mqtt::qos::at_least_once, false);
