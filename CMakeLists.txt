@@ -65,7 +65,6 @@ add_library(common
 	src/mqtt_wrapper.cpp
 	src/xiaomi/ff01_attribute.cpp
 	src/zcl/to_json.cpp
-	src/zcl/from_json.cpp
 	src/zcl/encoding.cpp
 	)
 target_include_directories(common PUBLIC "src")

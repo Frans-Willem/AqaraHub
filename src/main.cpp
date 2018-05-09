@@ -19,7 +19,6 @@
 #include "string_enum.h"
 #include "xiaomi/ff01_attribute.h"
 #include "zcl/encoding.h"
-#include "zcl/from_json.h"
 #include "zcl/name_registry.h"
 #include "zcl/to_json.h"
 #include "zcl/zcl.h"
