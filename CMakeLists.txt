@@ -97,6 +97,7 @@ add_executable(tests
     tests/coro.cpp
 	tests/template_lookup.cpp
 	tests/variant_encoding.cpp
+	tests/variant_json.cpp
 )
 target_link_libraries(tests common)
 target_include_directories(tests PUBLIC "src")

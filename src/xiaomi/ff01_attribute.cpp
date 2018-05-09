@@ -71,7 +71,7 @@ tao::json::value FF01AttributeToJson(
   tao::json::value retval(tao::json::empty_object);
   for (const auto& item : value) {
     retval += {{boost::str(boost::format("%d") % (unsigned int)item.first),
-                zcl::to_json(item.second, true)}};
+                zcl::to_json(item.second)}};
   }
 
   return {{"type", "xiaomi_ff01"}, {"value", retval}};

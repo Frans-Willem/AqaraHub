@@ -129,7 +129,7 @@ void OnReportAttributes(std::shared_ptr<znp::ZnpApi> api,
                                           std::get<1>(attribute)));
           tao::json::value json_value(
               opt_xiaomi_ff01 ? xiaomi::FF01AttributeToJson(*opt_xiaomi_ff01)
-                              : zcl::to_json(std::get<1>(attribute), true));
+                              : zcl::to_json(std::get<1>(attribute)));
           std::string topic_name = boost::str(
               boost::format("%sreport/%08X/%d/%s/%04X") % mqtt_prefix %
               ieee_addr % (unsigned int)source_endpoint % cluster_name %
