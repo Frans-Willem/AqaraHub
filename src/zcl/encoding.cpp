@@ -445,19 +445,12 @@ template <>
 struct VariantEncodeHelperImpl<DataType::_double>
     : FloatVariantEncodeHelperImpl<DataType::_double, uint64_t, 52, 11> {};
 
-struct VariantEncodeHelperFactory {
-  template <DataType DT>
-  static std::unique_ptr<VariantEncodeHelper> Create() {
-    return std::move(std::make_unique<VariantEncodeHelperImpl<DT>>());
-  }
-};
-
 const std::map<DataType, std::unique_ptr<VariantEncodeHelper>>& EncoderMap() {
   static std::map<DataType, std::unique_ptr<VariantEncodeHelper>> map =
-      std::move(template_lookup::CreateEnumLookup<
-                DataType, DataType::nodata, DataType::unk,
-                std::unique_ptr<VariantEncodeHelper>,
-                VariantEncodeHelperFactory>());
+      std::move(
+          template_lookup::CreateEnumLookup<DataType, DataType::nodata,
+                                            DataType::unk, VariantEncodeHelper,
+                                            VariantEncodeHelperImpl>());
   return map;
 }
 }  // namespace

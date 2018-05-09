@@ -46,8 +46,7 @@ struct HandlerFactory {
 BOOST_AUTO_TEST_CASE(TemplateMagic) {
   std::map<Numbers, std::unique_ptr<IHandler>> handlers =
       template_lookup::CreateEnumLookup<Numbers, Numbers::One, Numbers::Three,
-                                        std::unique_ptr<IHandler>,
-                                        HandlerFactory>();
+                                        IHandler, CHandler>();
   BOOST_TEST(handlers[Numbers::One]->GetNumber() == 1);
   BOOST_TEST(handlers[Numbers::Two]->GetNumber() == 2);
   BOOST_TEST(handlers[Numbers::Three]->GetNumber() == 3);
