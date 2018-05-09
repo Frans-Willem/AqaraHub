@@ -6,6 +6,7 @@
 BOOST_AUTO_TEST_CASE(VariantEncodeIdentity) {
   std::vector<zcl::ZclVariant> variants{
       zcl::ZclVariant::Create<zcl::DataType::nodata>(),
+      zcl::ZclVariant::Create<zcl::DataType::_bool>(),
       zcl::ZclVariant::Create<zcl::DataType::_bool>(true),
       zcl::ZclVariant::Create<zcl::DataType::_bool>(false),
       zcl::ZclVariant::Create<zcl::DataType::map8>(std::bitset<8>(0x45)),
@@ -34,6 +35,7 @@ BOOST_AUTO_TEST_CASE(VariantEncodeIdentity) {
 
 BOOST_AUTO_TEST_CASE(VariantDecodeExamples) {
   std::map<std::vector<uint8_t>, zcl::ZclVariant> examples{
+      {{0x10, 0xFF}, zcl::ZclVariant::Create<zcl::DataType::_bool>()},
       {{0x10, 0x01}, zcl::ZclVariant::Create<zcl::DataType::_bool>(true)},
       {{0x10, 0x00}, zcl::ZclVariant::Create<zcl::DataType::_bool>(false)},
       {{0x18, 0x23},
@@ -51,21 +53,14 @@ BOOST_AUTO_TEST_CASE(VariantDecodeExamples) {
        zcl::ZclVariant::Create<zcl::DataType::uint32>(0xEDCBA988)}};
   for (const auto& example : examples) {
     auto decoded = znp::Decode<zcl::ZclVariant>(example.first);
+    auto recoded = znp::Encode<zcl::ZclVariant>(decoded);
     BOOST_TEST(decoded == example.second,
                "Decoding of [" << boost::log::dump(example.first.data(),
                                                    example.first.size())
                                << "] failed");
-  }
-}
-
-BOOST_AUTO_TEST_CASE(VariantStrictDecodeExamples) {
-  std::map<std::vector<uint8_t>, zcl::ZclVariant> examples{
-      {{0x10, 0xFF}, zcl::ZclVariant::Create<zcl::DataType::_bool>()}};
-  for (const auto& example : examples) {
-    auto decoded = znp::Decode<zcl::ZclVariant>(example.first);
-    BOOST_TEST(decoded == example.second,
-               "Decoding of [" << boost::log::dump(example.first.data(),
-                                                   example.first.size())
-                               << "] failed");
+    BOOST_TEST(example.first == recoded,
+               "Re-encoding of [" << boost::log::dump(example.first.data(),
+                                                      example.first.size())
+                                  << "] failed");
   }
 }
