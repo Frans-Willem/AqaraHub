@@ -184,28 +184,79 @@ void OnPublishPermitJoin(std::shared_ptr<znp::ZnpApi> api,
   return;
 }
 
-void OnPublishCommand(std::shared_ptr<znp::ZnpApi> api,
-                      std::shared_ptr<zcl::ZclEndpoint> endpoint,
-                      std::shared_ptr<zcl::NameRegistry> name_registry,
-                      znp::IEEEAddress destination_address,
-                      std::uint8_t destination_endpoint,
-                      std::string cluster_name, std::string command_name,
-                      std::string message) {
-  LOG("OnPublishCommand", debug)
+/** Sends a Zigbee cluster library command. Expects cluster_id & command already
+ * resolved, and the arguments already turned to a JSON array. */
+void SendCommand(std::shared_ptr<znp::ZnpApi> api,
+                 std::shared_ptr<zcl::ZclEndpoint> endpoint,
+                 znp::IEEEAddress destination_address,
+                 std::uint8_t destination_endpoint,
+                 zcl::ZclClusterId cluster_id, zcl::ZclCommandId command,
+                 const std::vector<tao::json::value>& arguments) {
+  std::vector<uint8_t> payload;
+  try {
+    for (const auto& json_argument : arguments) {
+      zcl::ZclVariant variant_argument = zcl::from_json(json_argument);
+      std::vector<uint8_t> encoded_argument = znp::Encode(variant_argument);
+      payload.insert(payload.end(),
+                     encoded_argument.begin() +
+                         znp::EncodedSize(variant_argument.GetType()),
+                     encoded_argument.end());
+    }
+  } catch (const std::exception& ex) {
+    LOG("SendCommand", error)
+        << "Unable to convert JSON to Zigbee Cluster Library datatype: "
+        << ex.what();
+    return;
+  }
+
+  LOG("SendCommand", info) << "Encoded payload: "
+                           << boost::log::dump(payload.data(), payload.size());
+
+  LOG("SendCommand", info) << "Looking up Short Address from IEEE address";
+  api->UtilAddrmgrExtAddrLookup(destination_address)
+      .then([endpoint, destination_endpoint, cluster_id, command,
+             payload](znp::ShortAddress short_address) {
+        LOG("SendCommand", info) << "Response received, short address: "
+                                 << (unsigned int)short_address;
+        return endpoint->SendCommand(short_address, destination_endpoint,
+                                     cluster_id, command, payload);
+      })
+      .recover([](auto f) {
+        try {
+          f.get_try();
+          LOG("SendCommand", info) << "Command sent";
+        } catch (const std::exception& ex) {
+          LOG("SendCommand", warning)
+              << "Exception while sending command: " << ex.what();
+        }
+      })
+      .detach();
+}
+
+/** Called on MQTT publish of a long-form command, e.g. the command name is part
+ * of the MQTT topic. */
+void OnPublishCommandLong(std::shared_ptr<znp::ZnpApi> api,
+                          std::shared_ptr<zcl::ZclEndpoint> endpoint,
+                          std::shared_ptr<zcl::NameRegistry> name_registry,
+                          znp::IEEEAddress destination_address,
+                          std::uint8_t destination_endpoint,
+                          std::string cluster_name, std::string command_name,
+                          std::string message) {
+  LOG("OnPublishCommandLong", debug)
       << "Destination " << destination_address << ", endpoint "
       << (unsigned int)destination_endpoint << ", cluster name '"
       << cluster_name << "', command name '" << command_name << "'";
   boost::optional<zcl::ZclClusterId> cluster_id =
       name_registry->ClusterFromString(cluster_name);
   if (!cluster_id) {
-    LOG("OnPublishCommand", warning)
+    LOG("OnPublishCommandLong", warning)
         << "Unable to look up cluster id '" << cluster_name << "'";
     return;
   }
   boost::optional<zcl::ZclCommandId> command =
       name_registry->CommandFromString(*cluster_id, command_name);
   if (!command) {
-    LOG("OnPublishCommand", warning)
+    LOG("OnPublishCommandLong", warning)
         << "Unable to look up command '" << command_name << "' in cluster '"
         << cluster_name << "'";
     return;
@@ -216,7 +267,7 @@ void OnPublishCommand(std::shared_ptr<znp::ZnpApi> api,
     try {
       json_arguments = tao::json::from_string(message);
     } catch (const std::exception& ex) {
-      LOG("OnPublishCommand", error)
+      LOG("OnPublishCommandLong", error)
           << "Unable to decode message payload: " << ex.what();
       return;
     }
@@ -224,46 +275,100 @@ void OnPublishCommand(std::shared_ptr<znp::ZnpApi> api,
   if (!json_arguments.is_array()) {
     json_arguments = tao::json::value::array({json_arguments});
   }
-  std::vector<uint8_t> payload;
-  try {
-    for (const auto& json_argument : json_arguments.get_array()) {
-      zcl::ZclVariant variant_argument = zcl::from_json(json_argument);
-      std::vector<uint8_t> encoded_argument = znp::Encode(variant_argument);
-      payload.insert(payload.end(),
-                     encoded_argument.begin() +
-                         znp::EncodedSize(variant_argument.GetType()),
-                     encoded_argument.end());
-    }
-  } catch (const std::exception& ex) {
-    LOG("OnPublishCommand", error)
-        << "Unable to convert JSON to Zigbee Cluster Library datatype: "
-        << ex.what();
+  SendCommand(api, endpoint, destination_address, destination_endpoint,
+              *cluster_id, *command, json_arguments.get_array());
+}
+
+/** Called on MQTT publish of a short-form command, e.g. command name part of
+ * the JSON payload. */
+void OnPublishCommandShort(std::shared_ptr<znp::ZnpApi> api,
+                           std::shared_ptr<zcl::ZclEndpoint> endpoint,
+                           std::shared_ptr<zcl::NameRegistry> name_registry,
+                           znp::IEEEAddress destination_address,
+                           std::uint8_t destination_endpoint,
+                           std::string cluster_name, std::string message) {
+  LOG("OnPublishCommandShort", debug)
+      << "Destination " << destination_address << ", endpoint "
+      << (unsigned int)destination_endpoint << ", cluster name '"
+      << cluster_name << "'";
+  boost::optional<zcl::ZclClusterId> cluster_id =
+      name_registry->ClusterFromString(cluster_name);
+  if (!cluster_id) {
+    LOG("OnPublishCommandShort", warning)
+        << "Unable to look up cluster id '" << cluster_name << "'";
     return;
   }
-
-  LOG("OnPublishCommand", info)
-      << "Encoded payload: "
-      << boost::log::dump(payload.data(), payload.size());
-
-  LOG("OnPublishCommand", info) << "Looking up Short Address from IEEE address";
-  api->UtilAddrmgrExtAddrLookup(destination_address)
-      .then([endpoint, destination_endpoint, cluster_id, command,
-             payload](znp::ShortAddress short_address) {
-        LOG("OnPublishCommand", info) << "Response received, short address: "
-                                      << (unsigned int)short_address;
-        return endpoint->SendCommand(short_address, destination_endpoint,
-                                     *cluster_id, *command, payload);
-      })
-      .recover([](auto f) {
-        try {
-          f.get_try();
-          LOG("OnPublishCommand", info) << "Command sent";
-        } catch (const std::exception& ex) {
-          LOG("OnPublishCommand", warning)
-              << "Exception while sending command: " << ex.what();
-        }
-      })
-      .detach();
+  /*
+  boost::optional<zcl::ZclCommandId> command =
+      name_registry->CommandFromString(*cluster_id, command_name);
+  if (!command) {
+    LOG("OnPublishCommandShort", warning)
+        << "Unable to look up command '" << command_name << "' in cluster '"
+        << cluster_name << "'";
+    return;
+  }
+  */
+  std::map<std::string, tao::json::value> obj_message;
+  try {
+    obj_message = tao::json::from_string(message).get_object();
+  } catch (const std::exception& ex) {
+    LOG("OnPublishCommandShort", error) << "Unable to decode message payload, "
+                                           "or message was not a JSON object. "
+                                        << ex.what();
+    return;
+  }
+  auto found_command = obj_message.find("command");
+  if (found_command == obj_message.end()) {
+    LOG("OnPublishCommandShort", error)
+        << "JSON object did not contain a 'command' property";
+    return;
+  }
+  zcl::ZclCommandId command;
+  if (found_command->second.is_string()) {
+    auto opt_command = name_registry->CommandFromString(
+        *cluster_id, found_command->second.get_string());
+    if (!opt_command) {
+      LOG("OnPublishCommandShort", error)
+          << "Command with name '" << found_command->second.get_string()
+          << "' could not be decoded";
+      return;
+    }
+    command = *opt_command;
+  } else if (found_command->second.is_number()) {
+    if (!found_command->second.is_unsigned() ||
+        found_command->second.get_unsigned() >= 256) {
+      LOG("OnPublishCommandShort", error)
+          << "Expected 'command' property to be an unsigned integer, lower "
+             "than 256";
+      return;
+    }
+    command =
+        (zcl::ZclCommandId)(std::uint8_t)found_command->second.get_unsigned();
+  } else {
+    LOG("OnPublishCommandShort", error)
+        << "Expected 'command' property to either be integer or string";
+    return;
+  }
+  tao::json::value arguments = tao::json::null;
+  auto found_arguments = obj_message.find("arguments");
+  if (found_arguments != obj_message.end()) {
+    arguments = found_arguments->second;
+  }
+  std::vector<tao::json::value> arguments_array;
+  if (arguments.is_array()) {
+    arguments_array = arguments.get_array();
+  } else if (arguments.is_null()) {
+    arguments_array.clear();
+  } else if (arguments.is_object()) {
+    arguments_array.push_back(arguments);
+  } else {
+    LOG("OnPublishCommandShort", error)
+        << "Expected either no arguments (null), a single object, or an array "
+           "as arguments";
+    return;
+  }
+  SendCommand(api, endpoint, destination_address, destination_endpoint,
+              *cluster_id, command, arguments_array);
 }
 
 void OnPublish(std::shared_ptr<znp::ZnpApi> api,
@@ -287,10 +392,19 @@ void OnPublish(std::shared_ptr<znp::ZnpApi> api,
       return;
     }
 
-    static std::regex re_command(
+    static std::regex re_command_short(
+        "command/([0-9a-fA-F]+)/([0-9]+)/([^/]+)");
+    if (std::regex_match(topic, match, re_command_short)) {
+      OnPublishCommandShort(api, endpoint, name_registry,
+                            std::stoull(match[1], 0, 16),
+                            std::stoul(match[2], 0, 10), match[3], message);
+      return;
+    }
+
+    static std::regex re_command_long(
         "command/([0-9a-fA-F]+)/([0-9]+)/([^/]+)/([^/]+)");
-    if (std::regex_match(topic, match, re_command)) {
-      OnPublishCommand(
+    if (std::regex_match(topic, match, re_command_long)) {
+      OnPublishCommandLong(
           api, endpoint, name_registry, std::stoull(match[1], 0, 16),
           std::stoul(match[2], 0, 10), match[3], match[4], message);
       return;
