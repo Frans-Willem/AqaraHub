@@ -375,7 +375,7 @@ struct VariantStorageHelper<std::array<std::uint8_t, N>> {
     return StorageType(input.begin(), input.end());
   }
   static std::array<std::uint8_t, N> FromStorage(const StorageType& storage) {
-    std::array<std::uint8_t, N> ret;
+    std::array<std::uint8_t, N> ret{0};
     if (storage.size() >= N) {
       std::copy(storage.begin(), storage.begin() + N, ret.begin());
     } else {
