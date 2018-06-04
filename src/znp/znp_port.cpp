@@ -65,6 +65,7 @@ void ZnpPort::SendHandler(const boost::system::error_code& error,
                           std::size_t bytes_transferred) {
   if (error) {
     LOG("ZnpPort", critical) << "async_write failed";
+    on_error_(error);
     return;
   }
   if (!send_queue_.empty()) {
@@ -86,7 +87,9 @@ void ZnpPort::StartOfFrameHandler(std::shared_ptr<uint8_t> marker,
                                   const boost::system::error_code& error,
                                   std::size_t bytes_transferred) {
   if (error) {
-    LOG("ZnpPort", critical) << "Error while reading SOF";
+    LOG("ZnpPort", critical)
+        << "IO Error while reading SOF: " << error.message();
+    on_error_(error);
     return;
   }
   if (*marker != 0xFE) {
@@ -104,7 +107,9 @@ void ZnpPort::FrameLengthHandler(std::shared_ptr<uint8_t> length,
                                  const boost::system::error_code& error,
                                  std::size_t bytes_transferred) {
   if (error) {
-    LOG("ZnpPort", critical) << "Error while reading length";
+    LOG("ZnpPort", critical)
+        << "IO Error while reading length: " << error.message();
+    on_error_(error);
     return;
   }
   auto buffer =
@@ -119,7 +124,9 @@ void ZnpPort::FrameHandler(std::shared_ptr<std::vector<uint8_t>> frame,
                            const boost::system::error_code& error,
                            std::size_t bytes_transferred) {
   if (error) {
-    LOG("ZnpPort", critical) << "Error while reading frame";
+    LOG("ZnpPort", critical)
+        << "IO Error while reading frame: " << error.message();
+    on_error_(error);
     return;
   }
   StartReceive();

@@ -19,6 +19,8 @@ class ZnpPort : public ZnpRawInterface {
                                const std::vector<uint8_t>&)>
       on_sent_;
 
+  boost::signals2::signal<void(const boost::system::error_code&)> on_error_;
+
  private:
   boost::asio::serial_port port_;
   bool send_in_progress_;

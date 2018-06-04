@@ -460,10 +460,8 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
     std::array<uint8_t, 16> presharedkey,
     std::shared_ptr<MqttWrapper> mqtt_wrapper, std::string mqtt_prefix,
     std::shared_ptr<zcl::NameRegistry> name_registry) {
-  LOG("Initialize", debug)
-      << "Doing initial reset, without clearing config or state";
-  await(api->SapiWriteConfiguration<znp::ConfigurationOption::STARTUP_OPTION>(
-      znp::StartupOption::None));
+  LOG("Initialize", debug) << "Doing initial reset (this may take up to a full "
+                              "minute after a dongle power-cycle)";
   std::ignore = await(api->SysReset(true));
   LOG("Initialize", debug) << "Building desired configuration";
   auto coord_ieee_addr =
@@ -659,6 +657,7 @@ int main(int argc, const char** argv) {
                                         presharedkey.size());
 
   // Initializing
+  int exit_code = EXIT_SUCCESS;
   auto endpoint =
       coro::Run(AsioExecutor(io_service), Initialize, api, presharedkey,
                 mqtt_wrapper, mqtt_prefix, name_registry)
@@ -666,19 +665,28 @@ int main(int argc, const char** argv) {
             LOG("Main", info) << "Initialization complete!";
             return r;
           })
-          .recover([](auto f) {
+          .recover([&io_service, &exit_code](auto f) {
             LOG("Main", info) << "In final handler";
             try {
               return f.get_try();
             } catch (const std::exception& exc) {
               LOG("Main", critical) << "Exception: " << exc.what();
+              exit_code = EXIT_FAILURE;
+              io_service.stop();
               return (boost::optional<std::shared_ptr<zcl::ZclEndpoint>>)
                   boost::none;
             }
           });
 
+  port->on_error_.connect([&io_service,
+                           &exit_code](const boost::system::error_code& error) {
+    LOG("Main", critical) << "Exiting because of IO error: " << error.message();
+    exit_code = EXIT_FAILURE;
+    io_service.stop();
+  });
+
   std::cout << "IO Service starting" << std::endl;
   io_service.run();
   std::cout << "IO Service done" << std::endl;
-  return 0;
+  return exit_code;
 }
