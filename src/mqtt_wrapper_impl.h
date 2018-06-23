@@ -8,6 +8,7 @@
 #include "asio_executor.h"
 #include "logging.h"
 #include "mqtt_wrapper.h"
+#include "weak_bind.h"
 
 template <typename C>
 class MqttWrapperImpl
@@ -17,88 +18,38 @@ class MqttWrapperImpl
   MqttWrapperImpl(boost::asio::io_service& io_service,
                   std::shared_ptr<C> client)
       : mutex_queue_(AsioExecutor(io_service)),
+        mutex_queue_executor_(mutex_queue_.executor()),
         io_service_(io_service),
-        client_(client) {
+        client_(client),
+        reconnect_timer_(io_service) {
     client_->set_client_id("AqaraHub");
     client_->set_clean_session(true);
   }
   void PostConstructor() {
-    std::weak_ptr<MqttWrapperImpl<C>> weak_this(this->shared_from_this());
-    client_->set_connack_handler([weak_this](auto a, auto b) {
-      if (auto _this = weak_this.lock()) {
-        _this
-            ->mutex_queue_(
-                [weak_this](auto a, auto b) {
-                  if (auto _this = weak_this.lock()) {
-                    _this->ConnAckHandler(a, b);
-                  }
-                },
-                a, b)
-            .detach();
-        return true;
-      }
-      return false;
-    });
-    client_->set_puback_handler([weak_this](auto a) {
-      if (auto _this = weak_this.lock()) {
-        _this
-            ->mutex_queue_(
-                [weak_this](auto a) {
-                  if (auto _this = weak_this.lock()) {
-                    _this->PublishAcknowledgedHandler(a);
-                  }
-                },
-                a)
-            .detach();
-        return true;
-      }
-      return false;
-    });
-    client_->set_pubcomp_handler([weak_this](auto a) {
-      if (auto _this = weak_this.lock()) {
-        _this
-            ->mutex_queue_(
-                [weak_this](auto a) {
-                  if (auto _this = weak_this.lock()) {
-                    _this->PublishCompletedHandler(a);
-                  }
-                },
-                a)
-            .detach();
-        return true;
-      }
-      return false;
-    });
-    client_->connect([weak_this](auto a) {
-      if (auto _this = weak_this.lock()) {
-        _this
-            ->mutex_queue_(
-                [weak_this](auto a) {
-                  if (auto _this = weak_this.lock()) {
-                    _this->FinishHandler(a);
-                  }
-                },
-                a)
-            .detach();
-        return true;
-      }
-      return false;
-    });
-    client_->set_publish_handler([weak_this](auto a, auto b, auto c, auto d) {
-      if (auto _this = weak_this.lock()) {
-        _this
-            ->mutex_queue_(
-                [weak_this](auto a, auto b, auto c, auto d) {
-                  if (auto _this = weak_this.lock()) {
-                    _this->PublishHandler(a, b, c, d);
-                  }
-                },
-                a, b, c, d)
-            .detach();
-        return true;
-      }
-      return false;
-    });
+    std::shared_ptr<MqttWrapperImpl<C>> self_ptr(this->shared_from_this());
+    std::weak_ptr<MqttWrapperImpl<C>> weak_this(self_ptr);
+    std::shared_ptr<stlab::executor_t> executor_ptr(self_ptr,
+                                                    &mutex_queue_executor_);
+    client_->set_connack_handler(WeakExecutorBind(
+        executor_ptr, &MqttWrapperImpl<C>::ConnAckHandler, self_ptr,
+        std::placeholders::_1, std::placeholders::_2));
+    client_->set_puback_handler(WeakExecutorBind(
+        executor_ptr, &MqttWrapperImpl<C>::PublishAcknowledgedHandler, self_ptr,
+        std::placeholders::_1));
+    client_->set_pubcomp_handler(WeakExecutorBind(
+        executor_ptr, &MqttWrapperImpl<C>::PublishCompletedHandler, self_ptr,
+        std::placeholders::_1));
+    client_->set_publish_handler(
+        WeakExecutorBind(executor_ptr, &MqttWrapperImpl<C>::PublishHandler,
+                         self_ptr, std::placeholders::_1, std::placeholders::_2,
+                         std::placeholders::_3, std::placeholders::_4));
+    client_->set_error_handler(
+        WeakExecutorBind(executor_ptr, &MqttWrapperImpl<C>::ErrorHandler,
+                         self_ptr, std::placeholders::_1));
+    LOG("MqttWrapper", info) << "Connecting...";
+    client_->connect(WeakExecutorBind(executor_ptr,
+                                      &MqttWrapperImpl<C>::FinishHandler,
+                                      self_ptr, std::placeholders::_1));
   }
   stlab::future<void> Publish(std::string topic_name, std::string message,
                               std::uint8_t qos, bool retain) override {
@@ -127,9 +78,11 @@ class MqttWrapperImpl
 
  private:
   stlab::serial_queue_t mutex_queue_;
+  stlab::executor_t mutex_queue_executor_;
   boost::asio::io_service& io_service_;
   std::shared_ptr<C> client_;
-  bool connected_;
+  enum class ConnectionState { Disconnected, Connecting, Connected };
+  ConnectionState state_;
   struct PublishQueueItem {
     std::string topic_name;
     std::string message;
@@ -140,9 +93,10 @@ class MqttWrapperImpl
   std::queue<PublishQueueItem> publish_queue_;
   std::map<std::uint16_t, PublishQueueItem> publish_inprogress_;
   std::set<std::tuple<std::string, std::uint8_t>> subscriptions_;
+  boost::asio::deadline_timer reconnect_timer_;
 
   void SafePublish(PublishQueueItem item) {
-    if (!connected_) {
+    if (state_ != ConnectionState::Connected) {
       publish_queue_.push(std::move(item));
       return;
     }
@@ -178,7 +132,7 @@ class MqttWrapperImpl
   void SafeSubscribe(
       std::set<std::tuple<std::string, std::uint8_t>> subscriptions) {
     subscriptions_.insert(subscriptions.begin(), subscriptions.end());
-    if (connected_) {
+    if (state_ == ConnectionState::Connected) {
       LOG("MqttWrapper", debug) << "Sending async subscribe directly";
       client_->async_subscribe(
           std::vector<std::tuple<std::string, std::uint8_t>>(
@@ -193,8 +147,8 @@ class MqttWrapperImpl
           << mqtt::connect_return_code_to_str(connack_return_code);
       return;
     }
-    LOG("MqttWrapper", debug) << "ConnAckHandler: clean=" << sp;
-    connected_ = true;
+    LOG("MqttWrapper", debug) << "Connected, clean=" << sp;
+    state_ = ConnectionState::Connected;
     if (!subscriptions_.empty()) {
       LOG("MqttWrapper", debug) << "Sending async subscribe after connect";
       client_->async_subscribe(
@@ -210,10 +164,52 @@ class MqttWrapperImpl
     }
   }
 
+  void ErrorHandler(const boost::system::error_code& error) {
+    std::weak_ptr<MqttWrapperImpl<C>> weak_this(this->shared_from_this());
+    LOG("MqttWrapper", debug) << "ErrorHandler: " << error;
+    state_ = ConnectionState::Disconnected;
+    StartReconnectTimer();
+  }
+
   void FinishHandler(const boost::system::error_code& error) {
     LOG("MqttWrapper", debug) << "FinishHandler: " << error;
-    connected_ = false;
-    // TODO: Probably trigger reconnect here? Maybe with a small timer ?
+    state_ = ConnectionState::Disconnected;
+    StartReconnectTimer();
+  }
+
+  void StartReconnectTimer() {
+    boost::system::error_code ignore;
+    reconnect_timer_.cancel(ignore);
+    LOG("MqttWrapper", debug) << "Starting reconnect timer...";
+    reconnect_timer_.expires_from_now(boost::posix_time::seconds(5));
+    std::shared_ptr<MqttWrapperImpl<C>> self_ptr(this->shared_from_this());
+    std::shared_ptr<stlab::executor_t> executor_ptr(self_ptr,
+                                                    &mutex_queue_executor_);
+    reconnect_timer_.async_wait(
+        WeakExecutorBind(executor_ptr, &MqttWrapperImpl<C>::OnReconnectTimer,
+                         self_ptr, std::placeholders::_1));
+  }
+
+  void OnReconnectTimer(const boost::system::error_code& ec) {
+    if (ec == boost::asio::error::operation_aborted) {
+      // Assume cancelled
+      return;
+    }
+    if (ec) {
+      LOG("MqttWrapper", error) << "OnReconnectTimer had error: " << ec;
+      return;
+    }
+    if (state_ != ConnectionState::Disconnected) {
+      LOG("MqttWrapper", error) << "OnReconnectTimer: already connected :/";
+      return;
+    }
+    LOG("MqttWrapper", info) << "Reconnecting to MQTT server...";
+    std::shared_ptr<MqttWrapperImpl<C>> self_ptr(this->shared_from_this());
+    std::shared_ptr<stlab::executor_t> executor_ptr(self_ptr,
+                                                    &mutex_queue_executor_);
+    client_->connect(WeakExecutorBind(executor_ptr,
+                                      &MqttWrapperImpl<C>::FinishHandler,
+                                      self_ptr, std::placeholders::_1));
   }
 
   void AsyncPublishCallback(std::uint16_t packet_id,
@@ -279,6 +275,7 @@ class MqttWrapperImpl
                       mqtt::publish::is_retain(fixed_header));
   }
 };
+
 template <typename F, typename... Args>
 static std::shared_ptr<MqttWrapper> CreateMqttWrapperImpl(
     F f, boost::asio::io_service& io_service, Args... args) {
