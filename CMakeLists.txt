@@ -66,6 +66,7 @@ add_library(common
 	src/xiaomi/ff01_attribute.cpp
 	src/zcl/to_json.cpp
 	src/zcl/encoding.cpp
+	src/clusterdb/cluster_db.cpp
 	)
 target_include_directories(common PUBLIC "src")
 target_link_libraries(common stlab)

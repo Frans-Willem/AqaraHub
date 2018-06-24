@@ -86,14 +86,14 @@
       type uint16
     }
   }
-  commands
+  commands out
   {
     0x00 "Off"
     0x01 "On"
     0x02 "Toggle"
     0x40 "Off with effect"
     0x41 "On with recall global scene"
-    0x042 "On with timed off"
+    0x42 "On with timed off"
   }
 }
 0x0007 "On/Off Switch Configuration"
@@ -261,12 +261,12 @@
       type uint8
     }
   }
-  commands
+  commands out
   {
     0x00 "UpOpen"
     0x01 "DownClose"
     0x02 "Stop"
-	0x04 "Go To Lift Value"
+    0x04 "Go To Lift Value"
     0x05 "Go To Lift Percentage"
     0x07 "Go to Tilt Value"
     0x08 "Go to Tilt Percentage"
@@ -395,6 +395,60 @@
   }
 }
 0x0500 "IAS Zone"
+{
+	attributes
+	{
+		0x0000 "ZoneState"
+		{
+			type enum8
+		}
+		0x0001 "ZoneType"
+		{
+			type enum16
+		}
+		0x0002 "ZoneStatus"
+		{
+			type map16
+		}
+		0x0010 "IAS_CIE_Address"
+		{
+			type EUI64
+		}
+		0x0011 "ZoneID"
+		{
+			type uint8
+		}
+		0x0012 "NumberOfZoneSensitivityLevelsSupported"
+		{
+			type uint8
+		}
+		0x0013 "CurrentZoneSensitivityLevel"
+		{
+			type uint8
+		}
+	}
+	commands out
+	{
+		0x00 "Zone Enroll Response"
+		0x01 "Initiate Normal Operation Mode"
+		0x02 "Initiate Test Mode"
+	}
+	commands in
+	{
+		0x00 "Zone Status Change Notification"
+		{
+			map16 "Zone Status"
+			map8 "Extended Status"
+			uint8 "Zone ID"
+			uint16 "Delay"
+		}
+		0x01 "Zone Enroll Request"
+		{
+			enum16 "ZoneType"
+			uint16 "Manufacturer Code"
+		}
+	}
+}
 0x0501 "IAS ACE"
 0x0502 "IAS WD"
 0x0600 "Generic tunnel"

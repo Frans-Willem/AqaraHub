@@ -298,16 +298,6 @@ void OnPublishCommandShort(std::shared_ptr<znp::ZnpApi> api,
         << "Unable to look up cluster id '" << cluster_name << "'";
     return;
   }
-  /*
-  boost::optional<zcl::ZclCommandId> command =
-      name_registry->CommandFromString(*cluster_id, command_name);
-  if (!command) {
-    LOG("OnPublishCommandShort", warning)
-        << "Unable to look up command '" << command_name << "' in cluster '"
-        << cluster_name << "'";
-    return;
-  }
-  */
   std::map<std::string, tao::json::value> obj_message;
   try {
     obj_message = tao::json::from_string(message).get_object();
@@ -608,9 +598,10 @@ int main(int argc, const char** argv) {
   auto name_registry = std::make_shared<zcl::NameRegistry>();
   if (!name_registry->ReadFromInfo(variables["name-registry"].as<std::string>(),
                                    MakeNameSafeForMqtt)) {
-    LOG("Main", warning) << "Unable to read '"
-                         << variables["name-registry"].as<std::string>()
-                         << "' name registry";
+    LOG("Main", critical) << "Unable to read '"
+                          << variables["name-registry"].as<std::string>()
+                          << "' name registry";
+    return EXIT_FAILURE;
   }
 
   // Start working

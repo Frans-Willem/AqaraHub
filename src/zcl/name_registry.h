@@ -3,6 +3,7 @@
 #include <boost/bimap.hpp>
 #include <map>
 #include <string>
+#include "clusterdb/cluster_db.h"
 #include "zcl/zcl.h"
 
 namespace zcl {
@@ -25,11 +26,7 @@ class NameRegistry {
       zcl::ZclClusterId cluster_id, const std::string& command_name);
 
  private:
-  boost::bimap<zcl::ZclClusterId, std::string> cluster_names_;
-  std::map<zcl::ZclClusterId, boost::bimap<zcl::ZclAttributeId, std::string>>
-      attribute_names_;
-  std::map<zcl::ZclClusterId, boost::bimap<zcl::ZclCommandId, std::string>>
-      command_names_;
+  clusterdb::ClusterDb db_;
 };
 }  // namespace zcl
 #endif  //_ZCL_NAME_REGISTRY_H_
