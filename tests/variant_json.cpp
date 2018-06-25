@@ -25,9 +25,7 @@ BOOST_AUTO_TEST_CASE(VariantFromToJson) {
   };
 
   for (const auto& variant : variants) {
-    std::cout << "Trying " << variant << std::endl;
     auto encoded = zcl::to_json(variant);
-    std::cout << "Encoded to " << encoded << std::endl;
     auto decoded = zcl::from_json(encoded);
     BOOST_TEST(variant == decoded);
   }

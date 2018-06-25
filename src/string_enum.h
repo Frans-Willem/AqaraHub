@@ -42,7 +42,14 @@ boost::optional<T> string_to_enum(const std::string& value) {
   typedef typename std::make_unsigned<UT>::type UUT;
 
   std::size_t end_pos;
-  unsigned long x = std::stoul(value, &end_pos, 16);
+  unsigned long x = 0;
+  try {
+    x = std::stoul(value, &end_pos, 16);
+  } catch (std::invalid_argument&) {
+    return boost::none;
+  } catch (std::out_of_range&) {
+    return boost::none;
+  }
   if (end_pos != value.size()) return boost::none;
   if (x > std::numeric_limits<UUT>::max()) {
     return boost::none;

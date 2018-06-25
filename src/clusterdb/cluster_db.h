@@ -21,6 +21,8 @@ class ClusterDb {
 
   bool ParseFromFile(const std::string& filename,
                      std::function<std::string(std::string)> name_mangler);
+  bool ParseFromStream(std::istream& stream,
+                       std::function<std::string(std::string)> name_mangler);
 
   struct Context;
 

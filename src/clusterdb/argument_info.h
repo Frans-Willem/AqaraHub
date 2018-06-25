@@ -7,16 +7,16 @@
 namespace clusterdb {
 struct ArgumentInfo;
 
-struct SimpleArgumentType {
+enum class SimpleArgumentType { Variant, Attribute };
+struct DataTypeArgumentType {
   zcl::DataType datatype;
 };
-struct VariantArgumentType {};
 struct RepeatedArgumentType {
   std::vector<ArgumentInfo> contents;
 };
 struct ArgumentInfo {
   std::string name;
-  boost::variant<SimpleArgumentType, VariantArgumentType, RepeatedArgumentType>
+  boost::variant<SimpleArgumentType, DataTypeArgumentType, RepeatedArgumentType>
       type;
 };
 }  // namespace clusterdb

@@ -98,6 +98,7 @@ add_executable(tests
 	tests/template_lookup.cpp
 	tests/variant_encoding.cpp
 	tests/variant_json.cpp
+	tests/cluster_db.cpp
 )
 target_link_libraries(tests common)
 target_include_directories(tests PUBLIC "src")

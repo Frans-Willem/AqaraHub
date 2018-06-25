@@ -24,9 +24,18 @@ bool ParseArgumentListFromPTree(
     boost::optional<zcl::DataType> opt_datatype =
         string_to_enum<zcl::DataType>(argument_type);
     if (opt_datatype) {
-      argument.type = SimpleArgumentType{*opt_datatype};
+      argument.type = DataTypeArgumentType{*opt_datatype};
     } else if (argument_type == "variant") {
-      argument.type = VariantArgumentType{};
+      argument.type = SimpleArgumentType::Variant;
+    } else if (argument_type == "attribute") {
+      argument.type = SimpleArgumentType::Attribute;
+    } else if (argument_type == "repeated") {
+      RepeatedArgumentType repeated_type;
+      if (!ParseArgumentListFromPTree(repeated_type.contents, entry.second,
+                                      name_mangler)) {
+        return false;
+      }
+      argument.type = std::move(repeated_type);
     } else {
       LOG("ClusterDb", critical) << "Unknown datatype " << argument_type;
       return false;
@@ -235,6 +244,14 @@ bool ClusterDb::ParseFromFile(
     std::function<std::string(std::string)> name_mangler) {
   boost::property_tree::ptree tree;
   boost::property_tree::info_parser::read_info(filename, tree);
+  return ParseFromPTree(this->ctx_, tree, name_mangler);
+}
+
+bool ClusterDb::ParseFromStream(
+    std::istream& stream,
+    std::function<std::string(std::string)> name_mangler) {
+  boost::property_tree::ptree tree;
+  boost::property_tree::info_parser::read_info(stream, tree);
   return ParseFromPTree(this->ctx_, tree, name_mangler);
 }
 }  // namespace clusterdb
