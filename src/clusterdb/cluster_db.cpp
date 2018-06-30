@@ -13,36 +13,68 @@ struct ClusterDb::Context {
 };
 
 namespace {
-bool ParseArgumentListFromPTree(
-    std::vector<ArgumentInfo>& arguments,
-    const boost::property_tree::ptree& tree,
+bool ParseTypeFromPTree(dynamic_encoding::AnyType& type,
+                        const std::string& type_name,
+                        const boost::property_tree::ptree& tree,
+                        std::function<std::string(std::string)> name_mangler);
+
+bool ParseObjectTypeFromPTree(
+    dynamic_encoding::ObjectType& type, const boost::property_tree::ptree& tree,
     std::function<std::string(std::string)> name_mangler) {
   for (const auto& entry : tree) {
-    ArgumentInfo argument;
-    argument.name = name_mangler(entry.second.data());
-    std::string argument_type = entry.first;
-    boost::optional<zcl::DataType> opt_datatype =
-        string_to_enum<zcl::DataType>(argument_type);
-    if (opt_datatype) {
-      argument.type = DataTypeArgumentType{*opt_datatype};
-    } else if (argument_type == "variant") {
-      argument.type = SimpleArgumentType::Variant;
-    } else if (argument_type == "attribute") {
-      argument.type = SimpleArgumentType::Attribute;
-    } else if (argument_type == "repeated") {
-      RepeatedArgumentType repeated_type;
-      if (!ParseArgumentListFromPTree(repeated_type.contents, entry.second,
-                                      name_mangler)) {
-        return false;
-      }
-      argument.type = std::move(repeated_type);
-    } else {
-      LOG("ClusterDb", critical) << "Unknown datatype " << argument_type;
+    dynamic_encoding::ObjectEntry property;
+    property.name = name_mangler(entry.second.data());
+    if (!ParseTypeFromPTree(property.type, entry.first, entry.second,
+                            name_mangler)) {
+      LOG("ClusterDb", critical)
+          << "Unable to parse object property '" << property.name << "' type";
       return false;
     }
-    arguments.emplace_back(std::move(argument));
+    type.properties.emplace_back(std::move(property));
   }
   return true;
+}
+
+boost::optional<std::string> stringStartsWith(const std::string& haystack,
+                                              const std::string& needle) {
+  if (needle.size() > haystack.size() ||
+      haystack.substr(0, needle.size()) != needle) {
+    return boost::none;
+  }
+  return haystack.substr(needle.size());
+}
+
+bool ParseTypeFromPTree(dynamic_encoding::AnyType& type,
+                        const std::string& type_name,
+                        const boost::property_tree::ptree& tree,
+                        std::function<std::string(std::string)> name_mangler) {
+  if (auto rest_type_name = stringStartsWith(type_name, "repeated:")) {
+    auto parsed_type = dynamic_encoding::GreedyRepeatedType{};
+    if (!ParseTypeFromPTree(parsed_type.element_type, *rest_type_name, tree,
+                            name_mangler)) {
+      return false;
+    }
+    type = parsed_type;
+    return true;
+  }
+  if (type_name == "object") {
+    auto parsed_type = dynamic_encoding::ObjectType{};
+    if (!ParseObjectTypeFromPTree(parsed_type, tree, name_mangler)) {
+      return false;
+    }
+    type = parsed_type;
+    return true;
+  }
+  if (type_name == "variant") {
+    type = dynamic_encoding::VariantType{};
+    return true;
+  }
+  if (auto zcl_datatype = string_to_enum<zcl::DataType>(type_name)) {
+    type = *zcl_datatype;
+    return true;
+  }
+  LOG("ClusterDb", critical) << "Unknown type definition '" << type_name << "'";
+  return false;
 }
 
 bool ParseCommandListFromPTree(
@@ -66,8 +98,8 @@ bool ParseCommandListFromPTree(
     CommandInfo command_info;
     command_info.id = (zcl::ZclCommandId)(std::uint8_t)command_id;
     command_info.name = name_mangler(entry.second.data());
-    if (!ParseArgumentListFromPTree(command_info.arguments, entry.second,
-                                    name_mangler)) {
+    if (!ParseObjectTypeFromPTree(command_info.data, entry.second,
+                                  name_mangler)) {
       return false;
     }
     if (!commands.Add(std::move(command_info))) {

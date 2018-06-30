@@ -9,7 +9,7 @@ template <typename T>
 struct StringEnumHelper;
 
 template <typename T>
-std::string enum_to_string(T value) {
+boost::optional<std::string> enum_to_string_opt(T value) {
   static std::map<T, std::string> table;
   if (table.empty()) {
     table = StringEnumHelper<T>::lookup();
@@ -17,6 +17,14 @@ std::string enum_to_string(T value) {
   auto found = table.find(value);
   if (found != table.end()) {
     return found->second;
+  }
+  return boost::none;
+}
+
+template <typename T>
+std::string enum_to_string(T value) {
+  if (auto known = enum_to_string_opt(value)) {
+    return std::move(*known);
   }
   typedef typename std::underlying_type<T>::type UT;
   typedef typename std::make_unsigned<UT>::type UUT;

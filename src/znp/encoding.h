@@ -296,6 +296,107 @@ class EncodeHelper<
   }
 };
 
+/**
+ * FT = Floating point type
+ * IT = Backing integer (unsigned) type
+ * MAN = Size of mantissa
+ * EXP = Size of exponent
+ */
+template <typename FT, typename IT, std::size_t MAN, std::size_t EXP>
+struct FloatEncodeHelper {
+  static std::size_t GetSize(const FT& value) {
+    return EncodeHelper<IT>::GetSize(0);
+  }
+  static void Encode(const FT& value, znp::EncodeTarget::iterator& begin,
+                     znp::EncodeTarget::iterator end) {
+    IT exponent = 0;
+    IT mantissa = 0;
+    bool is_negative = false;
+    if (std::isnan(value)) {
+      // NaN
+      mantissa = 1;
+      exponent = (1 << EXP) - 1;
+      is_negative = false;
+    } else if (std::isinf(value)) {
+      exponent = (1 << EXP) - 1;
+      mantissa = 0;
+      is_negative = std::signbit(value);
+    } else if (value == (FT) + 0.0 || value == (FT)-0.0) {
+      exponent = 0;
+      mantissa = 0;
+      is_negative = std::signbit(value);
+    } else {
+      FT current_value = value;
+      if (std::signbit(current_value)) {
+        current_value = FT(0) - current_value;
+        is_negative = true;
+      } else {
+        is_negative = false;
+      }
+      FT signed_exponent = std::floor(std::log2(current_value));
+      if (current_value / std::pow(FT(2), signed_exponent) >= (FT)2) {
+        signed_exponent++;
+      }
+      IT half_exponent_range = (((IT)1 << EXP) - 1) / 2;
+      FT unsigned_exponent = signed_exponent + half_exponent_range;
+      if (unsigned_exponent >= (1 << EXP)) {
+        // Exponent is too big to fit in this type, so set to highest possible
+        // value
+        mantissa = ((IT)1 << MAN) - 1;
+        exponent = ((IT)1 << EXP) - 2;
+      } else if (unsigned_exponent <= 0) {
+        exponent = 0;
+        current_value /= std::pow(FT(2), -(FT)(half_exponent_range - 1));
+        mantissa = (IT)std::round(current_value * std::pow(FT(2), MAN));
+      } else {
+        exponent = (IT)unsigned_exponent;
+        current_value /= std::pow(FT(2), signed_exponent);
+        current_value -= 1;  // Hidden bit
+        if (current_value >= (FT)1) {
+          mantissa = ((IT)1 << MAN) - 1;
+        } else if (current_value >= 0) {
+          mantissa = (IT)std::round(current_value * std::pow(FT(2), MAN));
+          if (mantissa >> MAN > 0) {
+            mantissa = ((IT)1 << MAN) - 1;
+          }
+        } else {
+          throw std::runtime_error("Mantissa failure");
+        }
+      }
+    }
+    IT encoded = (is_negative ? ((IT)1 << (MAN + EXP)) : 0) |
+                 (exponent << MAN) | mantissa;
+    EncodeHelper<IT>::Encode(encoded, begin, end);
+  }
+  static void Decode(FT& value, znp::EncodeTarget::const_iterator& begin,
+                     znp::EncodeTarget::const_iterator end) {
+    IT raw_value;
+    EncodeHelper<IT>::Decode(raw_value, begin, end);
+    bool is_negative = ((raw_value >> (MAN + EXP)) != 0);
+    IT exponent = (raw_value >> MAN) & (((IT)1 << EXP) - 1);
+    IT half_exponent = ((IT)1 << (EXP - 1)) - 1;
+    IT mantissa_divisor = ((IT)1 << MAN);
+    IT mantissa = raw_value & (((IT)1 << MAN) - 1);
+    if (exponent == ((IT)1 << EXP) - 1) {
+      if (mantissa != 0) {
+        value = std::numeric_limits<FT>::quiet_NaN();
+      } else {
+        value = is_negative ? -std::numeric_limits<FT>::infinity()
+                            : std::numeric_limits<FT>::infinity();
+      }
+    } else if (exponent == 0) {
+      value = ((FT)mantissa / (FT)mantissa_divisor) *
+              std::pow((FT)2, -(FT)(half_exponent - 1)) *
+              (FT)(is_negative ? -1 : 1);
+    } else {
+      IT hidden = (exponent == 0) ? 0 : mantissa_divisor;
+      value = ((FT)(hidden + mantissa) / (FT)mantissa_divisor) *
+              std::pow((FT)2, (FT)exponent - (FT)half_exponent) *
+              (FT)(is_negative ? -1 : 1);
+    }
+  }
+};
+
 template <typename T>
 std::vector<uint8_t> Encode(const T& data) {
   std::vector<uint8_t> target(EncodeHelper<T>::GetSize(data));

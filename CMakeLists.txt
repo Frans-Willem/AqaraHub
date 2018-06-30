@@ -67,6 +67,9 @@ add_library(common
 	src/zcl/to_json.cpp
 	src/zcl/encoding.cpp
 	src/clusterdb/cluster_db.cpp
+	src/dynamic_encoding/common.cpp
+	src/dynamic_encoding/decoding.cpp
+	src/dynamic_encoding/encoding.cpp
 	)
 target_include_directories(common PUBLIC "src")
 target_link_libraries(common stlab)
@@ -99,6 +102,7 @@ add_executable(tests
 	tests/variant_encoding.cpp
 	tests/variant_json.cpp
 	tests/cluster_db.cpp
+	tests/dynamic_encoding.cpp
 )
 target_link_libraries(tests common)
 target_include_directories(tests PUBLIC "src")
