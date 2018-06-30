@@ -78,7 +78,7 @@ bool ParseTypeFromPTree(dynamic_encoding::AnyType& type,
 }
 
 bool ParseCommandListFromPTree(
-    SearchableList<CommandInfo>& commands,
+    SearchableList<CommandInfo>& commands, bool are_global_commands,
     const boost::property_tree::ptree& tree,
     std::function<std::string(std::string)> name_mangler) {
   for (const auto& entry : tree) {
@@ -98,6 +98,7 @@ bool ParseCommandListFromPTree(
     CommandInfo command_info;
     command_info.id = (zcl::ZclCommandId)(std::uint8_t)command_id;
     command_info.name = name_mangler(entry.second.data());
+    command_info.is_global = are_global_commands;
     if (!ParseObjectTypeFromPTree(command_info.data, entry.second,
                                   name_mangler)) {
       return false;
@@ -164,13 +165,13 @@ bool ParseClusterInfoFromPTree(
       }
     } else if (entry.first == "commands") {
       if (entry.second.data() == "in") {
-        if (!ParseCommandListFromPTree(cluster.commands_in, entry.second,
+        if (!ParseCommandListFromPTree(cluster.commands_in, false, entry.second,
                                        name_mangler)) {
           return false;
         }
       } else if (entry.second.data() == "out") {
-        if (!ParseCommandListFromPTree(cluster.commands_out, entry.second,
-                                       name_mangler)) {
+        if (!ParseCommandListFromPTree(cluster.commands_out, false,
+                                       entry.second, name_mangler)) {
           return false;
         }
       } else {
@@ -193,8 +194,8 @@ bool ParseFromPTree(const std::unique_ptr<ClusterDb::Context>& ctx,
                     std::function<std::string(std::string)> name_mangler) {
   for (const auto& cluster_entry : tree) {
     if (cluster_entry.first == "global") {
-      if (!ParseCommandListFromPTree(ctx->global_commands, cluster_entry.second,
-                                     name_mangler)) {
+      if (!ParseCommandListFromPTree(ctx->global_commands, true,
+                                     cluster_entry.second, name_mangler)) {
         return false;
       }
     } else {
@@ -253,22 +254,17 @@ boost::optional<const CommandInfo&> ClusterDb::GlobalCommandById(
   return ctx_->global_commands.FindById(id);
 }
 
-boost::optional<std::pair<bool, const CommandInfo&>>
-ClusterDb::CommandOutByName(const zcl::ZclClusterId& cluster_id,
-                            const std::string& name) {
+boost::optional<const CommandInfo&> ClusterDb::CommandOutByName(
+    const zcl::ZclClusterId& cluster_id, const std::string& name) {
   auto global_found = GlobalCommandByName(name);
   if (global_found) {
-    return std::make_pair(true, std::ref(*global_found));
+    return global_found;
   }
   auto cluster_found = ClusterById(cluster_id);
   if (!cluster_found) {
     return boost::none;
   }
-  auto local_found = cluster_found->commands_out.FindByName(name);
-  if (local_found) {
-    return std::make_pair(false, std::ref(*local_found));
-  }
-  return boost::none;
+  return cluster_found->commands_out.FindByName(name);
 }
 
 bool ClusterDb::ParseFromFile(

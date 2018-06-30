@@ -24,16 +24,18 @@ class ZclEndpoint : public std::enable_shared_from_this<ZclEndpoint> {
       uint16_t profile_id, uint16_t device_id, uint8_t version,
       znp::Latency latency, std::vector<uint16_t> input_clusters,
       std::vector<uint16_t> output_clusters);
-  stlab::future<ZclVariant> ReadAttribute();
-  stlab::future<void> WriteAttributes(
-      znp::ShortAddress address, uint8_t endpoint, ZclClusterId cluster_id,
-      std::vector<std::tuple<ZclAttributeId, ZclVariant>> attributes);
+
   stlab::future<void> SendCommand(znp::ShortAddress address, uint8_t endpoint,
                                   ZclClusterId cluster_id,
+                                  bool is_global_command,
                                   ZclCommandId command_id,
                                   std::vector<uint8_t> payload);
 
-  boost::signals2::signal<void(AttributeReport)> on_report_attributes_;
+  boost::signals2::signal<void(znp::ShortAddress source_address,
+                               uint8_t source_endpoint, ZclClusterId cluster_id,
+                               bool is_global_command, ZclCommandId command_id,
+                               std::vector<uint8_t> payload)>
+      on_command_;
 
  private:
   ZclEndpoint(std::shared_ptr<znp::ZnpApi> znp_api, uint8_t endpoint);

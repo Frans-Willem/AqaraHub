@@ -16,7 +16,7 @@ class ClusterDb {
       const std::string& name) const;
   boost::optional<const CommandInfo&> GlobalCommandById(
       const zcl::ZclCommandId& id) const;
-  boost::optional<std::pair<bool, const CommandInfo&>> CommandOutByName(
+  boost::optional<const CommandInfo&> CommandOutByName(
       const zcl::ZclClusterId& cluster_id, const std::string& name);
 
   bool ParseFromFile(const std::string& filename,

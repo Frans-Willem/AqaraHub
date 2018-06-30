@@ -60,7 +60,6 @@ add_library(common
 	src/logging.cpp
 	src/zcl/zcl.cpp
     src/coro.cpp
-	src/zcl/name_registry.cpp
 	src/zcl/zcl_endpoint.cpp
 	src/mqtt_wrapper.cpp
 	src/xiaomi/ff01_attribute.cpp

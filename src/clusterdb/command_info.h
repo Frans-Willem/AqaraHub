@@ -7,6 +7,7 @@ namespace clusterdb {
 struct CommandInfo {
   zcl::ZclCommandId id;
   std::string name;
+  bool is_global;
   dynamic_encoding::ObjectType data;
 };
 }  // namespace clusterdb
