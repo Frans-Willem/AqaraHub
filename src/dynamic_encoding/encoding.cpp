@@ -249,10 +249,7 @@ void EncodeTyped(const Context& ctx, const zcl::DataType& datatype,
       }
       return;
     }
-    case zcl::DataType::array:
-    case zcl::DataType::_struct:
-    case zcl::DataType::set:
-    case zcl::DataType::bag: {
+    case zcl::DataType::_struct: {
       std::size_t invalid_size = 0xFFFF;
       if (value == tao::json::null) {
         EncodeInteger(invalid_size, 2, target);
@@ -264,7 +261,42 @@ void EncodeTyped(const Context& ctx, const zcl::DataType& datatype,
         }
       }
       return;
-    };
+    }
+    case zcl::DataType::array:
+    case zcl::DataType::set:
+    case zcl::DataType::bag: {
+      const tao::json::value::object_t& object_value = value.get_object();
+      auto found_element_type = object_value.find("element_type");
+      auto found_elements = object_value.find("elements");
+      const tao::json::value& element_type_value =
+          (found_element_type != object_value.end())
+              ? found_element_type->second
+              : tao::json::null;
+      const tao::json::value& elements_value =
+          (found_elements != object_value.end()) ? found_elements->second
+                                                 : tao::json::null;
+      zcl::DataType element_datatype = zcl::DataType::nodata;
+      if (auto x =
+              string_to_enum<zcl::DataType>(element_type_value.get_string())) {
+        element_datatype = *x;
+      } else {
+        throw std::runtime_error(
+            boost::str(boost::format("Invalid element_type '%s' for '%s'") %
+                       enum_to_string<zcl::DataType>(element_datatype) %
+                       enum_to_string<zcl::DataType>(datatype)));
+      }
+      NormalEncodeAppend(element_datatype, target);
+      if (elements_value == tao::json::null) {
+        EncodeInteger<std::size_t>(0xFFFF, 2, target);
+      } else {
+        tao::json::value::array_t elements_arr = elements_value.get_array();
+        EncodeInteger<std::size_t>(elements_arr.size(), 2, target);
+        for (const auto& item : elements_arr) {
+          EncodeTyped(ctx, element_datatype, item, target);
+        }
+      }
+      return;
+    }
       // Missing: ToD, date, UTC
     case zcl::DataType::attribId: {
       if (value == tao::json::null) {

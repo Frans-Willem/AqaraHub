@@ -42,6 +42,21 @@ std::vector<std::tuple<std::vector<uint8_t>, dynamic_encoding::AnyType,
          "Hello world"},
         {{0xFF}, zcl::DataType::string, tao::json::null},
         {{0xFF, 0xFF}, zcl::DataType::string16, tao::json::null},
+        {{0x10, 0x03, 0x00, 0xFF, 0x00, 0x01},
+         zcl::DataType::array,
+         tao::json::value::object_t{
+             {"element_type", "bool"},
+             {"elements",
+              tao::json::value::array_t{tao::json::null, false, true}},
+         }},
+        {{0x03, 0x00, 0x10, 0xFF, 0x10, 0x00, 0x10, 0x01},
+         zcl::DataType::_struct,
+         tao::json::value::array_t{
+             tao::json::value::object_t{{"type", "bool"},
+                                        {"value", tao::json::null}},
+             tao::json::value::object_t{{"type", "bool"}, {"value", false}},
+             tao::json::value::object_t{{"type", "bool"}, {"value", true}},
+         }},
     };
 }
 

@@ -167,10 +167,7 @@ struct Decoder {
         begin += size;
         return ret;
       }
-      case zcl::DataType::array:
-      case zcl::DataType::_struct:
-      case zcl::DataType::set:
-      case zcl::DataType::bag: {
+      case zcl::DataType::_struct: {
         std::size_t invalid_size = 0xFFFF;
         std::size_t size = DecodeInteger<std::size_t>(2, begin, end);
         if (size == invalid_size) {
@@ -181,7 +178,30 @@ struct Decoder {
           ret.push_back((*this)(VariantType{}));
         }
         return ret;
-      };
+      }
+
+      case zcl::DataType::array:
+      case zcl::DataType::set:
+      case zcl::DataType::bag: {
+        zcl::DataType datatype;
+        znp::EncodeHelper<zcl::DataType>::Decode(datatype, begin, end);
+        std::size_t invalid_size = 0xFFFF;
+        std::size_t size = DecodeInteger<std::size_t>(2, begin, end);
+        if (size == invalid_size) {
+          return tao::json::value::object_t{
+              {"element_type", enum_to_string<zcl::DataType>(datatype)},
+              {"elements", tao::json::null},
+          };
+        }
+        tao::json::value::array_t ret;
+        while (size--) {
+          ret.push_back((*this)(datatype));
+        }
+        return tao::json::value::object_t{
+            {"element_type", enum_to_string<zcl::DataType>(datatype)},
+            {"elements", ret},
+        };
+      }
         // Missing: ToD, date, UTC
       case zcl::DataType::attribId: {
         zcl::ZclAttributeId id;
