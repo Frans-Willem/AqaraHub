@@ -404,6 +404,28 @@ stlab::future<void> PublishValue(std::shared_ptr<MqttWrapper> mqtt_wrapper,
   }
 }
 
+const tao::json::value& JsonGetProperty(const tao::json::value& object,
+                                        const std::string& property) {
+  static tao::json::value not_found = tao::json::null;
+  if (!object.is_object()) {
+    return not_found;
+  }
+  const tao::json::value::object_t& object_map = object.get_object();
+  auto found = object_map.find(property);
+  if (found == object_map.end()) {
+    return not_found;
+  }
+  return found->second;
+}
+
+const tao::json::value::array_t& JsonAsArray(const tao::json::value& array) {
+  static tao::json::value::array_t empty{};
+  if (!array.is_array()) {
+    return empty;
+  }
+  return array.get_array();
+}
+
 void OnZclCommand(std::shared_ptr<MqttWrapper> mqtt_wrapper,
                   std::string mqtt_prefix, bool mqtt_recursive_publish,
                   znp::IEEEAddress source_address, uint8_t source_endpoint,
@@ -428,8 +450,57 @@ void OnZclCommand(std::shared_ptr<MqttWrapper> mqtt_wrapper,
         << "Unable to decode command payload: " << ex.what();
     return;
   }
-  PublishValue(mqtt_wrapper, topic, mqtt_recursive_publish, json_payload)
-      .detach();
+  std::vector<stlab::future<void>> futures;
+  futures.push_back(
+      PublishValue(mqtt_wrapper, topic, mqtt_recursive_publish, json_payload));
+
+  // Is this a repeated object type, with attribId as first property?
+  if (command_info->data.properties.size() > 0) {
+    if (const auto* repeated_type =
+            boost::relaxed_get<dynamic_encoding::GreedyRepeatedType>(
+                &command_info->data.properties[0].type)) {
+      if (const auto* repeated_object_type =
+              boost::relaxed_get<dynamic_encoding::ObjectType>(
+                  &repeated_type->element_type)) {
+        if (repeated_object_type->properties.size() >= 2 &&
+            repeated_object_type->properties[0].type ==
+                dynamic_encoding::AnyType(zcl::DataType::attribId)) {
+          LOG("OnZclCommand", info) << "Looks like something per-attribute. "
+                                       "Publishing per-attribute too";
+          // All checks succeeded, let's attempt to unpack the JSON!
+          const tao::json::value::array_t& reports =
+              JsonAsArray(JsonGetProperty(
+                  json_payload, command_info->data.properties[0].name));
+          for (const auto& report : reports) {
+            const tao::json::value& attribute_id = JsonGetProperty(
+                report, repeated_object_type->properties[0].name);
+            const tao::json::value& attribute_value = JsonGetProperty(
+                report, repeated_object_type->properties[1].name);
+            std::string subtopic;
+            if (attribute_id.is_string()) {
+              subtopic = attribute_id.get_string();
+            } else if (attribute_id.is_unsigned()) {
+              subtopic = boost::str(boost::format("0x%04X") %
+                                    attribute_id.get_unsigned());
+            } else {
+              subtopic = tao::json::to_string(attribute_id);
+            }
+            futures.push_back(PublishValue(mqtt_wrapper, topic + "/" + subtopic,
+                                           mqtt_recursive_publish,
+                                           attribute_value));
+          }
+        }
+      }
+    }
+  }
+
+  if (futures.size() == 1) {
+    futures[0].detach();
+  } else {
+    stlab::when_all(stlab::immediate_executor, []() {},
+                    std::make_pair(futures.begin(), futures.end()))
+        .detach();
+  }
 }
 
 void OnZclCommand(std::shared_ptr<clusterdb::ClusterDb> cluster_db,
