@@ -344,8 +344,8 @@ void OnIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
   api->UtilAddrmgrNwkAddrLookup(message.SrcAddr)
       .then([message, mqtt_wrapper, mqtt_prefix](znp::IEEEAddress ieee_addr) {
         return mqtt_wrapper->Publish(
-            boost::str(boost::format("%sreport/%016X/linkquality") %
-                       mqtt_prefix % ieee_addr),
+            boost::str(boost::format("%s%016X/linkquality") % mqtt_prefix %
+                       ieee_addr),
             boost::str(boost::format("%d") % (unsigned int)message.LinkQuality),
             mqtt::qos::at_least_once, false);
       })
@@ -360,9 +360,53 @@ void OnIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
       .detach();
 }
 
+stlab::future<void> PublishValue(std::shared_ptr<MqttWrapper> mqtt_wrapper,
+                                 const std::string& topic, bool recursive,
+                                 const tao::json::value& value) {
+  std::string value_as_string(tao::json::to_string(value));
+  LOG("PublishValue", info)
+      << "Publishing to '" << topic << "': " << value_as_string;
+  std::vector<stlab::future<void>> futures;
+  futures.push_back(
+      mqtt_wrapper
+          ->Publish(topic, value_as_string, mqtt::qos::at_least_once, false)
+          .recover([](auto f) {
+            try {
+              f.get_try();
+            } catch (const std::exception& ex) {
+              LOG("PublishValue", warning)
+                  << "Unable to publish to MQTT: " << ex.what();
+            }
+          }));
+  if (recursive) {
+    if (value.is_object()) {
+      const tao::json::value::object_t& object_value = value.get_object();
+      for (const auto& item : object_value) {
+        futures.push_back(PublishValue(
+            mqtt_wrapper,
+            boost::str(boost::format("%s/%s") % topic % item.first), recursive,
+            item.second));
+      }
+    } else if (value.is_array()) {
+      const tao::json::value::array_t& array_value = value.get_array();
+      for (std::size_t index = 0; index < array_value.size(); index++) {
+        futures.push_back(PublishValue(
+            mqtt_wrapper, boost::str(boost::format("%s/%d") % topic % index),
+            recursive, array_value[index]));
+      }
+    }
+  }
+  if (futures.size() == 1) {
+    return futures[0];
+  } else {
+    return stlab::when_all(stlab::immediate_executor, []() {},
+                           std::make_pair(futures.begin(), futures.end()));
+  }
+}
+
 void OnZclCommand(std::shared_ptr<MqttWrapper> mqtt_wrapper,
-                  std::string mqtt_prefix, znp::IEEEAddress source_address,
-                  uint8_t source_endpoint,
+                  std::string mqtt_prefix, bool mqtt_recursive_publish,
+                  znp::IEEEAddress source_address, uint8_t source_endpoint,
                   std::shared_ptr<const clusterdb::ClusterInfo> cluster_info,
                   std::shared_ptr<const clusterdb::CommandInfo> command_info,
                   std::vector<uint8_t> payload) {
@@ -384,29 +428,17 @@ void OnZclCommand(std::shared_ptr<MqttWrapper> mqtt_wrapper,
         << "Unable to decode command payload: " << ex.what();
     return;
   }
-  LOG("OnZclCommand", info) << "Publishing to '" << topic
-                            << "': " << tao::json::to_string(json_payload);
-  mqtt_wrapper
-      ->Publish(topic, tao::json::to_string(json_payload),
-                mqtt::qos::at_least_once, false)
-      .recover([](auto f) {
-        try {
-          f.get_try();
-        } catch (const std::exception& ex) {
-          LOG("OnZclCommand", warning)
-              << "Unable to publish to MQTT: " << ex.what();
-        }
-      })
+  PublishValue(mqtt_wrapper, topic, mqtt_recursive_publish, json_payload)
       .detach();
 }
 
 void OnZclCommand(std::shared_ptr<clusterdb::ClusterDb> cluster_db,
                   std::shared_ptr<znp::ZnpApi> api,
                   std::shared_ptr<MqttWrapper> mqtt_wrapper,
-                  std::string mqtt_prefix, znp::ShortAddress source_address,
-                  uint8_t source_endpoint, zcl::ZclClusterId cluster_id,
-                  bool is_global_command, zcl::ZclCommandId command_id,
-                  std::vector<uint8_t> payload) {
+                  std::string mqtt_prefix, bool mqtt_recursive_publish,
+                  znp::ShortAddress source_address, uint8_t source_endpoint,
+                  zcl::ZclClusterId cluster_id, bool is_global_command,
+                  zcl::ZclCommandId command_id, std::vector<uint8_t> payload) {
   auto cluster_info = cluster_db->ClusterById(cluster_id);
   if (!cluster_info) {
     LOG("OnZclCommand", warning)
@@ -432,10 +464,12 @@ void OnZclCommand(std::shared_ptr<clusterdb::ClusterDb> cluster_db,
       cluster_db, cluster_info.get_ptr());
 
   api->UtilAddrmgrNwkAddrLookup(source_address)
-      .then([mqtt_wrapper, mqtt_prefix, source_endpoint, ptr_cluster_info,
-             ptr_command_info, payload](znp::IEEEAddress source_address) {
-        OnZclCommand(mqtt_wrapper, mqtt_prefix, source_address, source_endpoint,
-                     ptr_cluster_info, ptr_command_info, payload);
+      .then([mqtt_wrapper, mqtt_prefix, mqtt_recursive_publish, source_endpoint,
+             ptr_cluster_info, ptr_command_info,
+             payload](znp::IEEEAddress source_address) {
+        OnZclCommand(mqtt_wrapper, mqtt_prefix, mqtt_recursive_publish,
+                     source_address, source_endpoint, ptr_cluster_info,
+                     ptr_command_info, payload);
       })
       .recover([](auto f) {
         try {
@@ -453,6 +487,7 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
     coro::Await await, std::shared_ptr<znp::ZnpApi> api,
     std::array<uint8_t, 16> presharedkey,
     std::shared_ptr<MqttWrapper> mqtt_wrapper, std::string mqtt_prefix,
+    bool mqtt_recursive_publish,
     std::shared_ptr<clusterdb::ClusterDb> cluster_db) {
   LOG("Initialize", debug) << "Doing initial reset (this may take up to a full "
                               "minute after a dongle power-cycle)";
@@ -505,14 +540,15 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
   std::weak_ptr<znp::ZnpApi> weak_api(api);
 
   endpoint->on_command_.connect(
-      [cluster_db, weak_api, mqtt_wrapper, mqtt_prefix](
+      [cluster_db, weak_api, mqtt_wrapper, mqtt_prefix, mqtt_recursive_publish](
           znp::ShortAddress source_address, uint8_t source_endpoint,
           zcl::ZclClusterId cluster_id, bool is_global_command,
           zcl::ZclCommandId command_id, std::vector<uint8_t> payload) {
         if (auto api = weak_api.lock()) {
           OnZclCommand(cluster_db, api, mqtt_wrapper, mqtt_prefix,
-                       source_address, source_endpoint, cluster_id,
-                       is_global_command, command_id, std::move(payload));
+                       mqtt_recursive_publish, source_address, source_endpoint,
+                       cluster_id, is_global_command, command_id,
+                       std::move(payload));
         }
       });
 
@@ -576,6 +612,8 @@ int main(int argc, const char** argv) {
     ("cluster-info",
      boost::program_options::value<std::string>()->default_value("../clusters.info"),
      "Boost property-tree info file containing cluster, attribute, and command information")
+    ("recursive-publish",
+     "Recursively publish object properties and array elements to sub-topics")
     ;
   // clang-format on
   boost::program_options::variables_map variables;
@@ -638,6 +676,8 @@ int main(int argc, const char** argv) {
     mqtt_prefix += "/";
   }
   LOG("Main", info) << "Using MQTT prefix '" << mqtt_prefix << "'";
+  bool mqtt_recursive_publish = (variables.count("recursive-publish") > 0);
+  LOG("Main", info) << "Recursively publishing object and array properties";
 
   // Creating pre-shared-key
   std::string presharedkey_str(variables["psk"].as<std::string>());
@@ -655,7 +695,7 @@ int main(int argc, const char** argv) {
   int exit_code = EXIT_SUCCESS;
   auto endpoint =
       coro::Run(AsioExecutor(io_service), Initialize, api, presharedkey,
-                mqtt_wrapper, mqtt_prefix, cluster_db)
+                mqtt_wrapper, mqtt_prefix, mqtt_recursive_publish, cluster_db)
           .then([](auto r) {
             LOG("Main", info) << "Initialization complete!";
             return r;
