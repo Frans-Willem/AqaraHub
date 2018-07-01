@@ -11,4 +11,7 @@ bool operator==(const ObjectType& a, const ObjectType& b) {
 bool operator==(const GreedyRepeatedType& a, const GreedyRepeatedType& b) {
   return a.element_type == b.element_type;
 }
+bool operator==(const XiaomiFF01Type& a, const XiaomiFF01Type& b) {
+  return true;
+}
 }  // namespace dynamic_encoding

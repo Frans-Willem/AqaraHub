@@ -62,7 +62,6 @@ add_library(common
     src/coro.cpp
 	src/zcl/zcl_endpoint.cpp
 	src/mqtt_wrapper.cpp
-	src/xiaomi/ff01_attribute.cpp
 	src/zcl/to_json.cpp
 	src/zcl/encoding.cpp
 	src/clusterdb/cluster_db.cpp

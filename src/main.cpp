@@ -20,7 +20,6 @@
 #include "logging.h"
 #include "mqtt_wrapper.h"
 #include "string_enum.h"
-#include "xiaomi/ff01_attribute.h"
 #include "zcl/encoding.h"
 #include "zcl/to_json.h"
 #include "zcl/zcl.h"

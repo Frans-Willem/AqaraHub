@@ -36,6 +36,10 @@ struct Decoder {
     tao::json::value::object_t ret;
     zcl::DataType type;
     znp::EncodeHelper<zcl::DataType>::Decode(type, begin, end);
+    if (type == zcl::DataType::string &&
+        ctx.last_attribute_id == (zcl::ZclAttributeId)0xFF01) {
+      return (*this)(XiaomiFF01Type{});
+    }
     ret["type"] = enum_to_string<zcl::DataType>(type);
     ret["value"] = (*this)(type);
     return ret;
@@ -206,6 +210,7 @@ struct Decoder {
       case zcl::DataType::attribId: {
         zcl::ZclAttributeId id;
         znp::EncodeHelper<zcl::ZclAttributeId>::Decode(id, begin, end);
+        ctx.last_attribute_id = id;
         if (ctx.cluster) {
           if (auto attribute_info = ctx.cluster->attributes.FindById(id)) {
             return attribute_info->name;
@@ -238,6 +243,28 @@ struct Decoder {
       ret.push_back(repeated.element_type.apply_visitor(*this));
     }
     return ret;
+  }
+
+  tao::json::value operator()(const XiaomiFF01Type& type) {
+    std::size_t size = DecodeInteger<std::size_t>(1, begin, end);
+    if (size > (std::size_t)std::distance(begin, end)) {
+      LOG("DynamicDecoding", warning)
+          << "Xiami FF01 attribute length mismatch, fixing up.";
+      size = (std::size_t)std::distance(begin, end);
+    }
+    auto attribute_end = begin + size;
+    ctx.last_attribute_id = boost::none;
+    Decoder subdecoder{begin, attribute_end, ctx};
+    tao::json::value::object_t ret;
+    while (subdecoder.begin != subdecoder.end) {
+      tao::json::value item_key = subdecoder(zcl::DataType::uint8);
+      tao::json::value item_value = subdecoder(VariantType{});
+      ret[tao::json::to_string(item_key)] = item_value;
+    }
+    return tao::json::value::object_t{
+        {"type", "xiaomi_ff01"},
+        {"value", ret},
+    };
   }
 };
 tao::json::value Decode(const Context& ctx, const AnyType& type,

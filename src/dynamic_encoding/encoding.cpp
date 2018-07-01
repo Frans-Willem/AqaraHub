@@ -108,6 +108,11 @@ void EncodeTyped(const Context& ctx, const ObjectType& object_type,
   }
 }
 
+void EncodeTyped(const Context& ctx, const XiaomiFF01Type& type,
+                 const tao::json::value& value, std::vector<uint8_t>& target) {
+  throw std::runtime_error("Xiaomi FF01 encoding not implemented");
+}
+
 void EncodeTyped(const Context& ctx, const zcl::DataType& datatype,
                  const tao::json::value& value, std::vector<uint8_t>& target) {
   switch (datatype) {

@@ -1,7 +1,6 @@
 #include "zcl/zcl_endpoint.h"
 #include <boost/log/utility/manipulators/dump.hpp>
 #include "logging.h"
-#include "xiaomi/ff01_attribute.h"
 #include "zcl/encoding.h"
 
 namespace zcl {
