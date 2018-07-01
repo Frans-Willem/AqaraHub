@@ -85,8 +85,8 @@ struct Decoder {
             1 + ((std::size_t)datatype - (std::size_t)zcl::DataType::map8);
         std::uint64_t value = DecodeInteger<std::uint64_t>(length, begin, end);
         tao::json::value::array_t ret;
-        for (std::size_t bit = length * 8; bit > 0; bit--) {
-          ret.push_back(((value >> (bit - 1)) & 0x1) != 0);
+        for (std::size_t bit = 0; bit < length * 8; bit++) {
+          ret.push_back(((value >> bit) & 0x1) != 0);
         }
         return ret;
       }

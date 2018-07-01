@@ -169,13 +169,13 @@ void EncodeTyped(const Context& ctx, const zcl::DataType& datatype,
             enum_to_string<zcl::DataType>(datatype) % (length * 8) %
             array_value.size()));
       }
-      std::size_t current_bit = (length * 8) - 1;
+      std::size_t current_bit = 0;
       std::uint64_t bitmask = 0;
       for (const auto& item : array_value) {
         if (item.as<bool>()) {
           bitmask |= (1 << current_bit);
         }
-        current_bit--;
+        current_bit++;
       }
       EncodeInteger(bitmask, length, target);
       return;
