@@ -266,6 +266,16 @@ struct Decoder {
         {"value", ret},
     };
   }
+
+  tao::json::value operator()(const ErrorOrType& type) {
+    unsigned int status = DecodeInteger<unsigned int>(1, begin, end);
+    if (status != 0) {
+      return tao::json::value::object_t{{"error", status}};
+    } else {
+      return tao::json::value::object_t{
+          {"success", type.success_type.apply_visitor(*this)}};
+    }
+  }
 };
 tao::json::value Decode(const Context& ctx, const AnyType& type,
                         std::vector<uint8_t>::const_iterator& begin,

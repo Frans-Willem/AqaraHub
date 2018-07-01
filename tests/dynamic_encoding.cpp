@@ -57,6 +57,12 @@ std::vector<std::tuple<std::vector<uint8_t>, dynamic_encoding::AnyType,
              tao::json::value::object_t{{"type", "bool"}, {"value", false}},
              tao::json::value::object_t{{"type", "bool"}, {"value", true}},
          }},
+        {{0x00, 0x01},
+         dynamic_encoding::ErrorOrType{zcl::DataType::_bool},
+         tao::json::value::object_t{{"success", true}}},
+        {{0x12},
+         dynamic_encoding::ErrorOrType{zcl::DataType::_bool},
+         tao::json::value::object_t{{"error", (unsigned int)0x12}}},
     };
 }
 

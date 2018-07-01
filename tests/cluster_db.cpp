@@ -15,6 +15,14 @@ void LoadTestDb(ClusterDb& db) {
       "\
 global commands\n\
 {\n\
+	0x01 \"Read Attributes Response\"\n\
+	{\n\
+		repeated:object \"records\"\n\
+		{\n\
+			attribId \"Attribute identifier\"\n\
+			error_or:variant \"Attribute value\"\n\
+		}\n\
+	}\n\
 	0x0A \"Report attributes\"\n\
 	{\n\
 		repeated:object \"report\"\n\

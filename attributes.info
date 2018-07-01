@@ -9,8 +9,7 @@ global commands
     repeated:object "records"
     {
       attribId "Attribute identifier"
-      uint8 "Status"
-      variant "Attribute value"
+      error_or:variant "Attribute value"
     }
   }
   0x02 "Write Attributes"

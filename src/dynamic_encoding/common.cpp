@@ -14,4 +14,7 @@ bool operator==(const GreedyRepeatedType& a, const GreedyRepeatedType& b) {
 bool operator==(const XiaomiFF01Type& a, const XiaomiFF01Type& b) {
   return true;
 }
+bool operator==(const ErrorOrType& a, const ErrorOrType& b) {
+  return a.success_type == b.success_type;
+}
 }  // namespace dynamic_encoding

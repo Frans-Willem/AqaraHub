@@ -57,6 +57,15 @@ bool ParseTypeFromPTree(dynamic_encoding::AnyType& type,
     type = parsed_type;
     return true;
   }
+  if (auto rest_type_name = stringStartsWith(type_name, "error_or:")) {
+    auto parsed_type = dynamic_encoding::ErrorOrType{};
+    if (!ParseTypeFromPTree(parsed_type.success_type, *rest_type_name, tree,
+                            name_mangler)) {
+      return false;
+    }
+    type = parsed_type;
+    return true;
+  }
   if (type_name == "object") {
     auto parsed_type = dynamic_encoding::ObjectType{};
     if (!ParseObjectTypeFromPTree(parsed_type, tree, name_mangler)) {

@@ -350,6 +350,34 @@ void EncodeTyped(const Context& ctx, const GreedyRepeatedType& type,
   }
 }
 
+void EncodeTyped(const Context& ctx, const ErrorOrType& type,
+                 const tao::json::value& value, std::vector<uint8_t>& target) {
+  const tao::json::value::object_t& object_value = value.get_object();
+  auto found_error = object_value.find("error");
+  auto found_success = object_value.find("success");
+  const tao::json::value& error_value = (found_error == object_value.end())
+                                            ? tao::json::null
+                                            : found_error->second;
+  const tao::json::value& success_value = (found_success == object_value.end())
+                                              ? tao::json::null
+                                              : found_success->second;
+  unsigned int status = 0;
+  if (error_value != tao::json::null) {
+    status = error_value.get_unsigned();
+  }
+  EncodeInteger(status, 1, target);
+  if (status == 0) {
+    Encode(ctx, type.success_type, success_value, target);
+  } else {
+    if (success_value != tao::json::null) {
+      throw std::runtime_error(
+          "Error-or object should not contain both a non-zero error and "
+          "success field!");
+    }
+  }
+  return;
+}
+
 void Encode(const Context& ctx, const AnyType& type,
             const tao::json::value& value, std::vector<uint8_t>& target) {
   boost::apply_visitor(
