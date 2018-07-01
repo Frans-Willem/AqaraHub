@@ -515,18 +515,6 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
                        is_global_command, command_id, std::move(payload));
         }
       });
-  /*
-  endpoint->on_report_attributes_.connect(
-      [weak_api, weak_endpoint, mqtt_wrapper, mqtt_prefix,
-       name_registry](const zcl::ZclEndpoint::AttributeReport& report) {
-        if (auto api = weak_api.lock()) {
-          if (auto endpoint = weak_endpoint.lock()) {
-            OnReportAttributes(api, endpoint, mqtt_wrapper, mqtt_prefix,
-                               name_registry, report);
-          }
-        }
-      });
-      */
 
   api->zdo_on_permit_join_.connect(std::bind(
       &OnPermitJoin, mqtt_wrapper, mqtt_prefix, std::placeholders::_1));
@@ -586,7 +574,7 @@ int main(int argc, const char** argv) {
      boost::program_options::value<std::string>()->default_value("AqaraHub"),
      "Zigbee Network pre-shared key. Maximum 16 characters, will be truncated when longer")
     ("cluster-info",
-     boost::program_options::value<std::string>()->default_value("../attributes.info"),
+     boost::program_options::value<std::string>()->default_value("../clusters.info"),
      "Boost property-tree info file containing cluster, attribute, and command information")
     ;
   // clang-format on
