@@ -100,6 +100,10 @@ void EncodeTyped(const Context& ctx, const VariantType& type,
 
 void EncodeTyped(const Context& ctx, const ObjectType& object_type,
                  const tao::json::value& value, std::vector<uint8_t>& target) {
+  if (value.is_null() && object_type.properties.size() == 0) {
+    // If this object type has no properties, null is also a valid value.
+    return;
+  }
   const tao::json::value::object_t& object = value.get_object();
   for (const auto& property : object_type.properties) {
     auto found = object.find(property.name);

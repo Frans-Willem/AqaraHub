@@ -133,3 +133,12 @@ BOOST_AUTO_TEST_CASE(EncodeDecodeRoundtrips) {
     BOOST_TEST(json == rejson);
   }
 }
+
+BOOST_AUTO_TEST_CASE(EncodeNoPayloadNull) {
+  dynamic_encoding::Context ctx;
+  tao::json::value json_value = tao::json::null;
+  std::vector<uint8_t> encoded_data;
+  dynamic_encoding::Encode(ctx, dynamic_encoding::ObjectType{}, json_value,
+                           encoded_data);
+  BOOST_TEST(encoded_data.size() == 0);
+}
