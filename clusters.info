@@ -316,9 +316,21 @@ global commands
     0x01 "DownClose"
     0x02 "Stop"
     0x04 "Go To Lift Value"
+    {
+        uint16 "Lift Value"
+    }
     0x05 "Go To Lift Percentage"
+    {
+        uint8 "Percentage Lift Value"
+    }
     0x07 "Go to Tilt Value"
+    {
+        uint16 "Tilt Value"
+    }
     0x08 "Go to Tilt Percentage"
+    {
+        uint8 "Percentage Tilt Value"
+    }
   }
 }
 0x0200 "Pump Configuration and Control"
