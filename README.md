@@ -4,6 +4,9 @@ This is an open-source Zigbee hub for Xiaomi Aqara devices, as pictured [here](h
 
 Although this project was specifically written for Xiaomi Aqara devices, other Zigbee devices will very likely work too.
 
+## July 2018: MQTT Topics changed
+To add support for devices that send other things than the standard "Report Attributes", for example the Aqara water leak sensor and smoke detector, the MQTT topic pattern has been changed. Documentation on the new format is available [here](documentation/mqtt-topics.md).
+
 ## Get in touch!
 I've been writing this thing on my own, and it appears to solve my use-case fairly well, but I'd love to get feedback from others!
 
