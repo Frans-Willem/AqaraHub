@@ -432,7 +432,7 @@ void OnZclCommand(std::shared_ptr<MqttWrapper> mqtt_wrapper,
                   std::shared_ptr<const clusterdb::CommandInfo> command_info,
                   std::vector<uint8_t> payload) {
   std::string topic(boost::str(
-      boost::format("%s%016x/%d/in/%s/%s") % mqtt_prefix % source_address %
+      boost::format("%s%016X/%d/in/%s/%s") % mqtt_prefix % source_address %
       (unsigned int)source_endpoint % cluster_info->name % command_info->name));
   tao::json::value json_payload;
   try {
