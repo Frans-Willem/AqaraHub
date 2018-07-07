@@ -297,8 +297,7 @@ void OnPublish(std::shared_ptr<znp::ZnpApi> api,
       return;
     }
 
-    static std::regex re_command_short(
-        "command/([0-9a-fA-F]+)/([0-9]+)/([^/]+)/out");
+    static std::regex re_command_short("([0-9a-fA-F]+)/([0-9]+)/out/([^/]+)");
     if (std::regex_match(topic, match, re_command_short)) {
       OnPublishCommandShort(api, endpoint, cluster_db,
                             std::stoull(match[1], 0, 16),
@@ -307,7 +306,7 @@ void OnPublish(std::shared_ptr<znp::ZnpApi> api,
     }
 
     static std::regex re_command_long(
-        "command/([0-9a-fA-F]+)/([0-9]+)/([^/]+)/out/([^/]+)");
+        "([0-9a-fA-F]+)/([0-9]+)/out/([^/]+)/([^/]+)");
     if (std::regex_match(topic, match, re_command_long)) {
       OnPublishCommandLong(
           api, endpoint, cluster_db, std::stoull(match[1], 0, 16),
@@ -631,9 +630,10 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
   mqtt_wrapper->on_publish_.connect(std::bind(
       &OnPublish, api, endpoint, mqtt_prefix, cluster_db, std::placeholders::_1,
       std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
-  await(mqtt_wrapper->Subscribe(
-      {{mqtt_prefix + "write/#", mqtt::qos::at_least_once},
-       {mqtt_prefix + "command/#", mqtt::qos::at_least_once}}));
+  await(mqtt_wrapper->Subscribe({
+      {mqtt_prefix + "write/#", mqtt::qos::at_least_once},
+      {mqtt_prefix + "+/+/out/#", mqtt::qos::at_least_once},
+  }));
   return endpoint;
 }
 
