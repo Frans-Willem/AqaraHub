@@ -2,6 +2,7 @@
 #define _ZNP_ENCODING_H_
 #include <boost/fusion/include/accumulate.hpp>
 #include <boost/fusion/include/is_sequence.hpp>
+#include <cmath>
 #include <iostream>
 #include <tuple>
 #include <type_traits>
