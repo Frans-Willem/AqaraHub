@@ -53,21 +53,22 @@ add_library(taocpp::json ALIAS taocpp_json)
 add_definitions(-DBOOST_NO_AUTO_PTR)
 
 add_library(common
-	src/znp/znp.cpp
-	src/znp/znp_port.cpp
-	src/znp/znp_api.cpp
 	src/asio_executor.cpp
-	src/logging.cpp
-	src/zcl/zcl.cpp
-    src/coro.cpp
-	src/zcl/zcl_endpoint.cpp
-	src/mqtt_wrapper.cpp
-	src/zcl/to_json.cpp
-	src/zcl/encoding.cpp
 	src/clusterdb/cluster_db.cpp
+	src/coro.cpp
 	src/dynamic_encoding/common.cpp
 	src/dynamic_encoding/decoding.cpp
 	src/dynamic_encoding/encoding.cpp
+	src/logging.cpp
+	src/mqtt_wrapper.cpp
+	src/uri_parser.cpp
+	src/zcl/encoding.cpp
+	src/zcl/to_json.cpp
+	src/zcl/zcl.cpp
+	src/zcl/zcl_endpoint.cpp
+	src/znp/znp.cpp
+	src/znp/znp_api.cpp
+	src/znp/znp_port.cpp
 	)
 target_include_directories(common PUBLIC "src")
 target_link_libraries(common stlab)
@@ -94,13 +95,14 @@ install(FILES clusters.info DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/AqaraHub/)
 install(FILES AqaraHub.service DESTINATION ${CMAKE_INSTALL_LIBDIR}/systemd/system/)
 
 add_executable(tests
+	tests/cluster_db.cpp
+	tests/coro.cpp
+	tests/dynamic_encoding.cpp
 	tests/main.cpp
-    tests/coro.cpp
 	tests/template_lookup.cpp
+	tests/uri_parser.cpp
 	tests/variant_encoding.cpp
 	tests/variant_json.cpp
-	tests/cluster_db.cpp
-	tests/dynamic_encoding.cpp
 )
 target_link_libraries(tests common)
 target_include_directories(tests PUBLIC "src")
