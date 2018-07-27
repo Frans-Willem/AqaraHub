@@ -1,7 +1,6 @@
 #include "zcl/zcl_endpoint.h"
 #include <boost/log/utility/manipulators/dump.hpp>
 #include "logging.h"
-#include "xiaomi/ff01_attribute.h"
 #include "zcl/encoding.h"
 
 namespace zcl {
@@ -49,78 +48,28 @@ void ZclEndpoint::OnIncomingMsg(const znp::IncomingMsg& message) {
   }
   last_msg_[message.SrcAddr] = message.Data;
   auto frame = znp::Decode<ZclFrame>(message.Data);
-  if (frame.frame_type == ZclFrameType::Global &&
-      (ZclGlobalCommandId)frame.command_identifier ==
-          ZclGlobalCommandId::ReportAttributes) {
-    OnIncomingReportAttributes(message, frame);
-    return;
+  if (frame.frame_type == ZclFrameType::Global) {
+    on_command_(message.SrcAddr, message.SrcEndpoint,
+                (ZclClusterId)message.ClusterId, true, frame.command_identifier,
+                frame.payload);
+  } else if (frame.frame_type == ZclFrameType::Local) {
+    on_command_(message.SrcAddr, message.SrcEndpoint,
+                (ZclClusterId)message.ClusterId, false,
+                frame.command_identifier, frame.payload);
+  } else {
+    LOG("ZclEndpoint", debug) << "Unknown command type";
   }
-  if (frame.frame_type == ZclFrameType::Global &&
-      (ZclGlobalCommandId)frame.command_identifier ==
-          ZclGlobalCommandId::ReadAttributes) {
-    LOG("ZclEndpoint", debug)
-        << "Attempt to read coordinator attributes. ClusterID "
-        << message.ClusterId << " Attributes "
-        << boost::log::dump(frame.payload.data(), frame.payload.size());
-    return;
-  }
-  LOG("ZclEndpoint", debug) << "ZCL Frame not handled " << frame.frame_type
-                            << " " << (unsigned int)frame.command_identifier;
-}
-
-void ZclEndpoint::OnIncomingReportAttributes(const znp::IncomingMsg& message,
-                                             const ZclFrame& frame) {
-  AttributeReport report;
-  report.group_id = message.GroupId;
-  report.cluster_id = (ZclClusterId)message.ClusterId;
-  report.source_address = message.SrcAddr;
-  report.source_endpoint = message.SrcEndpoint;
-  report.was_broadcast = message.WasBroadcast;
-  report.link_quality = message.LinkQuality;
-  report.security_use = message.SecurityUse;
-  report.timestamp = message.TimeStamp;
-  report.trans_seq_number = message.TransSeqNumber;
-
-  std::vector<uint8_t> payload(frame.payload);
-  xiaomi::FixupFF01ReportLength(report.cluster_id, payload);
-  std::vector<uint8_t>::const_iterator current_data = payload.begin();
-  while (current_data != payload.end()) {
-    std::tuple<ZclAttributeId, ZclVariant> attribute;
-    znp::EncodeHelper<std::tuple<ZclAttributeId, ZclVariant>>::Decode(
-        attribute, current_data, payload.end());
-    report.attributes.push_back(std::move(attribute));
-  }
-  on_report_attributes_(report);
-}
-
-stlab::future<void> ZclEndpoint::WriteAttributes(
-    znp::ShortAddress address, uint8_t endpoint, ZclClusterId cluster_id,
-    std::vector<std::tuple<ZclAttributeId, ZclVariant>> attributes) {
-  ZclFrame frame;
-  frame.frame_type = ZclFrameType::Global;
-  frame.direction = ZclDirection::ClientToServer;
-  frame.disable_default_response = false;
-  frame.reserved = 0;
-  frame.transaction_sequence_number = NextTransSeqNumFor(address);
-  frame.command_identifier =
-      (zcl::ZclCommandId)ZclGlobalCommandId::WriteAttributes;
-  for (const auto& attribute : attributes) {
-    auto encoded =
-        znp::Encode<std::tuple<ZclAttributeId, ZclVariant>>(attribute);
-    frame.payload.insert(frame.payload.end(), encoded.begin(), encoded.end());
-  }
-  return znp_api_->AfDataRequest(address, endpoint, endpoint_,
-                                 (uint16_t)cluster_id, 0, 0, 30,
-                                 znp::Encode(frame));
 }
 
 stlab::future<void> ZclEndpoint::SendCommand(znp::ShortAddress address,
                                              uint8_t endpoint,
                                              ZclClusterId cluster_id,
+                                             bool is_global_command,
                                              ZclCommandId command_id,
                                              std::vector<uint8_t> payload) {
   ZclFrame frame;
-  frame.frame_type = ZclFrameType::Local;
+  frame.frame_type =
+      is_global_command ? ZclFrameType::Global : ZclFrameType::Local;
   frame.direction = ZclDirection::ClientToServer;
   frame.disable_default_response = false;
   frame.reserved = 0;

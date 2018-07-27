@@ -9,7 +9,7 @@ template <typename T>
 struct StringEnumHelper;
 
 template <typename T>
-std::string enum_to_string(T value) {
+boost::optional<std::string> enum_to_string_opt(T value) {
   static std::map<T, std::string> table;
   if (table.empty()) {
     table = StringEnumHelper<T>::lookup();
@@ -17,6 +17,14 @@ std::string enum_to_string(T value) {
   auto found = table.find(value);
   if (found != table.end()) {
     return found->second;
+  }
+  return boost::none;
+}
+
+template <typename T>
+std::string enum_to_string(T value) {
+  if (auto known = enum_to_string_opt(value)) {
+    return std::move(*known);
   }
   typedef typename std::underlying_type<T>::type UT;
   typedef typename std::make_unsigned<UT>::type UUT;
@@ -42,7 +50,14 @@ boost::optional<T> string_to_enum(const std::string& value) {
   typedef typename std::make_unsigned<UT>::type UUT;
 
   std::size_t end_pos;
-  unsigned long x = std::stoul(value, &end_pos, 16);
+  unsigned long x = 0;
+  try {
+    x = std::stoul(value, &end_pos, 16);
+  } catch (std::invalid_argument&) {
+    return boost::none;
+  } catch (std::out_of_range&) {
+    return boost::none;
+  }
   if (end_pos != value.size()) return boost::none;
   if (x > std::numeric_limits<UUT>::max()) {
     return boost::none;

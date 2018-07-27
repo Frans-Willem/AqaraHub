@@ -334,104 +334,28 @@ struct VariantEncodeHelperImpl<DataType::uint64>
 template <DataType DT, typename IT, std::size_t MAN, std::size_t EXP>
 struct FloatVariantEncodeHelperImpl : VariantEncodeHelper {
   typedef typename DataTypeHelper<DT>::Type ValueType;
+  typedef typename znp::FloatEncodeHelper<ValueType, IT, MAN, EXP>
+      ContainedEncoder;
 
   std::size_t GetSize(const ZclVariant& variant) override {
-    return znp::EncodeHelper<IT>::GetSize(0);
+    if (auto value = variant.Get<DT>()) {
+      return ContainedEncoder::GetSize(*value);
+    }
+    throw std::runtime_error("Variant did not contain expected value");
+    return 0;
   }
   void Encode(const ZclVariant& variant, znp::EncodeTarget::iterator& begin,
               znp::EncodeTarget::iterator end) override {
-    boost::optional<ValueType> value = variant.Get<DT>();
-    IT exponent = 0;
-    IT mantissa = 0;
-    bool is_negative = false;
-    if (!value || std::isnan(*value)) {
-      // NaN
-      mantissa = 1;
-      exponent = (1 << EXP) - 1;
-      is_negative = false;
-    } else if (std::isinf(*value)) {
-      exponent = (1 << EXP) - 1;
-      mantissa = 0;
-      is_negative = std::signbit(*value);
-    } else if (*value == (ValueType) + 0.0 || *value == (ValueType)-0.0) {
-      exponent = 0;
-      mantissa = 0;
-      is_negative = std::signbit(*value);
-    } else {
-      ValueType current_value = *value;
-      if (std::signbit(current_value)) {
-        current_value = ValueType(0) - current_value;
-        is_negative = true;
-      } else {
-        is_negative = false;
-      }
-      ValueType signed_exponent = std::floor(std::log2(current_value));
-      if (current_value / std::pow(ValueType(2), signed_exponent) >=
-          (ValueType)2) {
-        signed_exponent++;
-      }
-      IT half_exponent_range = (((IT)1 << EXP) - 1) / 2;
-      ValueType unsigned_exponent = signed_exponent + half_exponent_range;
-      if (unsigned_exponent >= (1 << EXP)) {
-        // Exponent is too big to fit in this type, so set to highest possible
-        // value
-        mantissa = ((IT)1 << MAN) - 1;
-        exponent = ((IT)1 << EXP) - 2;
-      } else if (unsigned_exponent <= 0) {
-        exponent = 0;
-        current_value /=
-            std::pow(ValueType(2), -(ValueType)(half_exponent_range - 1));
-        mantissa = (IT)std::round(current_value * std::pow(ValueType(2), MAN));
-      } else {
-        exponent = (IT)unsigned_exponent;
-        current_value /= std::pow(ValueType(2), signed_exponent);
-        current_value -= 1;  // Hidden bit
-        if (current_value >= (ValueType)1) {
-          mantissa = ((IT)1 << MAN) - 1;
-        } else if (current_value >= 0) {
-          mantissa =
-              (IT)std::round(current_value * std::pow(ValueType(2), MAN));
-          if (mantissa >> MAN > 0) {
-            mantissa = ((IT)1 << MAN) - 1;
-          }
-        } else {
-          throw std::runtime_error("Mantissa failure");
-        }
-      }
+    if (auto value = variant.Get<DT>()) {
+      return ContainedEncoder::Encode(*value, begin, end);
     }
-    IT encoded = (is_negative ? ((IT)1 << (MAN + EXP)) : 0) |
-                 (exponent << MAN) | mantissa;
-    znp::EncodeHelper<IT>::Encode(encoded, begin, end);
+    throw std::runtime_error("Variant did not contain expected value");
   }
   void Decode(ZclVariant& variant, znp::EncodeTarget::const_iterator& begin,
               znp::EncodeTarget::const_iterator end) override {
-    IT raw_value;
-    znp::EncodeHelper<IT>::Decode(raw_value, begin, end);
-    bool is_negative = ((raw_value >> (MAN + EXP)) != 0);
-    IT exponent = (raw_value >> MAN) & (((IT)1 << EXP) - 1);
-    IT half_exponent = ((IT)1 << (EXP - 1)) - 1;
-    IT mantissa_divisor = ((IT)1 << MAN);
-    IT mantissa = raw_value & (((IT)1 << MAN) - 1);
-    ValueType result;
-    if (exponent == ((IT)1 << EXP) - 1) {
-      if (mantissa != 0) {
-        result = std::numeric_limits<ValueType>::quiet_NaN();
-      } else {
-        result = is_negative ? -std::numeric_limits<ValueType>::infinity()
-                             : std::numeric_limits<ValueType>::infinity();
-      }
-    } else if (exponent == 0) {
-      result = ((ValueType)mantissa / (ValueType)mantissa_divisor) *
-               std::pow((ValueType)2, -(ValueType)(half_exponent - 1)) *
-               (ValueType)(is_negative ? -1 : 1);
-    } else {
-      IT hidden = (exponent == 0) ? 0 : mantissa_divisor;
-      result = ((ValueType)(hidden + mantissa) / (ValueType)mantissa_divisor) *
-               std::pow((ValueType)2,
-                        (ValueType)exponent - (ValueType)half_exponent) *
-               (ValueType)(is_negative ? -1 : 1);
-    }
-    variant = ZclVariant::Create<DT>(result);
+    ValueType value;
+    ContainedEncoder::Decode(value, begin, end);
+    variant = ZclVariant::Create<DT>(value);
   }
 };
 

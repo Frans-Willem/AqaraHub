@@ -2,7 +2,10 @@
 
 This is an open-source Zigbee hub for Xiaomi Aqara devices, as pictured [here](https://des.gbtcdn.com/uploads/pdm-desc-pic/Electronic/image/2017/04/25/20170425155840_15186.jpg). It aims to be a replacement to the Xiaomi Gateway that does not require communication to outside servers, and uses a saner communication option (e.g. MQTT).
 
-This project is spefically aimed at Xiaomi Aqara devices, and there are currently no plans to support other Zigbee devices with this project.
+Although this project was specifically written for Xiaomi Aqara devices, other Zigbee devices will very likely work too.
+
+## July 2018: MQTT Topics changed
+To add support for devices that send other things than the standard "Report Attributes", for example the Aqara water leak sensor and smoke detector, the MQTT topic pattern has been changed. Documentation on the new format is available [here](documentation/mqtt-topics.md).
 
 ## Get in touch!
 I've been writing this thing on my own, and it appears to solve my use-case fairly well, but I'd love to get feedback from others!

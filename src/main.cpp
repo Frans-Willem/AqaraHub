@@ -13,13 +13,14 @@
 #include <stlab/concurrency/immediate_executor.hpp>
 #include <stlab/concurrency/utility.hpp>
 #include "asio_executor.h"
+#include "clusterdb/cluster_db.h"
 #include "coro.h"
+#include "dynamic_encoding/decoding.h"
+#include "dynamic_encoding/encoding.h"
 #include "logging.h"
 #include "mqtt_wrapper.h"
 #include "string_enum.h"
-#include "xiaomi/ff01_attribute.h"
 #include "zcl/encoding.h"
-#include "zcl/name_registry.h"
 #include "zcl/to_json.h"
 #include "zcl/zcl.h"
 #include "zcl/zcl_endpoint.h"
@@ -104,61 +105,6 @@ stlab::future<void> WriteFullConfiguration(std::shared_ptr<znp::ZnpApi> api,
           config.zdo_direct_cb));
 }
 
-void OnReportAttributes(std::shared_ptr<znp::ZnpApi> api,
-                        std::shared_ptr<zcl::ZclEndpoint> endpoint,
-                        std::shared_ptr<MqttWrapper> mqtt_wrapper,
-                        std::string mqtt_prefix,
-                        std::shared_ptr<zcl::NameRegistry> name_registry,
-                        const zcl::ZclEndpoint::AttributeReport& report) {
-  LOG("Report", debug) << "Attempting to look up full source address for "
-                       << (unsigned int)report.source_address;
-  auto source_endpoint = (unsigned int)report.source_endpoint;
-  auto cluster_id = report.cluster_id;
-  auto attributes = report.attributes;
-  api->UtilAddrmgrNwkAddrLookup(report.source_address)
-      .then([mqtt_wrapper, mqtt_prefix, name_registry, source_endpoint,
-             cluster_id, attributes](auto ieee_addr) {
-        std::vector<stlab::future<void>> publishes;
-        auto cluster_name = name_registry->ClusterToString(cluster_id);
-        for (const auto& attribute : attributes) {
-          auto attribute_name = name_registry->AttributeToString(
-              cluster_id, std::get<0>(attribute));
-          boost::optional<std::map<uint8_t, zcl::ZclVariant>> opt_xiaomi_ff01(
-              xiaomi::DecodeFF01Attribute(cluster_id, std::get<0>(attribute),
-                                          std::get<1>(attribute)));
-          tao::json::value json_value(
-              opt_xiaomi_ff01 ? xiaomi::FF01AttributeToJson(*opt_xiaomi_ff01)
-                              : zcl::to_json(std::get<1>(attribute)));
-          std::string topic_name = boost::str(
-              boost::format("%sreport/%016X/%d/%s/%04X") % mqtt_prefix %
-              ieee_addr % (unsigned int)source_endpoint % cluster_name %
-              attribute_name);
-          std::string message_content(tao::json::to_string(json_value));
-          LOG("Report", debug)
-              << "Publishing to " << topic_name << ": " << message_content;
-          publishes.push_back(mqtt_wrapper->Publish(
-              topic_name, message_content, mqtt::qos::at_least_once, true));
-        }
-        return stlab::when_all(
-            stlab::immediate_executor,
-            []() {
-
-            },
-            std::make_pair(publishes.begin(), publishes.end()));
-      })
-      .recover([](auto f) {
-        try {
-          f.get_try();
-        } catch (const std::exception& ex) {
-          LOG("Report", debug)
-              << "Exception while handling report: " << ex.what();
-          return;
-        }
-        LOG("Report", debug) << "All done";
-      })
-      .detach();
-}
-
 void OnPublishPermitJoin(std::shared_ptr<znp::ZnpApi> api,
                          std::string message) {
   std::size_t endpos;
@@ -190,18 +136,14 @@ void SendCommand(std::shared_ptr<znp::ZnpApi> api,
                  std::shared_ptr<zcl::ZclEndpoint> endpoint,
                  znp::IEEEAddress destination_address,
                  std::uint8_t destination_endpoint,
-                 zcl::ZclClusterId cluster_id, zcl::ZclCommandId command,
-                 const std::vector<tao::json::value>& arguments) {
+                 std::shared_ptr<const clusterdb::ClusterInfo> cluster_info,
+                 std::shared_ptr<const clusterdb::CommandInfo> command_info,
+                 const tao::json::value& json_data) {
   std::vector<uint8_t> payload;
   try {
-    for (const auto& json_argument : arguments) {
-      zcl::ZclVariant variant_argument = zcl::from_json(json_argument);
-      std::vector<uint8_t> encoded_argument = znp::Encode(variant_argument);
-      payload.insert(payload.end(),
-                     encoded_argument.begin() +
-                         znp::EncodedSize(variant_argument.GetType()),
-                     encoded_argument.end());
-    }
+    dynamic_encoding::Context ctx;
+    ctx.cluster = *cluster_info;
+    dynamic_encoding::Encode(ctx, command_info->data, json_data, payload);
   } catch (const std::exception& ex) {
     LOG("SendCommand", error)
         << "Unable to convert JSON to Zigbee Cluster Library datatype: "
@@ -214,12 +156,13 @@ void SendCommand(std::shared_ptr<znp::ZnpApi> api,
 
   LOG("SendCommand", info) << "Looking up Short Address from IEEE address";
   api->UtilAddrmgrExtAddrLookup(destination_address)
-      .then([endpoint, destination_endpoint, cluster_id, command,
+      .then([endpoint, destination_endpoint, cluster_info, command_info,
              payload](znp::ShortAddress short_address) {
         LOG("SendCommand", info) << "Response received, short address: "
                                  << (unsigned int)short_address;
         return endpoint->SendCommand(short_address, destination_endpoint,
-                                     cluster_id, command, payload);
+                                     cluster_info->id, command_info->is_global,
+                                     command_info->id, payload);
       })
       .recover([](auto f) {
         try {
@@ -237,7 +180,7 @@ void SendCommand(std::shared_ptr<znp::ZnpApi> api,
  * of the MQTT topic. */
 void OnPublishCommandLong(std::shared_ptr<znp::ZnpApi> api,
                           std::shared_ptr<zcl::ZclEndpoint> endpoint,
-                          std::shared_ptr<zcl::NameRegistry> name_registry,
+                          std::shared_ptr<clusterdb::ClusterDb> cluster_db,
                           znp::IEEEAddress destination_address,
                           std::uint8_t destination_endpoint,
                           std::string cluster_name, std::string command_name,
@@ -246,44 +189,44 @@ void OnPublishCommandLong(std::shared_ptr<znp::ZnpApi> api,
       << "Destination " << destination_address << ", endpoint "
       << (unsigned int)destination_endpoint << ", cluster name '"
       << cluster_name << "', command name '" << command_name << "'";
-  boost::optional<zcl::ZclClusterId> cluster_id =
-      name_registry->ClusterFromString(cluster_name);
-  if (!cluster_id) {
+  auto cluster_info = cluster_db->ClusterByName(cluster_name);
+  if (!cluster_info) {
     LOG("OnPublishCommandLong", warning)
-        << "Unable to look up cluster id '" << cluster_name << "'";
+        << "Unable to look up cluster info for '" << cluster_name << "'";
     return;
   }
-  boost::optional<zcl::ZclCommandId> command =
-      name_registry->CommandFromString(*cluster_id, command_name);
-  if (!command) {
+  auto command_info =
+      cluster_db->CommandOutByName(cluster_info->id, command_name);
+  if (!command_info) {
     LOG("OnPublishCommandLong", warning)
-        << "Unable to look up command '" << command_name << "' in cluster '"
-        << cluster_name << "'";
+        << "Unable to look up command info for '" << command_name
+        << "' in cluster '" << cluster_name << "'";
     return;
   }
-
-  tao::json::value json_arguments = tao::json::value::array({});
+  tao::json::value json_data = tao::json::null;
   if (message.size() > 0) {
     try {
-      json_arguments = tao::json::from_string(message);
+      json_data = tao::json::from_string(message);
     } catch (const std::exception& ex) {
       LOG("OnPublishCommandLong", error)
-          << "Unable to decode message payload: " << ex.what();
+          << "Unable to decode message payload as JSON: " << ex.what();
       return;
     }
   }
-  if (!json_arguments.is_array()) {
-    json_arguments = tao::json::value::array({json_arguments});
-  }
+
   SendCommand(api, endpoint, destination_address, destination_endpoint,
-              *cluster_id, *command, json_arguments.get_array());
+              std::shared_ptr<const clusterdb::ClusterInfo>(
+                  cluster_db, cluster_info.get_ptr()),
+              std::shared_ptr<const clusterdb::CommandInfo>(
+                  cluster_db, command_info.get_ptr()),
+              json_data);
 }
 
 /** Called on MQTT publish of a short-form command, e.g. command name part of
  * the JSON payload. */
 void OnPublishCommandShort(std::shared_ptr<znp::ZnpApi> api,
                            std::shared_ptr<zcl::ZclEndpoint> endpoint,
-                           std::shared_ptr<zcl::NameRegistry> name_registry,
+                           std::shared_ptr<clusterdb::ClusterDb> cluster_db,
                            znp::IEEEAddress destination_address,
                            std::uint8_t destination_endpoint,
                            std::string cluster_name, std::string message) {
@@ -291,23 +234,12 @@ void OnPublishCommandShort(std::shared_ptr<znp::ZnpApi> api,
       << "Destination " << destination_address << ", endpoint "
       << (unsigned int)destination_endpoint << ", cluster name '"
       << cluster_name << "'";
-  boost::optional<zcl::ZclClusterId> cluster_id =
-      name_registry->ClusterFromString(cluster_name);
-  if (!cluster_id) {
+  auto cluster_info = cluster_db->ClusterByName(cluster_name);
+  if (!cluster_info) {
     LOG("OnPublishCommandShort", warning)
         << "Unable to look up cluster id '" << cluster_name << "'";
     return;
   }
-  /*
-  boost::optional<zcl::ZclCommandId> command =
-      name_registry->CommandFromString(*cluster_id, command_name);
-  if (!command) {
-    LOG("OnPublishCommandShort", warning)
-        << "Unable to look up command '" << command_name << "' in cluster '"
-        << cluster_name << "'";
-    return;
-  }
-  */
   std::map<std::string, tao::json::value> obj_message;
   try {
     obj_message = tao::json::from_string(message).get_object();
@@ -323,30 +255,12 @@ void OnPublishCommandShort(std::shared_ptr<znp::ZnpApi> api,
         << "JSON object did not contain a 'command' property";
     return;
   }
-  zcl::ZclCommandId command;
-  if (found_command->second.is_string()) {
-    auto opt_command = name_registry->CommandFromString(
-        *cluster_id, found_command->second.get_string());
-    if (!opt_command) {
-      LOG("OnPublishCommandShort", error)
-          << "Command with name '" << found_command->second.get_string()
-          << "' could not be decoded";
-      return;
-    }
-    command = *opt_command;
-  } else if (found_command->second.is_number()) {
-    if (!found_command->second.is_unsigned() ||
-        found_command->second.get_unsigned() >= 256) {
-      LOG("OnPublishCommandShort", error)
-          << "Expected 'command' property to be an unsigned integer, lower "
-             "than 256";
-      return;
-    }
-    command =
-        (zcl::ZclCommandId)(std::uint8_t)found_command->second.get_unsigned();
-  } else {
+  auto command_info = cluster_db->CommandOutByName(
+      cluster_info->id, found_command->second.get_string());
+  if (!command_info) {
     LOG("OnPublishCommandShort", error)
-        << "Expected 'command' property to either be integer or string";
+        << "Command with name '" << found_command->second.get_string()
+        << "' could not be decoded";
     return;
   }
   tao::json::value arguments = tao::json::null;
@@ -354,27 +268,18 @@ void OnPublishCommandShort(std::shared_ptr<znp::ZnpApi> api,
   if (found_arguments != obj_message.end()) {
     arguments = found_arguments->second;
   }
-  std::vector<tao::json::value> arguments_array;
-  if (arguments.is_array()) {
-    arguments_array = arguments.get_array();
-  } else if (arguments.is_null()) {
-    arguments_array.clear();
-  } else if (arguments.is_object()) {
-    arguments_array.push_back(arguments);
-  } else {
-    LOG("OnPublishCommandShort", error)
-        << "Expected either no arguments (null), a single object, or an array "
-           "as arguments";
-    return;
-  }
   SendCommand(api, endpoint, destination_address, destination_endpoint,
-              *cluster_id, command, arguments_array);
+              std::shared_ptr<const clusterdb::ClusterInfo>(
+                  cluster_db, cluster_info.get_ptr()),
+              std::shared_ptr<const clusterdb::CommandInfo>(
+                  cluster_db, command_info.get_ptr()),
+              arguments);
 }
 
 void OnPublish(std::shared_ptr<znp::ZnpApi> api,
                std::shared_ptr<zcl::ZclEndpoint> endpoint,
                std::string mqtt_prefix,
-               std::shared_ptr<zcl::NameRegistry> name_registry,
+               std::shared_ptr<clusterdb::ClusterDb> cluster_db,
                std::string topic, std::string message, std::uint8_t qos,
                bool retain) {
   try {
@@ -392,20 +297,19 @@ void OnPublish(std::shared_ptr<znp::ZnpApi> api,
       return;
     }
 
-    static std::regex re_command_short(
-        "command/([0-9a-fA-F]+)/([0-9]+)/([^/]+)");
+    static std::regex re_command_short("([0-9a-fA-F]+)/([0-9]+)/out/([^/]+)");
     if (std::regex_match(topic, match, re_command_short)) {
-      OnPublishCommandShort(api, endpoint, name_registry,
+      OnPublishCommandShort(api, endpoint, cluster_db,
                             std::stoull(match[1], 0, 16),
                             std::stoul(match[2], 0, 10), match[3], message);
       return;
     }
 
     static std::regex re_command_long(
-        "command/([0-9a-fA-F]+)/([0-9]+)/([^/]+)/([^/]+)");
+        "([0-9a-fA-F]+)/([0-9]+)/out/([^/]+)/([^/]+)");
     if (std::regex_match(topic, match, re_command_long)) {
       OnPublishCommandLong(
-          api, endpoint, name_registry, std::stoull(match[1], 0, 16),
+          api, endpoint, cluster_db, std::stoull(match[1], 0, 16),
           std::stoul(match[2], 0, 10), match[3], match[4], message);
       return;
     }
@@ -439,8 +343,8 @@ void OnIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
   api->UtilAddrmgrNwkAddrLookup(message.SrcAddr)
       .then([message, mqtt_wrapper, mqtt_prefix](znp::IEEEAddress ieee_addr) {
         return mqtt_wrapper->Publish(
-            boost::str(boost::format("%sreport/%016X/linkquality") %
-                       mqtt_prefix % ieee_addr),
+            boost::str(boost::format("%s%016X/linkquality") % mqtt_prefix %
+                       ieee_addr),
             boost::str(boost::format("%d") % (unsigned int)message.LinkQuality),
             mqtt::qos::at_least_once, false);
       })
@@ -455,11 +359,206 @@ void OnIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
       .detach();
 }
 
+stlab::future<void> PublishValue(std::shared_ptr<MqttWrapper> mqtt_wrapper,
+                                 const std::string& topic, bool recursive,
+                                 const tao::json::value& value) {
+  std::string value_as_string(tao::json::to_string(value));
+  LOG("PublishValue", info)
+      << "Publishing to '" << topic << "': " << value_as_string;
+  std::vector<stlab::future<void>> futures;
+  futures.push_back(
+      mqtt_wrapper
+          ->Publish(topic, value_as_string, mqtt::qos::at_least_once, false)
+          .recover([](auto f) {
+            try {
+              f.get_try();
+            } catch (const std::exception& ex) {
+              LOG("PublishValue", warning)
+                  << "Unable to publish to MQTT: " << ex.what();
+            }
+          }));
+  if (recursive) {
+    if (value.is_object()) {
+      const tao::json::value::object_t& object_value = value.get_object();
+      for (const auto& item : object_value) {
+        futures.push_back(PublishValue(
+            mqtt_wrapper,
+            boost::str(boost::format("%s/%s") % topic % item.first), recursive,
+            item.second));
+      }
+    } else if (value.is_array()) {
+      const tao::json::value::array_t& array_value = value.get_array();
+      for (std::size_t index = 0; index < array_value.size(); index++) {
+        futures.push_back(PublishValue(
+            mqtt_wrapper, boost::str(boost::format("%s/%d") % topic % index),
+            recursive, array_value[index]));
+      }
+    }
+  }
+  if (futures.size() == 1) {
+    return futures[0];
+  } else {
+    return stlab::when_all(stlab::immediate_executor, []() {},
+                           std::make_pair(futures.begin(), futures.end()));
+  }
+}
+
+const tao::json::value& JsonGetProperty(const tao::json::value& object,
+                                        const std::string& property) {
+  static tao::json::value not_found = tao::json::null;
+  if (!object.is_object()) {
+    return not_found;
+  }
+  const tao::json::value::object_t& object_map = object.get_object();
+  auto found = object_map.find(property);
+  if (found == object_map.end()) {
+    return not_found;
+  }
+  return found->second;
+}
+
+const tao::json::value::array_t& JsonAsArray(const tao::json::value& array) {
+  static tao::json::value::array_t empty{};
+  if (!array.is_array()) {
+    return empty;
+  }
+  return array.get_array();
+}
+
+void OnZclCommand(std::shared_ptr<MqttWrapper> mqtt_wrapper,
+                  std::string mqtt_prefix, bool mqtt_recursive_publish,
+                  znp::IEEEAddress source_address, uint8_t source_endpoint,
+                  std::shared_ptr<const clusterdb::ClusterInfo> cluster_info,
+                  std::shared_ptr<const clusterdb::CommandInfo> command_info,
+                  std::vector<uint8_t> payload) {
+  std::string topic(boost::str(
+      boost::format("%s%016X/%d/in/%s/%s") % mqtt_prefix % source_address %
+      (unsigned int)source_endpoint % cluster_info->name % command_info->name));
+  tao::json::value json_payload;
+  try {
+    dynamic_encoding::Context ctx;
+    ctx.cluster = *cluster_info;
+    auto parsed_until = payload.cbegin();
+    json_payload = dynamic_encoding::Decode(ctx, command_info->data,
+                                            parsed_until, payload.cend());
+    if (parsed_until != payload.cend()) {
+      LOG("OnZclCommand", warning) << "Not all data properly parsed";
+    }
+  } catch (const std::exception& ex) {
+    LOG("OnZclCommand", warning)
+        << "Unable to decode command payload: " << ex.what();
+    return;
+  }
+  std::vector<stlab::future<void>> futures;
+  futures.push_back(
+      PublishValue(mqtt_wrapper, topic, mqtt_recursive_publish, json_payload));
+
+  // Is this a repeated object type, with attribId as first property?
+  if (command_info->data.properties.size() > 0) {
+    if (const auto* repeated_type =
+            boost::relaxed_get<dynamic_encoding::GreedyRepeatedType>(
+                &command_info->data.properties[0].type)) {
+      if (const auto* repeated_object_type =
+              boost::relaxed_get<dynamic_encoding::ObjectType>(
+                  &repeated_type->element_type)) {
+        if (repeated_object_type->properties.size() >= 2 &&
+            repeated_object_type->properties[0].type ==
+                dynamic_encoding::AnyType(zcl::DataType::attribId)) {
+          LOG("OnZclCommand", info) << "Looks like something per-attribute. "
+                                       "Publishing per-attribute too";
+          // All checks succeeded, let's attempt to unpack the JSON!
+          const tao::json::value::array_t& reports =
+              JsonAsArray(JsonGetProperty(
+                  json_payload, command_info->data.properties[0].name));
+          for (const auto& report : reports) {
+            const tao::json::value& attribute_id = JsonGetProperty(
+                report, repeated_object_type->properties[0].name);
+            const tao::json::value& attribute_value = JsonGetProperty(
+                report, repeated_object_type->properties[1].name);
+            std::string subtopic;
+            if (attribute_id.is_string()) {
+              subtopic = attribute_id.get_string();
+            } else if (attribute_id.is_unsigned()) {
+              subtopic = boost::str(boost::format("0x%04X") %
+                                    attribute_id.get_unsigned());
+            } else {
+              subtopic = tao::json::to_string(attribute_id);
+            }
+            futures.push_back(PublishValue(mqtt_wrapper, topic + "/" + subtopic,
+                                           mqtt_recursive_publish,
+                                           attribute_value));
+          }
+        }
+      }
+    }
+  }
+
+  if (futures.size() == 1) {
+    futures[0].detach();
+  } else {
+    stlab::when_all(stlab::immediate_executor, []() {},
+                    std::make_pair(futures.begin(), futures.end()))
+        .detach();
+  }
+}
+
+void OnZclCommand(std::shared_ptr<clusterdb::ClusterDb> cluster_db,
+                  std::shared_ptr<znp::ZnpApi> api,
+                  std::shared_ptr<MqttWrapper> mqtt_wrapper,
+                  std::string mqtt_prefix, bool mqtt_recursive_publish,
+                  znp::ShortAddress source_address, uint8_t source_endpoint,
+                  zcl::ZclClusterId cluster_id, bool is_global_command,
+                  zcl::ZclCommandId command_id, std::vector<uint8_t> payload) {
+  auto cluster_info = cluster_db->ClusterById(cluster_id);
+  if (!cluster_info) {
+    LOG("OnZclCommand", warning)
+        << boost::str(boost::format("Unknown cluster ID 0x%02X, ignoring") %
+                      (unsigned int)cluster_id);
+    return;
+  }
+  boost::optional<const clusterdb::CommandInfo&> command_info;
+  if (is_global_command) {
+    command_info = cluster_db->GlobalCommandById(command_id);
+  } else {
+    command_info = cluster_info->commands_in.FindById(command_id);
+  }
+  if (!command_info) {
+    LOG("OnZclCommand", warning) << boost::str(
+        boost::format("Unknown command ID 0x%02X in cluster '%s', ignoring") %
+        (unsigned int)command_id % cluster_info->name);
+    return;
+  }
+  std::shared_ptr<const clusterdb::CommandInfo> ptr_command_info(
+      cluster_db, command_info.get_ptr());
+  std::shared_ptr<const clusterdb::ClusterInfo> ptr_cluster_info(
+      cluster_db, cluster_info.get_ptr());
+
+  api->UtilAddrmgrNwkAddrLookup(source_address)
+      .then([mqtt_wrapper, mqtt_prefix, mqtt_recursive_publish, source_endpoint,
+             ptr_cluster_info, ptr_command_info,
+             payload](znp::IEEEAddress source_address) {
+        OnZclCommand(mqtt_wrapper, mqtt_prefix, mqtt_recursive_publish,
+                     source_address, source_endpoint, ptr_cluster_info,
+                     ptr_command_info, payload);
+      })
+      .recover([](auto f) {
+        try {
+          f.get_try();
+        } catch (const std::exception& ex) {
+          LOG("OnZclCommand", warning)
+              << "Exception while looking up long address of device: "
+              << ex.what();
+        }
+      })
+      .detach();
+}
+
 std::shared_ptr<zcl::ZclEndpoint> Initialize(
     coro::Await await, std::shared_ptr<znp::ZnpApi> api,
     std::array<uint8_t, 16> presharedkey,
     std::shared_ptr<MqttWrapper> mqtt_wrapper, std::string mqtt_prefix,
-    std::shared_ptr<zcl::NameRegistry> name_registry) {
+    bool mqtt_recursive_publish,
+    std::shared_ptr<clusterdb::ClusterDb> cluster_db) {
   LOG("Initialize", debug) << "Doing initial reset (this may take up to a full "
                               "minute after a dongle power-cycle)";
   std::ignore = await(api->SysReset(true));
@@ -510,14 +609,16 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
   std::weak_ptr<zcl::ZclEndpoint> weak_endpoint(endpoint);
   std::weak_ptr<znp::ZnpApi> weak_api(api);
 
-  endpoint->on_report_attributes_.connect(
-      [weak_api, weak_endpoint, mqtt_wrapper, mqtt_prefix,
-       name_registry](const zcl::ZclEndpoint::AttributeReport& report) {
+  endpoint->on_command_.connect(
+      [cluster_db, weak_api, mqtt_wrapper, mqtt_prefix, mqtt_recursive_publish](
+          znp::ShortAddress source_address, uint8_t source_endpoint,
+          zcl::ZclClusterId cluster_id, bool is_global_command,
+          zcl::ZclCommandId command_id, std::vector<uint8_t> payload) {
         if (auto api = weak_api.lock()) {
-          if (auto endpoint = weak_endpoint.lock()) {
-            OnReportAttributes(api, endpoint, mqtt_wrapper, mqtt_prefix,
-                               name_registry, report);
-          }
+          OnZclCommand(cluster_db, api, mqtt_wrapper, mqtt_prefix,
+                       mqtt_recursive_publish, source_address, source_endpoint,
+                       cluster_id, is_global_command, command_id,
+                       std::move(payload));
         }
       });
 
@@ -526,13 +627,13 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
   api->af_on_incoming_msg_.connect(std::bind(
       &OnIncomingMsg, api, mqtt_wrapper, mqtt_prefix, std::placeholders::_1));
 
-  mqtt_wrapper->on_publish_.connect(
-      std::bind(&OnPublish, api, endpoint, mqtt_prefix, name_registry,
-                std::placeholders::_1, std::placeholders::_2,
-                std::placeholders::_3, std::placeholders::_4));
-  await(mqtt_wrapper->Subscribe(
-      {{mqtt_prefix + "write/#", mqtt::qos::at_least_once},
-       {mqtt_prefix + "command/#", mqtt::qos::at_least_once}}));
+  mqtt_wrapper->on_publish_.connect(std::bind(
+      &OnPublish, api, endpoint, mqtt_prefix, cluster_db, std::placeholders::_1,
+      std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+  await(mqtt_wrapper->Subscribe({
+      {mqtt_prefix + "write/#", mqtt::qos::at_least_once},
+      {mqtt_prefix + "+/+/out/#", mqtt::qos::at_least_once},
+  }));
   return endpoint;
 }
 
@@ -579,9 +680,11 @@ int main(int argc, const char** argv) {
     ("psk",
      boost::program_options::value<std::string>()->default_value("AqaraHub"),
      "Zigbee Network pre-shared key. Maximum 16 characters, will be truncated when longer")
-    ("name-registry",
-     boost::program_options::value<std::string>()->default_value("../attributes.info"),
-     "Boost property-tree info file containing cluster and attribute names")
+    ("cluster-info",
+     boost::program_options::value<std::string>()->default_value("../clusters.info"),
+     "Boost property-tree info file containing cluster, attribute, and command information")
+    ("recursive-publish",
+     "Recursively publish object properties and array elements to sub-topics")
     ;
   // clang-format on
   boost::program_options::variables_map variables;
@@ -605,12 +708,13 @@ int main(int argc, const char** argv) {
   LOG("Main", info) << "Serial port: " << serial_port;
 
   // Read cluster, command, & attribute names
-  auto name_registry = std::make_shared<zcl::NameRegistry>();
-  if (!name_registry->ReadFromInfo(variables["name-registry"].as<std::string>(),
-                                   MakeNameSafeForMqtt)) {
-    LOG("Main", warning) << "Unable to read '"
-                         << variables["name-registry"].as<std::string>()
-                         << "' name registry";
+  auto cluster_db = std::make_shared<clusterdb::ClusterDb>();
+  if (!cluster_db->ParseFromFile(variables["cluster-info"].as<std::string>(),
+                                 MakeNameSafeForMqtt)) {
+    LOG("Main", critical) << "Unable to read '"
+                          << variables["cluster-info"].as<std::string>()
+                          << "' for cluster information";
+    return EXIT_FAILURE;
   }
 
   // Start working
@@ -643,6 +747,8 @@ int main(int argc, const char** argv) {
     mqtt_prefix += "/";
   }
   LOG("Main", info) << "Using MQTT prefix '" << mqtt_prefix << "'";
+  bool mqtt_recursive_publish = (variables.count("recursive-publish") > 0);
+  LOG("Main", info) << "Recursively publishing object and array properties";
 
   // Creating pre-shared-key
   std::string presharedkey_str(variables["psk"].as<std::string>());
@@ -660,7 +766,7 @@ int main(int argc, const char** argv) {
   int exit_code = EXIT_SUCCESS;
   auto endpoint =
       coro::Run(AsioExecutor(io_service), Initialize, api, presharedkey,
-                mqtt_wrapper, mqtt_prefix, name_registry)
+                mqtt_wrapper, mqtt_prefix, mqtt_recursive_publish, cluster_db)
           .then([](auto r) {
             LOG("Main", info) << "Initialization complete!";
             return r;
