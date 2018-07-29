@@ -27,4 +27,6 @@ std::ostream& operator<<(std::ostream& s, const URI& uri);
 
 boost::optional<URIAuthority> ParseURIAuthority(const std::string& authority);
 boost::optional<URI> ParseURI(const std::string& uri);
+
+std::string URIUnescape(const std::string& input);
 #endif // _URI_PARSER_H_

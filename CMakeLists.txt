@@ -99,7 +99,9 @@ add_executable(tests
 	tests/coro.cpp
 	tests/dynamic_encoding.cpp
 	tests/main.cpp
+	tests/mqtt_wrapper.cpp
 	tests/template_lookup.cpp
+	tests/uri_parser.cpp
 	tests/uri_parser.cpp
 	tests/variant_encoding.cpp
 	tests/variant_json.cpp
