@@ -22,7 +22,6 @@ class MqttWrapperImpl
         io_service_(io_service),
         client_(client),
         reconnect_timer_(io_service) {
-    client_->set_client_id("AqaraHub");
     client_->set_clean_session(true);
   }
   void PostConstructor() {
