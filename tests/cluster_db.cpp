@@ -1,7 +1,6 @@
 #include <clusterdb/cluster_db.h>
 #include <dynamic_encoding/decoding.h>
 #include <zcl/encoding.h>
-#include <zcl/to_json.h>
 #include <boost/optional/optional_io.hpp>
 #include <boost/test/unit_test.hpp>
 #include <iostream>

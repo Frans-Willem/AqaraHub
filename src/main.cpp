@@ -21,7 +21,6 @@
 #include "mqtt_wrapper.h"
 #include "string_enum.h"
 #include "zcl/encoding.h"
-#include "zcl/to_json.h"
 #include "zcl/zcl.h"
 #include "zcl/zcl_endpoint.h"
 #include "zcl/zcl_string_enum.h"

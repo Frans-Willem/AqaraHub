@@ -63,7 +63,6 @@ add_library(common
 	src/mqtt_wrapper.cpp
 	src/uri_parser.cpp
 	src/zcl/encoding.cpp
-	src/zcl/to_json.cpp
 	src/zcl/zcl.cpp
 	src/zcl/zcl_endpoint.cpp
 	src/znp/znp.cpp
@@ -104,7 +103,6 @@ add_executable(tests
 	tests/uri_parser.cpp
 	tests/uri_parser.cpp
 	tests/variant_encoding.cpp
-	tests/variant_json.cpp
 )
 target_link_libraries(tests common)
 target_include_directories(tests PUBLIC "src")
