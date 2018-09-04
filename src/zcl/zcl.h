@@ -439,7 +439,7 @@ class ZclVariant {
   DataType type_;
 
   friend class znp::EncodeHelper<zcl::ZclVariant>;
-  friend class zcl::to_json_helper<zcl::ZclVariant>;
+  friend struct zcl::to_json_helper<zcl::ZclVariant>;
   friend std::ostream& operator<<(std::ostream& stream,
                                   const ZclVariant& variant);
 };
