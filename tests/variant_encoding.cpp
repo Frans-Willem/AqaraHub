@@ -22,7 +22,7 @@ BOOST_AUTO_TEST_CASE(VariantEncodeIdentity) {
       zcl::ZclVariant::Create<zcl::DataType::semi>(
           std::pow(2, -15)),  // Denormalized float
       zcl::ZclVariant::Create<zcl::DataType::data24>(
-          std::array<std::uint8_t, 3>{1, 2, 3})
+          std::array<std::uint8_t, 3>{{1, 2, 3}})
 
   };
 

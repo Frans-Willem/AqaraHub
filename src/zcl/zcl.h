@@ -375,7 +375,7 @@ struct VariantStorageHelper<std::array<std::uint8_t, N>> {
     return StorageType(input.begin(), input.end());
   }
   static std::array<std::uint8_t, N> FromStorage(const StorageType& storage) {
-    std::array<std::uint8_t, N> ret{0};
+    std::array<std::uint8_t, N> ret{{0}};
     if (storage.size() >= N) {
       std::copy(storage.begin(), storage.begin() + N, ret.begin());
     } else {
@@ -439,7 +439,7 @@ class ZclVariant {
   DataType type_;
 
   friend class znp::EncodeHelper<zcl::ZclVariant>;
-  friend class zcl::to_json_helper<zcl::ZclVariant>;
+  friend struct zcl::to_json_helper<zcl::ZclVariant>;
   friend std::ostream& operator<<(std::ostream& stream,
                                   const ZclVariant& variant);
 };
