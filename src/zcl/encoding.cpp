@@ -371,10 +371,9 @@ struct VariantEncodeHelperImpl<DataType::_double>
 
 const std::map<DataType, std::unique_ptr<VariantEncodeHelper>>& EncoderMap() {
   static std::map<DataType, std::unique_ptr<VariantEncodeHelper>> map =
-      std::move(
           template_lookup::CreateEnumLookup<DataType, DataType::nodata,
                                             DataType::unk, VariantEncodeHelper,
-                                            VariantEncodeHelperImpl>());
+                                            VariantEncodeHelperImpl>();
   return map;
 }
 }  // namespace
