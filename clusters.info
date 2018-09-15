@@ -147,6 +147,76 @@ global commands
 }
 0x0007 "On/Off Switch Configuration"
 0x0008 "Level Control"
+{
+  attributes
+  {
+    0x0000 "CurrentLevel"
+    {
+      type uint8
+    }
+    0x0001 "RemainingTime"
+    {
+      type uint16
+    }
+    0x0010 "OnOffTransitionTime"
+    {
+      type uint16
+    }
+    0x0011 "OnLevel"
+    {
+      type uint8
+    }
+    0x0012 "OnTransitionTime"
+    {
+      type uint16
+    }
+    0x0013 "OffTransitionTime"
+    {
+      type uint16
+    }
+    0x0014 "DefaultMoveRate"
+    {
+      type uint16
+    }
+  }
+  commands out
+  {
+    0x00 "Move to Level"
+    {
+      uint8 "Level"
+      uint16 "Transition time"
+    }
+    0x01 "Move"
+    {
+      enum8 "Move mode"
+      uint8 "Rate"
+    }
+    0x02 "Step"
+    {
+      enum8 "Step mode"
+      uint8 "Step size"
+      uint16 "Transition time"
+    }
+    0x03 "Stop"
+    0x04 "Move to Level (with On/Off)"
+    {
+      uint8 "Level"
+      uint16 "Transition time"
+    }
+    0x05 "Move (with On/Off)"
+    {
+      enum8 "Move mode"
+      uint8 "Rate"
+    }
+    0x06 "Step (with On/Off)"
+    {
+      enum8 "Step mode"
+      uint8 "Step size"
+      uint16 "Transition time"
+    }
+    0x07 "Stop (with On/Off)"
+  }
+}
 0x0009 "Alarms"
 0x000A "Time"
 0x000B "RSSI Location"
@@ -339,6 +409,318 @@ global commands
 0x0203 "Dehumidification Control"
 0x0204 "Thermostat User Interface Configuration"
 0x0300 "Color Control"
+{
+  attributes
+  {
+    0x0000 "Current Hue"
+    {
+      type uint8
+    }
+    0x0001 "CurrentSaturation"
+    {
+      type uint8
+    }
+    0x0002 "RemainingTime"
+    {
+      type uint16
+    }
+    0x0003 "CurrentX"
+    {
+      type uint16
+    }
+    0x0004 "CurrentY"
+    {
+      type uint16
+    }
+    0x0005 "DriftCompensation"
+    {
+      type enum8
+    }
+    0x0006 "CompensationText"
+    {
+      type string
+    }
+    0x0007 "ColorTemperatureMireds"
+    {
+      type uint16
+    }
+    0x0008 "ColorMode"
+    {
+      type enum8
+    }
+    0x0010 "NumberOfPrimaries"
+    {
+      type uint8
+    }
+    0x0011 "Primary1X"
+    {
+      type uint16
+    }
+    0x0012 "Primary1Y"
+    {
+      type uint16
+    }
+    0x0013 "Primary1Intensity"
+    {
+      type uint8
+    }
+    0x0015 "Primary2X"
+    {
+      type uint16
+    }
+    0x0016 "Primary2Y"
+    {
+      type uint16
+    }
+    0x0017 "Primary2Intensity"
+    {
+      type uint8
+    }
+    0x0019 "Primary3X"
+    {
+      type uint16
+    }
+    0x001a "Primary3Y"
+    {
+      type uint16
+    }
+    0x001b "Primary3Intensity"
+    {
+      type uint8
+    }
+    0x0020 "Primary4X"
+    {
+      type uint16
+    }
+    0x0021 "Primary4Y"
+    {
+      type uint16
+    }
+    0x0022 "Primary4Intensity"
+    {
+      type uint8
+    }
+    0x0024 "Primary5X"
+    {
+      type uint16
+    }
+    0x0025 "Primary5Y"
+    {
+      type uint16
+    }
+    0x0026 "Primary5Intensity"
+    {
+      type uint8
+    }
+    0x0028 "Primary6X"
+    {
+      type uint16
+    }
+    0x0029 "Primary6Y"
+    {
+      type uint16
+    }
+    0x002a "Primary6Intensity"
+    {
+      type uint8
+    }
+    0x0030 "WhitePointX"
+    {
+      type uint16
+    }
+    0x0031 "WhitePointY"
+    {
+      type uint16
+    }
+    0x0032 "ColorPointRX"
+    {
+      type uint16
+    }
+    0x0033 "ColorPointRY"
+    {
+      type uint16
+    }
+    0x0034 "ColorPointRIntensity"
+    {
+      type uint8
+    }
+    0x0036 "ColorPointGX"
+    {
+      type uint16
+    }
+    0x0037 "ColorPointGY"
+    {
+      type uint16
+    }
+    0x0038 "ColorPointGIntensity"
+    {
+      type uint8
+    }
+    0x003a "ColorPointBX"
+    {
+      type uint16
+    }
+    0x003b "ColorPointBY"
+    {
+      type uint16
+    }
+    0x003c "ColorPointBIntensity"
+    {
+      type uint8
+    }
+    0x4000 "EnhancedCurrentHue"
+    {
+      type uint16
+    }
+    0x4001 "EnhancedColorMode"
+    {
+      type enum8
+    }
+    0x4002 "ColorLoopActive"
+    {
+      type uint8
+    }
+    0x4003 "ColorLoopDirection"
+    {
+      type uint8
+    }
+    0x4004 "ColorLoopTime"
+    {
+      type uint16
+    }
+    0x4005 "ColorLoopStartEnhancedHue"
+    {
+      type uint16
+    }
+    0x4006 "ColorLoopStoredEnhancedHue"
+    {
+      type uint16
+    }
+    0x400a "ColorCapabilities"
+    {
+      type map16
+    }
+    0x400b "ColorTempPhysicalMinMireds"
+    {
+      type uint16
+    }
+    0x400c "ColorTempPhysicalMaxMireds"
+    {
+      type uint16
+    }
+  }
+  commands out
+  {
+    0x00 "Move to Hue"
+    {
+      uint8 "Hue"
+      enum8 "Direction"
+      uint16 "Transition Time"
+    }
+    0x01 "Move Hue"
+    {
+      enum8 "Move Mode"
+      uint8 "Rate"
+    }
+    0x02 "Step Hue"
+    {
+      enum8 "Step Mode"
+      uint8 "Step Size"
+      uint8 "Transition Time"
+    }
+    0x03 "Move to Saturation"
+    {
+      uint8 "Saturation"
+      uint16 "Transition Time"
+    }
+    0x04 "Move Saturation"
+    {
+      enum8 "Move Mode"
+      uint8 "Rate"
+    }
+    0x05 "Step Saturation"
+    {
+      enum8 "Step Mode"
+      uint8 "Step Size"
+      uint8 "Transition Time"
+    }
+    0x06 "Move to Hue and Saturation"
+    {
+      uint8 "Hue"
+      uint8 "Saturation"
+      uint16 "Transition Time"
+    }
+    0x07 "Move to Color"
+    {
+      uint16 "ColorX"
+      uint16 "ColorY"
+      uint16 "Transition Time"
+    }
+    0x08 "Move Color"
+    {
+      int16 "RateX"
+      int16 "RateY"
+    }
+    0x09 "Step Color"
+    {
+      int16 "StepX"
+      int16 "StepY"
+      uint16 "Transition Time"
+    }
+    0x0a "Move to Color Temperature"
+    {
+      uint16 "Color Temperature Mireds"
+      uint16 "Transition Time"
+    }
+    0x40 "Enhanced Move to Hue"
+    {
+      uint16 "Enhanced Hue"
+      enum8 "Direction"
+      uint16 "Transition Time"
+    }
+    0x41 "Enhanced Move Hue"
+    {
+      enum8 "Move Mode"
+      uint16 "Rate"
+    }
+    0x42 "Enhanced Step Hue"
+    {
+      enum8 "Step Mode"
+      uint16 "Step Size"
+      uint16 "Transition Time"
+    }
+    0x43 "Enhanced Move to Hue and Saturation"
+    {
+      uint16 "Enhanced Hue"
+      uint8 "Saturation"
+      uint16 "Transition Time"
+    }
+    0x44 "Color Loop Set"
+    {
+      map8 "Update Flags"
+      enum8 "Action"
+      enum8 "Direction"
+      uint16 "Time"
+      uint16 "Start Hue"
+    }
+    0x47 "Stop Move Step"
+    0x4b "Move Color Temperature"
+    {
+      map8 "Move Mode"
+      uint16 "Rate"
+      uint16 "Color Temperature Minimum Mireds"
+      uint16 "Color Temperature Maximum Mireds"
+    }
+    0x4c "Step Color Temperature"
+    {
+      map8 "Step Mode"
+      uint16 "Step Size"
+      uint16 "Transition Time"
+      uint16 "Color Temperature Minimum Mireds"
+      uint16 "Color Temperature Maximum Mireds"
+    }
+  }
+}
 0x0301 "Ballast Configuration"
 0x0400 "Illuminance Measurement"
 0x0401 "Illuminance Level Sensing"
