@@ -132,6 +132,21 @@ void OnPublishPermitJoin(std::shared_ptr<znp::ZnpApi> api,
   return;
 }
 
+void OnPublishDirectJoin(std::shared_ptr<znp::ZnpApi> api,
+                         znp::IEEEAddress device_address) {
+  api->ZdoMgmtDirectJoin(0x0000, device_address)
+      .recover([](auto f) {
+        try {
+          f.get_try();
+          LOG("DirectJoin", debug) << "Direct join OK";
+        } catch (const std::exception& ex) {
+          LOG("DirectJoin", debug) << "Direct join failed: " << ex.what();
+        }
+      })
+      .detach();
+  return;
+}
+
 /** Sends a Zigbee cluster library command. Expects cluster_id & command already
  * resolved, and the arguments already turned to a JSON array. */
 void SendCommand(std::shared_ptr<znp::ZnpApi> api,
@@ -298,6 +313,12 @@ void OnPublish(std::shared_ptr<znp::ZnpApi> api,
       OnPublishPermitJoin(api, message);
       return;
     }
+    static std::regex re_write_directjoin("write/directjoin/([0-9a-fA-F]+)");
+    if (std::regex_match(topic, match, re_write_directjoin)) {
+      OnPublishDirectJoin(api, std::stoull(match[1], 0, 16));
+      return;
+    }
+
 
     static std::regex re_command_short("([0-9a-fA-F]+)/([0-9]+)/out/([^/]+)");
     if (std::regex_match(topic, match, re_command_short)) {
