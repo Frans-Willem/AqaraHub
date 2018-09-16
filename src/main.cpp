@@ -1,4 +1,5 @@
 // vim: set shiftwidth=2 tabstop=2 expandtab:
+#include <boost/algorithm/hex.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/asio.hpp>
 #include <boost/format.hpp>
@@ -679,6 +680,9 @@ int main(int argc, const char** argv) {
     ("psk",
      boost::program_options::value<std::string>()->default_value("AqaraHub"),
      "Zigbee Network pre-shared key. Maximum 16 characters, will be truncated when longer")
+    ("pskhex",
+     boost::program_options::value<std::string>(),
+     "Zigbee Network pre-shared key in hexadecimal notation, overrides psk parameter")
     ("cluster-info",
      boost::program_options::value<std::string>()->default_value("../clusters.info"),
      "Boost property-tree info file containing cluster, attribute, and command information")
@@ -753,6 +757,14 @@ int main(int argc, const char** argv) {
   std::string presharedkey_str(variables["psk"].as<std::string>());
   std::array<uint8_t, 16> presharedkey;
   presharedkey.fill(0);
+  if (variables.count("pskhex")) {
+    try {
+      presharedkey_str = boost::algorithm::unhex(variables["pskhex"].as<std::string>());
+    } catch (...) {
+      LOG("Main", critical) << "Unable to parse hexadecimal PSK";
+      return EXIT_FAILURE;
+    }
+  }
   std::copy_n(presharedkey_str.begin(),
               std::min(presharedkey.size(), presharedkey_str.size()),
               presharedkey.begin());
