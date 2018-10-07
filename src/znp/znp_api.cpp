@@ -130,6 +130,20 @@ stlab::future<ShortAddress> ZnpApi::ZdoMgmtLeave(ShortAddress DstAddr,
         return std::get<0>(retval);
       });
 }
+stlab::future<uint16_t> ZnpApi::ZdoMgmtDirectJoin(uint16_t DstAddr,
+                                                  IEEEAddress DeviceAddress) {
+  return WaitAfter(RawSReq(ZdoCommand::MGMT_DIRECT_JOIN_REQ,
+                           znp::EncodeT(DstAddr, DeviceAddress))
+                       .then(CheckOnlyStatus),
+                   ZnpCommandType::AREQ, ZdoCommand::MGMT_DIRECT_JOIN_RSP)
+      .then(znp::DecodeT<uint16_t, ZnpStatus>)
+      .then([](std::tuple<uint16_t, ZnpStatus> retval) {
+        if (std::get<1>(retval) != ZnpStatus::Success) {
+          throw std::runtime_error("DirectJoin returned non-success status");
+        }
+        return std::get<0>(retval);
+      });
+}
 stlab::future<uint16_t> ZnpApi::ZdoMgmtPermitJoin(AddrMode addr_mode,
                                                   uint16_t dst_address,
                                                   uint8_t duration,

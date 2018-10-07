@@ -56,6 +56,8 @@ class ZnpApi {
   stlab::future<ShortAddress> ZdoMgmtLeave(ShortAddress DstAddr,
                                            IEEEAddress DeviceAddr,
                                            uint8_t remove_rejoin);
+  stlab::future<uint16_t> ZdoMgmtDirectJoin(uint16_t DstAddr,
+                                            IEEEAddress DeviceAddress);
   stlab::future<uint16_t> ZdoMgmtPermitJoin(AddrMode addr_mode,
                                             uint16_t dst_address,
                                             uint8_t duration,

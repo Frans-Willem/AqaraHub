@@ -1,4 +1,5 @@
 // vim: set shiftwidth=2 tabstop=2 expandtab:
+#include <boost/algorithm/hex.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/asio.hpp>
 #include <boost/format.hpp>
@@ -40,7 +41,9 @@ struct FullConfiguration {
 
   bool operator==(const FullConfiguration& other) const {
     return this->startup_option == other.startup_option &&
-           this->pan_id == other.pan_id &&
+           (this->pan_id == other.pan_id ||
+            this->pan_id == 0xFFFF ||
+            other.pan_id == 0xFFFF) &&
            this->extended_pan_id == other.extended_pan_id &&
            this->chan_list == other.chan_list &&
            this->logical_type == other.logical_type &&
@@ -123,6 +126,21 @@ void OnPublishPermitJoin(std::shared_ptr<znp::ZnpApi> api,
           LOG("PermitJoin", debug) << "Permit join OK";
         } catch (const std::exception& ex) {
           LOG("PermitJoin", debug) << "Permit join failed: " << ex.what();
+        }
+      })
+      .detach();
+  return;
+}
+
+void OnPublishDirectJoin(std::shared_ptr<znp::ZnpApi> api,
+                         znp::IEEEAddress device_address) {
+  api->ZdoMgmtDirectJoin(0x0000, device_address)
+      .recover([](auto f) {
+        try {
+          f.get_try();
+          LOG("DirectJoin", debug) << "Direct join OK";
+        } catch (const std::exception& ex) {
+          LOG("DirectJoin", debug) << "Direct join failed: " << ex.what();
         }
       })
       .detach();
@@ -295,6 +313,12 @@ void OnPublish(std::shared_ptr<znp::ZnpApi> api,
       OnPublishPermitJoin(api, message);
       return;
     }
+    static std::regex re_write_directjoin("write/directjoin/([0-9a-fA-F]+)");
+    if (std::regex_match(topic, match, re_write_directjoin)) {
+      OnPublishDirectJoin(api, std::stoull(match[1], 0, 16));
+      return;
+    }
+
 
     static std::regex re_command_short("([0-9a-fA-F]+)/([0-9]+)/out/([^/]+)");
     if (std::regex_match(topic, match, re_command_short)) {
@@ -554,6 +578,7 @@ void OnZclCommand(std::shared_ptr<clusterdb::ClusterDb> cluster_db,
 
 std::shared_ptr<zcl::ZclEndpoint> Initialize(
     coro::Await await, std::shared_ptr<znp::ZnpApi> api,
+    uint16_t pan_id,
     std::array<uint8_t, 16> presharedkey,
     std::shared_ptr<MqttWrapper> mqtt_wrapper, std::string mqtt_prefix,
     bool mqtt_recursive_publish,
@@ -568,7 +593,7 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
                            << coord_ieee_addr;
   FullConfiguration desired_config;
   desired_config.startup_option = znp::StartupOption::None;
-  desired_config.pan_id = coord_ieee_addr & 0xFFFF;
+  desired_config.pan_id = pan_id;
   desired_config.extended_pan_id = coord_ieee_addr;
   // TODO: Not entirely sure how to pick a right value for this.
   desired_config.chan_list = 0x0800;
@@ -676,9 +701,15 @@ int main(int argc, const char** argv) {
     ("topic,t",
      boost::program_options::value<std::string>()->default_value("AqaraHub"),
      "MQTT Root topic, e.g. AqaraHub")
+    ("panid",
+     boost::program_options::value<uint16_t>()->default_value(0xFFFF),
+     "Zigbee PAN ID")
     ("psk",
      boost::program_options::value<std::string>()->default_value("AqaraHub"),
      "Zigbee Network pre-shared key. Maximum 16 characters, will be truncated when longer")
+    ("pskhex",
+     boost::program_options::value<std::string>(),
+     "Zigbee Network pre-shared key in hexadecimal notation, overrides psk parameter")
     ("cluster-info",
      boost::program_options::value<std::string>()->default_value("../clusters.info"),
      "Boost property-tree info file containing cluster, attribute, and command information")
@@ -753,6 +784,14 @@ int main(int argc, const char** argv) {
   std::string presharedkey_str(variables["psk"].as<std::string>());
   std::array<uint8_t, 16> presharedkey;
   presharedkey.fill(0);
+  if (variables.count("pskhex")) {
+    try {
+      presharedkey_str = boost::algorithm::unhex(variables["pskhex"].as<std::string>());
+    } catch (...) {
+      LOG("Main", critical) << "Unable to parse hexadecimal PSK";
+      return EXIT_FAILURE;
+    }
+  }
   std::copy_n(presharedkey_str.begin(),
               std::min(presharedkey.size(), presharedkey_str.size()),
               presharedkey.begin());
@@ -764,7 +803,8 @@ int main(int argc, const char** argv) {
   // Initializing
   int exit_code = EXIT_SUCCESS;
   auto endpoint =
-      coro::Run(AsioExecutor(io_service), Initialize, api, presharedkey,
+      coro::Run(AsioExecutor(io_service), Initialize, api,
+                variables["panid"].as<uint16_t>(), presharedkey,
                 mqtt_wrapper, mqtt_prefix, mqtt_recursive_publish, cluster_db)
           .then([](auto r) {
             LOG("Main", info) << "Initialization complete!";
