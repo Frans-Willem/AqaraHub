@@ -52,7 +52,27 @@
       "avatar_url": "https://avatars3.githubusercontent.com/u/36307796?v=4",
       "profile": "https://github.com/Gabor9",
       "contributions": [
-        "doc"
+        "doc",
+        "bug"
+      ]
+    },
+    {
+      "login": "digitallez",
+      "name": "digitallez",
+      "avatar_url": "https://avatars1.githubusercontent.com/u/6229178?v=4",
+      "profile": "https://github.com/digitallez",
+      "contributions": [
+        "bug"
+      ]
+    },
+    {
+      "login": "mclei-asw",
+      "name": "mclei-asw",
+      "avatar_url": "https://avatars1.githubusercontent.com/u/7412648?v=4",
+      "profile": "https://github.com/mclei-asw",
+      "contributions": [
+        "bug",
+        "ideas"
       ]
     }
   ]
