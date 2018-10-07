@@ -1,0 +1,59 @@
+{
+  "projectName": "AqaraHub",
+  "projectOwner": "Frans-Willem",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "files": [
+    "README.md"
+  ],
+  "imageSize": null,
+  "commit": false,
+  "contributors": [
+    {
+      "login": "Frans-Willem",
+      "name": "Frans-Willem Hardijzer",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/346213?v=4",
+      "profile": "https://github.com/Frans-Willem",
+      "contributions": [
+        "code",
+        "doc"
+      ]
+    },
+    {
+      "login": "hwhw",
+      "name": "HW",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/964349?v=4",
+      "profile": "https://github.com/hwhw",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "speqtr",
+      "name": "Alexander",
+      "avatar_url": "https://avatars1.githubusercontent.com/u/14371747?v=4",
+      "profile": "https://www.qt.io/",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "cbu99",
+      "name": "Christian Burckas",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/32123268?v=4",
+      "profile": "https://github.com/cbu99",
+      "contributions": [
+        "doc"
+      ]
+    },
+    {
+      "login": "Gabor9",
+      "name": "Gabor9",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/36307796?v=4",
+      "profile": "https://github.com/Gabor9",
+      "contributions": [
+        "doc"
+      ]
+    }
+  ]
+}

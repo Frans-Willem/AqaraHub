@@ -101,8 +101,17 @@ Any and all help would be greatly appreciated. Feel free to make pull requests o
 
 Code formatting wise, I try to stick to the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html). Don't feel obligated to make pull requests perfect, most of the formatting can be solved with clang-format, and we can always clean it up together...
 
-## Authors
-AqaraHub is written by Frans-Willem Hardijzer. See my [Github profile](https://github.com/Frans-Willem) for contact options.
+## Contributors
+
+Thanks goes to these wonderful people ([emoji key](https://github.com/kentcdodds/all-contributors#emoji-key)):
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore -->
+| [<img src="https://avatars3.githubusercontent.com/u/346213?v=4" width="px;"/><br /><sub><b>Frans-Willem Hardijzer</b></sub>](https://github.com/Frans-Willem)<br />[💻](https://github.com/Frans-Willem/AqaraHub/commits?author=Frans-Willem "Code") [📖](https://github.com/Frans-Willem/AqaraHub/commits?author=Frans-Willem "Documentation") | [<img src="https://avatars3.githubusercontent.com/u/964349?v=4" width="px;"/><br /><sub><b>HW</b></sub>](https://github.com/hwhw)<br />[💻](https://github.com/Frans-Willem/AqaraHub/commits?author=hwhw "Code") | [<img src="https://avatars1.githubusercontent.com/u/14371747?v=4" width="px;"/><br /><sub><b>Alexander</b></sub>](https://www.qt.io/)<br />[💻](https://github.com/Frans-Willem/AqaraHub/commits?author=speqtr "Code") | [<img src="https://avatars3.githubusercontent.com/u/32123268?v=4" width="px;"/><br /><sub><b>Christian Burckas</b></sub>](https://github.com/cbu99)<br />[📖](https://github.com/Frans-Willem/AqaraHub/commits?author=cbu99 "Documentation") | [<img src="https://avatars3.githubusercontent.com/u/36307796?v=4" width="px;"/><br /><sub><b>Gabor9</b></sub>](https://github.com/Gabor9)<br />[📖](https://github.com/Frans-Willem/AqaraHub/commits?author=Gabor9 "Documentation") |
+| :---: | :---: | :---: | :---: | :---: |
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
+This project follows the [all-contributors](https://github.com/kentcdodds/all-contributors) specification. Contributions of any kind welcome!
 
 ## License
 AqaraHub is licensed under the GNU General Public License, version v3.0. See LICENSE-gpl-3.0.txt or the [online version](https://www.gnu.org/licenses/gpl-3.0.txt) for more information.
