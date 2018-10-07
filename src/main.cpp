@@ -705,11 +705,11 @@ int main(int argc, const char** argv) {
      boost::program_options::value<uint16_t>()->default_value(0xFFFF),
      "Zigbee PAN ID")
     ("psk",
-     boost::program_options::value<std::string>()->default_value("AqaraHub"),
+     boost::program_options::value<std::string>(),
      "Zigbee Network pre-shared key. Maximum 16 characters, will be truncated when longer")
     ("pskhex",
      boost::program_options::value<std::string>(),
-     "Zigbee Network pre-shared key in hexadecimal notation, overrides psk parameter")
+     "Zigbee Network pre-shared key in hexadecimal notation, maximum of 16 bytes (32 hex characters), will be padded with 0-bytes.")
     ("cluster-info",
      boost::program_options::value<std::string>()->default_value("../clusters.info"),
      "Boost property-tree info file containing cluster, attribute, and command information")
@@ -781,20 +781,47 @@ int main(int argc, const char** argv) {
   LOG("Main", info) << "Recursively publishing object and array properties";
 
   // Creating pre-shared-key
-  std::string presharedkey_str(variables["psk"].as<std::string>());
   std::array<uint8_t, 16> presharedkey;
   presharedkey.fill(0);
-  if (variables.count("pskhex")) {
+  if (variables.count("psk") > 0 && variables.count("pskhex") > 0) {
+    LOG("Main", critical)
+        << "Error: pass either --psk or --pskhex, but not both.";
+    return EXIT_FAILURE;
+  }
+  if (variables.count("psk")) {
+    std::string presharedkey_str(variables["psk"].as<std::string>());
+    if (presharedkey_str.size() > presharedkey.size()) {
+      LOG("Main", warning) << "WARNING: Presharedkey will be truncated to "
+                           << presharedkey.size() << " bytes";
+    }
+    std::copy_n(presharedkey_str.begin(),
+                std::min(presharedkey.size(), presharedkey_str.size()),
+                presharedkey.begin());
+  } else if (variables.count("pskhex")) {
+    std::vector<uint8_t> presharedkey_input;
     try {
-      presharedkey_str = boost::algorithm::unhex(variables["pskhex"].as<std::string>());
+      boost::algorithm::unhex(variables["pskhex"].as<std::string>(),
+                              std::back_inserter(presharedkey_input));
     } catch (...) {
       LOG("Main", critical) << "Unable to parse hexadecimal PSK";
       return EXIT_FAILURE;
     }
-  }
-  std::copy_n(presharedkey_str.begin(),
-              std::min(presharedkey.size(), presharedkey_str.size()),
+    if (presharedkey_input.size() > presharedkey.size()) {
+      LOG("Main", critical)
+          << "PSK length " << presharedkey_input.size()
+          << " is larger than the allowed " << presharedkey.size() << " bytes";
+      return EXIT_FAILURE;
+    }
+    std::copy(presharedkey_input.begin(), presharedkey_input.end(),
               presharedkey.begin());
+  } else {
+    LOG("Main", info)
+        << "No PSK specified on command-line, using default ('AqaraHub')";
+    std::string presharedkey_str("AqaraHub");
+    std::copy_n(presharedkey_str.begin(),
+                std::min(presharedkey.size(), presharedkey_str.size()),
+                presharedkey.begin());
+  }
 
   LOG("Main", info) << "Using PSK "
                     << boost::log::dump(presharedkey.data(),
