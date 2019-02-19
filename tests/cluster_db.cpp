@@ -95,10 +95,11 @@ BOOST_AUTO_TEST_CASE(ReportAttributesArguments) {
   auto command_found = db.GlobalCommandById((zcl::ZclCommandId)0x0A);
   BOOST_TEST(!!command_found);
   BOOST_TEST(command_found->data.properties.size() == 1);
-  auto repeated_type = boost::strict_get<dynamic_encoding::GreedyRepeatedType>(
+  auto repeated_type = boost::strict_get<dynamic_encoding::ArrayType>(
       command_found->data.properties[0].type);
   auto repeated_element_type = boost::strict_get<dynamic_encoding::ObjectType>(
       repeated_type.element_type);
+  BOOST_TEST(repeated_type.length_size == 0);
   BOOST_TEST(repeated_element_type.properties.size() == 2);
   BOOST_TEST((repeated_element_type.properties[0].type ==
               dynamic_encoding::AnyType(zcl::DataType::attribId)) == true);

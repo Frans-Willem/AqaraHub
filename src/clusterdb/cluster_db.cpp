@@ -49,7 +49,28 @@ bool ParseTypeFromPTree(dynamic_encoding::AnyType& type,
                         const boost::property_tree::ptree& tree,
                         std::function<std::string(std::string)> name_mangler) {
   if (auto rest_type_name = stringStartsWith(type_name, "repeated:")) {
-    auto parsed_type = dynamic_encoding::GreedyRepeatedType{};
+    auto parsed_type = dynamic_encoding::ArrayType{};
+    parsed_type.length_size = 0;
+    if (!ParseTypeFromPTree(parsed_type.element_type, *rest_type_name, tree,
+                            name_mangler)) {
+      return false;
+    }
+    type = parsed_type;
+    return true;
+  }
+  if (auto rest_type_name = stringStartsWith(type_name, "arr8:")) {
+    auto parsed_type = dynamic_encoding::ArrayType{};
+    parsed_type.length_size = 1;
+    if (!ParseTypeFromPTree(parsed_type.element_type, *rest_type_name, tree,
+                            name_mangler)) {
+      return false;
+    }
+    type = parsed_type;
+    return true;
+  }
+  if (auto rest_type_name = stringStartsWith(type_name, "arr16:")) {
+    auto parsed_type = dynamic_encoding::ArrayType{};
+    parsed_type.length_size = 2;
     if (!ParseTypeFromPTree(parsed_type.element_type, *rest_type_name, tree,
                             name_mangler)) {
       return false;

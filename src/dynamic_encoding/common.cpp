@@ -8,8 +8,8 @@ bool operator==(const ObjectEntry& a, const ObjectEntry& b) {
 bool operator==(const ObjectType& a, const ObjectType& b) {
   return a.properties == b.properties;
 }
-bool operator==(const GreedyRepeatedType& a, const GreedyRepeatedType& b) {
-  return a.element_type == b.element_type;
+bool operator==(const ArrayType& a, const ArrayType& b) {
+  return a.length_size == b.length_size && a.element_type == b.element_type;
 }
 bool operator==(const XiaomiFF01Type& a, const XiaomiFF01Type& b) {
   return true;

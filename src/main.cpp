@@ -479,7 +479,7 @@ void OnZclCommand(std::shared_ptr<MqttWrapper> mqtt_wrapper,
   // Is this a repeated object type, with attribId as first property?
   if (command_info->data.properties.size() > 0) {
     if (const auto* repeated_type =
-            boost::relaxed_get<dynamic_encoding::GreedyRepeatedType>(
+            boost::relaxed_get<dynamic_encoding::ArrayType>(
                 &command_info->data.properties[0].type)) {
       if (const auto* repeated_object_type =
               boost::relaxed_get<dynamic_encoding::ObjectType>(
