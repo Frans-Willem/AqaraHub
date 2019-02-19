@@ -185,6 +185,61 @@ ZnpApi::ZdoGetLinkKey(IEEEAddress IEEEAddr) {
       .then(&znp::Decode<std::tuple<IEEEAddress, std::array<uint8_t, 16>>>);
 }
 
+stlab::future<void> ZnpApi::ZdoExtRemoveGroup(uint8_t Endpoint,
+                                              uint16_t GroupID) {
+  return RawSReq(ZdoCommand::EXT_REMOVE_GROUP, znp::EncodeT(Endpoint, GroupID))
+      .then(&ZnpApi::CheckOnlyStatus);
+}
+
+stlab::future<void> ZnpApi::ZdoExtRemoveAllGroup(uint8_t Endpoint) {
+  return RawSReqResponseMatch(
+             ZdoCommand::EXT_REMOVE_ALL_GROUP,
+             std::set<ZnpCommand>{ZdoCommand::EXT_REMOVE_ALL_GROUP,
+                                  ZdoCommand::EXT_REMOVE_GROUP},
+             znp::EncodeT(Endpoint))
+      .then(&ZnpApi::CheckOnlyStatus);
+}
+
+stlab::future<std::vector<uint16_t>> ZnpApi::ZdoExtFindAllGroupsEndpoint(
+    uint8_t Endpoint) {
+  return RawSReq(ZdoCommand::EXT_FIND_ALL_GROUPS_ENDPOINT,
+                 znp::EncodeT(Endpoint, (uint8_t)0))
+      .then(&znp::Decode<std::vector<uint16_t>>);
+}
+
+stlab::future<std::string> ZnpApi::ZdoExtFindGroup(uint8_t Endpoint,
+                                                   uint16_t GroupID) {
+  return RawSReq(ZdoCommand::EXT_FIND_GROUP, znp::EncodeT(Endpoint, GroupID))
+      .then(&ZnpApi::CheckStatus)
+      .then([GroupID](const std::vector<uint8_t>& result) -> std::string {
+        uint16_t ReceiveGroupId;
+        std::vector<uint8_t> GroupName;
+        std::tie(ReceiveGroupId, GroupName) =
+            znp::DecodePartialT<uint16_t, std::vector<uint8_t>>(result);
+        if (ReceiveGroupId != GroupID) {
+          throw std::runtime_error(
+              "Received GroupID did not match requested GroupID");
+        }
+        return std::string(GroupName.begin(), GroupName.end());
+      });
+}
+
+stlab::future<void> ZnpApi::ZdoExtAddGroup(uint8_t Endpoint, uint16_t GroupID,
+                                           std::string GroupName) {
+  std::vector<uint8_t> GroupNameVec(GroupName.begin(), GroupName.end());
+  if (GroupNameVec.size() > 16) {
+    throw std::runtime_error("Group name is too long");
+  }
+  return RawSReq(ZdoCommand::EXT_ADD_GROUP,
+                 znp::EncodeT(Endpoint, GroupID, GroupNameVec))
+      .then(&ZnpApi::CheckOnlyStatus);
+}
+
+stlab::future<uint8_t> ZnpApi::ZdoExtCountAllGroups() {
+  return RawSReq(ZdoCommand::EXT_COUNT_ALL_GROUPS, std::vector<uint8_t>())
+      .then(&znp::Decode<uint8_t>);
+}
+
 stlab::future<std::vector<uint8_t>> ZnpApi::SapiReadConfigurationRaw(
     ConfigurationOption option) {
   return RawSReq(SapiCommand::READ_CONFIGURATION, znp::Encode(option))
@@ -333,6 +388,12 @@ stlab::future<std::vector<uint8_t>> ZnpApi::WaitAfter(
 
 stlab::future<std::vector<uint8_t>> ZnpApi::RawSReq(
     ZnpCommand command, const std::vector<uint8_t>& payload) {
+  return RawSReqResponseMatch(command, std::set<ZnpCommand>{command}, payload);
+}
+
+stlab::future<std::vector<uint8_t>> ZnpApi::RawSReqResponseMatch(
+    ZnpCommand command, std::set<ZnpCommand> possible_responses,
+    const std::vector<uint8_t>& payload) {
   auto package = stlab::package<std::vector<uint8_t>(std::exception_ptr,
                                                      std::vector<uint8_t>)>(
       stlab::immediate_executor,
@@ -342,37 +403,39 @@ stlab::future<std::vector<uint8_t>> ZnpApi::RawSReq(
         }
         return data;
       });
-  handlers_.push_back(
-      [package, command](
-          const ZnpCommandType& type, const ZnpCommand& recvd_command,
-          const std::vector<uint8_t>& data) -> FrameHandlerAction {
-        // Normal response
-        if (type == ZnpCommandType::SRSP && recvd_command == command) {
-          package.first(nullptr, data);
+  handlers_.push_back([package, possible_responses](
+                          const ZnpCommandType& type,
+                          const ZnpCommand& recvd_command,
+                          const std::vector<uint8_t>& data)
+                          -> FrameHandlerAction {
+    // Normal response
+    if (type == ZnpCommandType::SRSP &&
+        possible_responses.find(recvd_command) != possible_responses.end()) {
+      package.first(nullptr, data);
+      return {true, true};
+    }
+    // Possible RPC_Error response
+    if (type == ZnpCommandType::SRSP &&
+        recvd_command == ZnpCommand(ZnpSubsystem::RPC_Error, 0)) {
+      try {
+        auto info = znp::DecodeT<uint8_t, uint8_t, uint8_t>(data);
+        ZnpCommand err_command((ZnpSubsystem)(std::get<1>(info) & 0xF),
+                               std::get<2>(info));
+        ZnpCommandType err_type = (ZnpCommandType)(std::get<1>(info) >> 4);
+        if (err_type == ZnpCommandType::SREQ &&
+            possible_responses.find(err_command) != possible_responses.end()) {
+          std::stringstream ss;
+          ss << "RPC Error: " << (unsigned int)std::get<0>(info);
+          package.first(std::make_exception_ptr(std::runtime_error(ss.str())),
+                        std::vector<uint8_t>());
           return {true, true};
         }
-        // Possible RPC_Error response
-        if (type == ZnpCommandType::SRSP &&
-            recvd_command == ZnpCommand(ZnpSubsystem::RPC_Error, 0)) {
-          try {
-            auto info = znp::DecodeT<uint8_t, uint8_t, uint8_t>(data);
-            ZnpCommand err_command((ZnpSubsystem)(std::get<1>(info) & 0xF),
-                                   std::get<2>(info));
-            ZnpCommandType err_type = (ZnpCommandType)(std::get<1>(info) >> 4);
-            if (err_type == ZnpCommandType::SREQ && err_command == command) {
-              std::stringstream ss;
-              ss << "RPC Error: " << (unsigned int)std::get<0>(info);
-              package.first(
-                  std::make_exception_ptr(std::runtime_error(ss.str())),
-                  std::vector<uint8_t>());
-              return {true, true};
-            }
-          } catch (const std::exception& exc) {
-            LOG("ZnpApi", debug) << "Unable to parse RPCError";
-          }
-        }
-        return {false, false};
-      });
+      } catch (const std::exception& exc) {
+        LOG("ZnpApi", debug) << "Unable to parse RPCError";
+      }
+    }
+    return {false, false};
+  });
   raw_->SendFrame(ZnpCommandType::SREQ, command, payload);
   return package.second;
 }

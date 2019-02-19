@@ -65,6 +65,16 @@ class ZnpApi {
   stlab::future<StartupFromAppResponse> ZdoStartupFromApp(
       uint16_t start_delay_ms);
 
+  stlab::future<void> ZdoExtRemoveGroup(uint8_t Endpoint, uint16_t GroupID);
+  stlab::future<void> ZdoExtRemoveAllGroup(uint8_t Endpoint);
+  stlab::future<std::vector<uint16_t>> ZdoExtFindAllGroupsEndpoint(
+      uint8_t Endpoint);
+  stlab::future<std::string> ZdoExtFindGroup(uint8_t Endpoint,
+                                             uint16_t GroupID);
+  stlab::future<void> ZdoExtAddGroup(uint8_t Endpoint, uint16_t GroupID,
+                                     std::string GroupName);
+  stlab::future<uint8_t> ZdoExtCountAllGroups();
+
   // ZDO events
   boost::signals2::signal<void(DeviceState)> zdo_on_state_change_;
   boost::signals2::signal<void(uint8_t)> zdo_on_permit_join_;
@@ -130,6 +140,9 @@ class ZnpApi {
       ZnpCommand command);
   stlab::future<std::vector<uint8_t>> RawSReq(
       ZnpCommand command, const std::vector<uint8_t>& payload);
+  stlab::future<std::vector<uint8_t>> RawSReqResponseMatch(
+      ZnpCommand command, std::set<ZnpCommand> possible_responses,
+      const std::vector<uint8_t>& payload);
   static std::vector<uint8_t> CheckStatus(const std::vector<uint8_t>& response);
   static void CheckOnlyStatus(const std::vector<uint8_t>& response);
 

@@ -446,6 +446,10 @@ template <typename... T>
 std::tuple<T...> DecodeT(const std::vector<uint8_t>& data) {
   return Decode<std::tuple<T...>>(data);
 }
+template <typename... T>
+std::tuple<T...> DecodePartialT(const std::vector<uint8_t>& data) {
+	return DecodePartial<std::tuple<T...>>(data);
+}
 
 template <typename T>
 std::size_t EncodedSize(const T& value) {

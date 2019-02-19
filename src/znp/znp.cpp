@@ -193,6 +193,18 @@ std::ostream& operator<<(std::ostream& stream, ZdoCommand command) {
       return stream << "STARTUP_FROM_APP";
     case ZdoCommand::AUTO_FIND_DESTINATION:
       return stream << "AUTO_FIND_DESTINATION";
+	case ZdoCommand::EXT_REMOVE_GROUP:
+	  return stream << "EXT_REMOVE_GROUP";
+	case ZdoCommand::EXT_REMOVE_ALL_GROUP:
+	  return stream << "EXT_REMOVE_ALL_GROUP";
+	case ZdoCommand::EXT_FIND_ALL_GROUPS_ENDPOINT:
+	  return stream << "EXT_FIND_ALL_GROUPS_ENDPOINT";
+	case ZdoCommand::EXT_FIND_GROUP:
+	  return stream << "EXT_FIND_GROUP";
+	case ZdoCommand::EXT_ADD_GROUP:
+	  return stream << "EXT_ADD_GROUP";
+	case ZdoCommand::EXT_COUNT_ALL_GROUPS:
+	  return stream << "EXT_COUNT_ALL_GROUPS";
     case ZdoCommand::NWK_ADDR_RSP:
       return stream << "NWK_ADDR_RSP";
     case ZdoCommand::IEEE_ADDR_RSP:
