@@ -398,6 +398,87 @@ struct FloatEncodeHelper {
   }
 };
 
+template <>
+class EncodeHelper<BindTarget> {
+ public:
+  static inline std::size_t GetSize(const BindTarget& value) {
+    std::size_t size = EncodeHelper<AddrMode>::GetSize(value.GetMode());
+    switch (value.GetMode()) {
+      case AddrMode::NotPresent:
+        return size;
+      case AddrMode::Group:
+        return size + EncodeHelper<uint16_t>::GetSize(value.GetGroupId());
+      case AddrMode::ShortAddress:
+        return size +
+               EncodeHelper<ShortAddress>::GetSize(value.GetShortAddress());
+      case AddrMode::IEEEAddress:
+        return size +
+               EncodeHelper<IEEEAddress>::GetSize(value.GetIEEEAddress()) +
+               EncodeHelper<uint8_t>::GetSize(value.GetEndpoint());
+      case AddrMode::Broadcast:
+        return size;
+    }
+    throw std::runtime_error("Unsupported BindTarget");
+  }
+  static inline void Encode(const BindTarget& value,
+                            EncodeTarget::iterator& begin,
+                            EncodeTarget::iterator end) {
+    auto mode = value.GetMode();
+    EncodeHelper<AddrMode>::Encode(mode, begin, end);
+    switch (mode) {
+      case AddrMode::NotPresent:
+      case AddrMode::Broadcast:
+        return;
+      case AddrMode::Group:
+        EncodeHelper<uint16_t>::Encode(value.GetGroupId(), begin, end);
+        return;
+      case AddrMode::ShortAddress:
+        EncodeHelper<ShortAddress>::Encode(value.GetShortAddress(), begin, end);
+        return;
+      case AddrMode::IEEEAddress:
+        EncodeHelper<IEEEAddress>::Encode(value.GetIEEEAddress(), begin, end);
+        EncodeHelper<uint8_t>::Encode(value.GetEndpoint(), begin, end);
+        return;
+    }
+    throw std::runtime_error("Unsupported BindTarget");
+  }
+  static inline void Decode(BindTarget& value,
+                            EncodeTarget::const_iterator& begin,
+                            EncodeTarget::const_iterator end) {
+    AddrMode mode;
+    EncodeHelper<AddrMode>::Decode(mode, begin, end);
+    switch (mode) {
+      case AddrMode::NotPresent:
+        value.SetNotPresent();
+        return;
+      case AddrMode::Broadcast:
+        value.SetBroadcast();
+        return;
+      case AddrMode::Group: {
+        uint16_t GroupId;
+        EncodeHelper<uint16_t>::Decode(GroupId, begin, end);
+        value.SetGroupId(GroupId);
+        return;
+      }
+      case AddrMode::ShortAddress: {
+        ShortAddress Address;
+        EncodeHelper<ShortAddress>::Decode(Address, begin, end);
+        value.SetShortAddress(Address);
+        return;
+      }
+      case AddrMode::IEEEAddress: {
+        IEEEAddress Address;
+        uint8_t Endpoint;
+        EncodeHelper<IEEEAddress>::Decode(Address, begin, end);
+        EncodeHelper<uint8_t>::Decode(Endpoint, begin, end);
+        value.SetIEEEAddress(Address, Endpoint);
+        return;
+      }
+    }
+    throw std::runtime_error("Unsupported BindTarget");
+  }
+};
+
 template <typename T>
 std::vector<uint8_t> Encode(const T& data) {
   std::vector<uint8_t> target(EncodeHelper<T>::GetSize(data));
@@ -448,7 +529,7 @@ std::tuple<T...> DecodeT(const std::vector<uint8_t>& data) {
 }
 template <typename... T>
 std::tuple<T...> DecodePartialT(const std::vector<uint8_t>& data) {
-	return DecodePartial<std::tuple<T...>>(data);
+  return DecodePartial<std::tuple<T...>>(data);
 }
 
 template <typename T>
