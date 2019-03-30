@@ -74,6 +74,17 @@
         "bug",
         "ideas"
       ]
+    },
+    {
+      "login": "voltagex",
+      "name": "Adam Baxter",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/159567?v=4",
+      "profile": "http://blog.voltagex.org",
+      "contributions": [
+        "infra",
+        "code"
+      ]
     }
-  ]
+  ],
+  "contributorsPerLine": 7
 }
