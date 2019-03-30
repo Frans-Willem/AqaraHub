@@ -113,6 +113,46 @@ global commands
 0x0002 "Device Temperature Configuration"
 0x0003 "Identify"
 0x0004 "Groups"
+{
+  commands out
+  {
+    0x00 "Add group"
+    {
+      uint16 "Group ID"
+      string "Group Name"
+    }
+    0x01 "View group"
+    0x02 "Get Group Membership"
+    {
+      arr8:uint16 "Group list"
+    }
+    0x03 "Remove group"
+    {
+      uint16 "Group ID"
+    }
+    0x04 "Remove all groups"
+    0x05 "Add group if identifying"
+  }
+  commands in
+  {
+    0x00 "Add group response"
+    {
+      uint8 "Status"
+      uint16 "Group ID"
+    }
+    0x01 "View group response"
+    0x02 "Get group membership response"
+    {
+      uint8 "Capacity"
+      arr8:uint16 "Group list"
+    }
+    0x03 "Remove group response"
+    {
+      uint8 "Status"
+      uint16 "Group ID"
+    }
+  }
+}
 0x0005 "Scenes"
 0x0006 "On/Off"
 {
@@ -932,3 +972,40 @@ global commands
 0x0B04 "Electrical Measurement"
 0x0B05 "Diagnostics"
 0x1000 "Touchlink Commissioning"
+{
+  commands out
+  {
+    0x00 "Scan"
+    0x02 "Device information"
+    0x06 "Identify"
+    0x07 "Reset to factory new"
+    0x10 "Network start"
+    0x12 "Network join router"
+    0x14 "Network join end device"
+    0x16 "Network update"
+    0x41 "Get group identifiers"
+    {
+      uint8 "Start index"
+    }
+    0x42 "Get endpoint list"
+  }
+  commands in
+  {
+    0x01 "Scan response"
+    0x03 "Device information response"
+    0x11 "Network start response"
+    0x13 "Network join router response"
+    0x15 "Network join end device response"
+    0x40 "Endpoint information"
+    0x41 "Get group identifiers response"
+    {
+      uint8 "Total"
+      uint8 "Start index"
+      arr8:object {
+        uint16 "Group identifier"
+        uint8 "Group type"
+      }
+    }
+    0x42 "Get endpoint list response"
+  }
+}
