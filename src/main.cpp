@@ -41,8 +41,7 @@ struct FullConfiguration {
 
   bool operator==(const FullConfiguration& other) const {
     return this->startup_option == other.startup_option &&
-           (this->pan_id == other.pan_id ||
-            this->pan_id == 0xFFFF ||
+           (this->pan_id == other.pan_id || this->pan_id == 0xFFFF ||
             other.pan_id == 0xFFFF) &&
            this->extended_pan_id == other.extended_pan_id &&
            this->chan_list == other.chan_list &&
@@ -577,8 +576,7 @@ void OnZclCommand(std::shared_ptr<clusterdb::ClusterDb> cluster_db,
 }
 
 std::shared_ptr<zcl::ZclEndpoint> Initialize(
-    coro::Await await, std::shared_ptr<znp::ZnpApi> api,
-    uint16_t pan_id,
+    coro::Await await, std::shared_ptr<znp::ZnpApi> api, uint16_t pan_id,
     std::array<uint8_t, 16> presharedkey,
     std::shared_ptr<MqttWrapper> mqtt_wrapper, std::string mqtt_prefix,
     bool mqtt_recursive_publish,
@@ -759,7 +757,7 @@ int main(int argc, const char** argv) {
   port->on_sent_.connect(std::bind(OnFrameDebug, ">>", std::placeholders::_1,
                                    std::placeholders::_2,
                                    std::placeholders::_3));
-  auto api = std::make_shared<znp::ZnpApi>(port);
+  auto api = std::make_shared<znp::ZnpApi>(io_service, port);
 
   LOG("Main", info) << "Setting up MQTT connection";
 
@@ -831,8 +829,8 @@ int main(int argc, const char** argv) {
   int exit_code = EXIT_SUCCESS;
   auto endpoint =
       coro::Run(AsioExecutor(io_service), Initialize, api,
-                variables["panid"].as<uint16_t>(), presharedkey,
-                mqtt_wrapper, mqtt_prefix, mqtt_recursive_publish, cluster_db)
+                variables["panid"].as<uint16_t>(), presharedkey, mqtt_wrapper,
+                mqtt_prefix, mqtt_recursive_publish, cluster_db)
           .then([](auto r) {
             LOG("Main", info) << "Initialization complete!";
             return r;
