@@ -61,7 +61,7 @@ To run AqaraHub, several things are needed:
 - One or more Xiaomi Aqara devices
 
 ### Flashing the Zigbee dongle
-The Zigbee dongle should be running the "Pro-Secure\_LinkKeyJoin" firmware, available [here](https://github.com/mtornblad/zstack-1.2.2a.44539/blob/master/CC2531/CC2531ZNP-Pro-Secure_LinkKeyJoin.hex). You can use CC-Tool from [here](https://sourceforge.net/projects/cctool/files/) or [here](https://github.com/dashesy/cc-tool) to flash it to the dongle.
+The Zigbee dongle should be running the Z-Stack firmware modified by [Koenkk](https://github.com/Koenkk), available [here](https://github.com/Koenkk/Z-Stack-firmware/tree/master/coordinator/CC2531/bin). You can use CC-Tool from [here](https://sourceforge.net/projects/cctool/files/) or [here](https://github.com/dashesy/cc-tool) to flash it to the dongle.
 
 I've succesfully flashed my device using the following steps:
 ```
@@ -69,12 +69,13 @@ git clone https://github.com/dashesy/cc-tool.git
 cd cc-tool
 ./configure
 make
-wget https://raw.githubusercontent.com/mtornblad/zstack-1.2.2a.44539/master/CC2531/CC2531ZNP-Pro-Secure_LinkKeyJoin.hex
+wget https://github.com/Koenkk/Z-Stack-firmware/raw/master/coordinator/CC2531/bin/CC2531ZNP-Prod_20190223.zip
+unzip CC2531ZNP-Prod_20190223.zip
 ```
 Next connect the programmer to the dongle. Note that there is a very small "1" on one side of the plug on the dongle, and a "10" on the other side. The cable should be plugged in to have the red wire on the side of the "1". Then connect the USB dongle to the computer, and finally plug in the programmer to the computer. I'm not entirely sure why, but any other order does not appear to work for me.
 Finally, instruct cc-tool to flash the firmware:
 ```
-sudo ./cc-tool -e -w CC2531ZNP-Pro-Secure_LinkKeyJoin.hex
+sudo ./cc-tool -e -w CC2531ZNP-Prod.hex
 ```
 Note that I'm using sudo as otherwise cc-tool is unable to use libusb, for some reason. This is not the safest decision. If anyone knows the proper way to give this executable access to libusb, please let me know!
 
