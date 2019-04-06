@@ -154,6 +154,76 @@ global commands
   }
 }
 0x0005 "Scenes"
+{
+  attributes
+  {
+    0x0000 "SceneCount"
+    {
+      type uint8
+    }
+    0x0001 "CurrentScene"
+    {
+      type uint8
+    }
+    0x0002 "CurrentGroup"
+    {
+      type uint16
+    }
+    0x0003 "SceneValid"
+    {
+      type bool
+    }
+    0x0004 "NameSupport"
+    {
+      type map8
+    }
+    0x0005 "LastConfiguredBy"
+    {
+      type EUI64
+    }
+  }
+  commands clientToServer
+  {
+    0x00 "Add Scene"
+    0x01 "View Scene"
+    0x02 "Remove Scene"
+    0x03 "Remove All Scenes"
+    0x04 "Store Scene"
+    0x05 "Recall Scene"
+    0x06 "Get Scene Membership"
+    0x07 "Tradfri Click"
+    {
+      uint8 "Direction"
+      uint8 "Unknown1"
+      uint16 "Unknown2"
+    }
+    0x08 "Tradfri Hold"
+    {
+      uint8 "Direction"
+      uint16 "Unknown2"
+    }
+    0x09 "Tradfri Release"
+    {
+      uint16 "durationMs"
+    }
+    0x40 "Enhanced Add Scene"
+    0x41 "Enhanced View Scene"
+    0x42 "Copy Scene"
+  }
+  commands serverToClient
+  {
+    0x00 "Add Scene Response"
+    0x01 "View Scene Response"
+    0x02 "Remove Scene Response"
+    0x03 "Remove All Scenes Response"
+    0x04 "Store Scene Response"
+    0x05 "Recall Scene Response"
+    0x06 "Get Scene Membership Response"
+    0x40 "Enhanced Add Scene Response"
+    0x41 "Enhanced View Scene Response"
+    0x42 "Copy Scene Response"
+  }
+}
 0x0006 "On/Off"
 {
   attributes
