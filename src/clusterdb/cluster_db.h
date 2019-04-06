@@ -16,8 +16,12 @@ class ClusterDb {
       const std::string& name) const;
   boost::optional<const CommandInfo&> GlobalCommandById(
       const zcl::ZclCommandId& id) const;
-  boost::optional<const CommandInfo&> CommandOutByName(
-      const zcl::ZclClusterId& cluster_id, const std::string& name);
+  boost::optional<const CommandInfo&> CommandByName(
+      const zcl::ZclClusterId& cluster_id, zcl::ZclDirection direction,
+      const std::string& name) const;
+  boost::optional<const CommandInfo&> CommandById(
+      const zcl::ZclClusterId& cluster_id, const zcl::ZclCommandId& id,
+      bool is_global, zcl::ZclDirection direction) const;
 
   bool ParseFromFile(const std::string& filename,
                      std::function<std::string(std::string)> name_mangler);

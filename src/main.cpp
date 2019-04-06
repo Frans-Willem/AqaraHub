@@ -178,6 +178,7 @@ void SendCommand(std::shared_ptr<znp::ZnpApi> api,
                                  << (unsigned int)short_address;
         return endpoint->SendCommand(short_address, destination_endpoint,
                                      cluster_info->id, command_info->is_global,
+                                     zcl::ZclDirection::ClientToServer,
                                      command_info->id, payload);
       })
       .recover([](auto f) {
@@ -211,8 +212,8 @@ void OnPublishCommandLong(std::shared_ptr<znp::ZnpApi> api,
         << "Unable to look up cluster info for '" << cluster_name << "'";
     return;
   }
-  auto command_info =
-      cluster_db->CommandOutByName(cluster_info->id, command_name);
+  auto command_info = cluster_db->CommandByName(
+      cluster_info->id, zcl::ZclDirection::ClientToServer, command_name);
   if (!command_info) {
     LOG("OnPublishCommandLong", warning)
         << "Unable to look up command info for '" << command_name
@@ -271,8 +272,9 @@ void OnPublishCommandShort(std::shared_ptr<znp::ZnpApi> api,
         << "JSON object did not contain a 'command' property";
     return;
   }
-  auto command_info = cluster_db->CommandOutByName(
-      cluster_info->id, found_command->second.get_string());
+  auto command_info = cluster_db->CommandByName(
+      cluster_info->id, zcl::ZclDirection::ClientToServer,
+      found_command->second.get_string());
   if (!command_info) {
     LOG("OnPublishCommandShort", error)
         << "Command with name '" << found_command->second.get_string()
@@ -530,7 +532,8 @@ void OnZclCommand(std::shared_ptr<clusterdb::ClusterDb> cluster_db,
                   std::string mqtt_prefix, bool mqtt_recursive_publish,
                   znp::ShortAddress source_address, uint8_t source_endpoint,
                   zcl::ZclClusterId cluster_id, bool is_global_command,
-                  zcl::ZclCommandId command_id, std::vector<uint8_t> payload) {
+                  zcl::ZclDirection direction, zcl::ZclCommandId command_id,
+                  std::vector<uint8_t> payload) {
   auto cluster_info = cluster_db->ClusterById(cluster_id);
   if (!cluster_info) {
     LOG("OnZclCommand", warning)
@@ -538,12 +541,8 @@ void OnZclCommand(std::shared_ptr<clusterdb::ClusterDb> cluster_db,
                       (unsigned int)cluster_id);
     return;
   }
-  boost::optional<const clusterdb::CommandInfo&> command_info;
-  if (is_global_command) {
-    command_info = cluster_db->GlobalCommandById(command_id);
-  } else {
-    command_info = cluster_info->commands_in.FindById(command_id);
-  }
+  boost::optional<const clusterdb::CommandInfo&> command_info =
+      cluster_db->CommandById(cluster_id, command_id, is_global_command, direction);
   if (!command_info) {
     LOG("OnZclCommand", warning) << boost::str(
         boost::format("Unknown command ID 0x%02X in cluster '%s', ignoring") %
@@ -635,11 +634,12 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
       [cluster_db, weak_api, mqtt_wrapper, mqtt_prefix, mqtt_recursive_publish](
           znp::ShortAddress source_address, uint8_t source_endpoint,
           zcl::ZclClusterId cluster_id, bool is_global_command,
-          zcl::ZclCommandId command_id, std::vector<uint8_t> payload) {
+          zcl::ZclDirection direction, zcl::ZclCommandId command_id,
+          std::vector<uint8_t> payload) {
         if (auto api = weak_api.lock()) {
           OnZclCommand(cluster_db, api, mqtt_wrapper, mqtt_prefix,
                        mqtt_recursive_publish, source_address, source_endpoint,
-                       cluster_id, is_global_command, command_id,
+                       cluster_id, is_global_command, direction, command_id,
                        std::move(payload));
         }
       });

@@ -114,7 +114,7 @@ global commands
 0x0003 "Identify"
 0x0004 "Groups"
 {
-  commands out
+  commands clientToServer
   {
     0x00 "Add group"
     {
@@ -133,7 +133,7 @@ global commands
     0x04 "Remove all groups"
     0x05 "Add group if identifying"
   }
-  commands in
+  commands serverToClient
   {
     0x00 "Add group response"
     {
@@ -175,7 +175,7 @@ global commands
       type uint16
     }
   }
-  commands out
+  commands clientToServer
   {
     0x00 "Off"
     0x01 "On"
@@ -219,7 +219,7 @@ global commands
       type uint16
     }
   }
-  commands out
+  commands clientToServer
   {
     0x00 "Move to Level"
     {
@@ -420,7 +420,7 @@ global commands
       type uint8
     }
   }
-  commands out
+  commands clientToServer
   {
     0x00 "UpOpen"
     0x01 "DownClose"
@@ -649,7 +649,7 @@ global commands
       type uint16
     }
   }
-  commands out
+  commands clientToServer
   {
     0x00 "Move to Hue"
     {
@@ -910,13 +910,13 @@ global commands
       type uint8
     }
   }
-  commands out
+  commands clientToServer
   {
     0x00 "Zone Enroll Response"
     0x01 "Initiate Normal Operation Mode"
     0x02 "Initiate Test Mode"
   }
-  commands in
+  commands serverToClient
   {
     0x00 "Zone Status Change Notification"
     {
@@ -973,7 +973,7 @@ global commands
 0x0B05 "Diagnostics"
 0x1000 "Touchlink Commissioning"
 {
-  commands out
+  commands clientToServer
   {
     0x00 "Scan"
     0x02 "Device information"
@@ -989,7 +989,7 @@ global commands
     }
     0x42 "Get endpoint list"
   }
-  commands in
+  commands serverToClient
   {
     0x01 "Scan response"
     0x03 "Device information response"
