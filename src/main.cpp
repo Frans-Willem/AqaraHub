@@ -320,7 +320,6 @@ void OnPublish(std::shared_ptr<znp::ZnpApi> api,
       return;
     }
 
-
     static std::regex re_command_short("([0-9a-fA-F]+)/([0-9]+)/out/([^/]+)");
     if (std::regex_match(topic, match, re_command_short)) {
       OnPublishCommandShort(api, endpoint, cluster_db,
@@ -422,8 +421,9 @@ stlab::future<void> PublishValue(std::shared_ptr<MqttWrapper> mqtt_wrapper,
   if (futures.size() == 1) {
     return futures[0];
   } else {
-    return stlab::when_all(stlab::immediate_executor, []() {},
-                           std::make_pair(futures.begin(), futures.end()));
+    return stlab::when_all(
+        stlab::immediate_executor, []() {},
+        std::make_pair(futures.begin(), futures.end()));
   }
 }
 
@@ -520,8 +520,9 @@ void OnZclCommand(std::shared_ptr<MqttWrapper> mqtt_wrapper,
   if (futures.size() == 1) {
     futures[0].detach();
   } else {
-    stlab::when_all(stlab::immediate_executor, []() {},
-                    std::make_pair(futures.begin(), futures.end()))
+    stlab::when_all(
+        stlab::immediate_executor, []() {},
+        std::make_pair(futures.begin(), futures.end()))
         .detach();
   }
 }
