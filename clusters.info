@@ -113,7 +113,117 @@ global commands
 0x0002 "Device Temperature Configuration"
 0x0003 "Identify"
 0x0004 "Groups"
+{
+  commands clientToServer
+  {
+    0x00 "Add group"
+    {
+      uint16 "Group ID"
+      string "Group Name"
+    }
+    0x01 "View group"
+    0x02 "Get Group Membership"
+    {
+      arr8:uint16 "Group list"
+    }
+    0x03 "Remove group"
+    {
+      uint16 "Group ID"
+    }
+    0x04 "Remove all groups"
+    0x05 "Add group if identifying"
+  }
+  commands serverToClient
+  {
+    0x00 "Add group response"
+    {
+      uint8 "Status"
+      uint16 "Group ID"
+    }
+    0x01 "View group response"
+    0x02 "Get group membership response"
+    {
+      uint8 "Capacity"
+      arr8:uint16 "Group list"
+    }
+    0x03 "Remove group response"
+    {
+      uint8 "Status"
+      uint16 "Group ID"
+    }
+  }
+}
 0x0005 "Scenes"
+{
+  attributes
+  {
+    0x0000 "SceneCount"
+    {
+      type uint8
+    }
+    0x0001 "CurrentScene"
+    {
+      type uint8
+    }
+    0x0002 "CurrentGroup"
+    {
+      type uint16
+    }
+    0x0003 "SceneValid"
+    {
+      type bool
+    }
+    0x0004 "NameSupport"
+    {
+      type map8
+    }
+    0x0005 "LastConfiguredBy"
+    {
+      type EUI64
+    }
+  }
+  commands clientToServer
+  {
+    0x00 "Add Scene"
+    0x01 "View Scene"
+    0x02 "Remove Scene"
+    0x03 "Remove All Scenes"
+    0x04 "Store Scene"
+    0x05 "Recall Scene"
+    0x06 "Get Scene Membership"
+    0x07 "Tradfri Click"
+    {
+      uint8 "Direction"
+      uint8 "Unknown1"
+      uint16 "Unknown2"
+    }
+    0x08 "Tradfri Hold"
+    {
+      uint8 "Direction"
+      uint16 "Unknown2"
+    }
+    0x09 "Tradfri Release"
+    {
+      uint16 "durationMs"
+    }
+    0x40 "Enhanced Add Scene"
+    0x41 "Enhanced View Scene"
+    0x42 "Copy Scene"
+  }
+  commands serverToClient
+  {
+    0x00 "Add Scene Response"
+    0x01 "View Scene Response"
+    0x02 "Remove Scene Response"
+    0x03 "Remove All Scenes Response"
+    0x04 "Store Scene Response"
+    0x05 "Recall Scene Response"
+    0x06 "Get Scene Membership Response"
+    0x40 "Enhanced Add Scene Response"
+    0x41 "Enhanced View Scene Response"
+    0x42 "Copy Scene Response"
+  }
+}
 0x0006 "On/Off"
 {
   attributes
@@ -135,7 +245,7 @@ global commands
       type uint16
     }
   }
-  commands out
+  commands clientToServer
   {
     0x00 "Off"
     0x01 "On"
@@ -179,7 +289,7 @@ global commands
       type uint16
     }
   }
-  commands out
+  commands clientToServer
   {
     0x00 "Move to Level"
     {
@@ -380,7 +490,7 @@ global commands
       type uint8
     }
   }
-  commands out
+  commands clientToServer
   {
     0x00 "UpOpen"
     0x01 "DownClose"
@@ -609,7 +719,7 @@ global commands
       type uint16
     }
   }
-  commands out
+  commands clientToServer
   {
     0x00 "Move to Hue"
     {
@@ -870,13 +980,13 @@ global commands
       type uint8
     }
   }
-  commands out
+  commands clientToServer
   {
     0x00 "Zone Enroll Response"
     0x01 "Initiate Normal Operation Mode"
     0x02 "Initiate Test Mode"
   }
-  commands in
+  commands serverToClient
   {
     0x00 "Zone Status Change Notification"
     {
@@ -932,3 +1042,40 @@ global commands
 0x0B04 "Electrical Measurement"
 0x0B05 "Diagnostics"
 0x1000 "Touchlink Commissioning"
+{
+  commands clientToServer
+  {
+    0x00 "Scan"
+    0x02 "Device information"
+    0x06 "Identify"
+    0x07 "Reset to factory new"
+    0x10 "Network start"
+    0x12 "Network join router"
+    0x14 "Network join end device"
+    0x16 "Network update"
+    0x41 "Get group identifiers"
+    {
+      uint8 "Start index"
+    }
+    0x42 "Get endpoint list"
+  }
+  commands serverToClient
+  {
+    0x01 "Scan response"
+    0x03 "Device information response"
+    0x11 "Network start response"
+    0x13 "Network join router response"
+    0x15 "Network join end device response"
+    0x40 "Endpoint information"
+    0x41 "Get group identifiers response"
+    {
+      uint8 "Total"
+      uint8 "Start index"
+      arr8:object {
+        uint16 "Group identifier"
+        uint8 "Group type"
+      }
+    }
+    0x42 "Get endpoint list response"
+  }
+}

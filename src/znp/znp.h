@@ -120,6 +120,12 @@ enum class ZdoCommand : uint8_t {
   MGS_CB_REMOVE = 0x3F,
   STARTUP_FROM_APP = 0x40,
   AUTO_FIND_DESTINATION = 0x41,
+  EXT_REMOVE_GROUP = 0x47,
+  EXT_REMOVE_ALL_GROUP = 0x48,
+  EXT_FIND_ALL_GROUPS_ENDPOINT = 0x49,
+  EXT_FIND_GROUP = 0x4A,
+  EXT_ADD_GROUP = 0x4B,
+  EXT_COUNT_ALL_GROUPS = 0x4C,
   NWK_ADDR_RSP = 0x80,
   IEEE_ADDR_RSP = 0x81,
   NODE_DESC_RSP = 0x82,
@@ -477,5 +483,32 @@ enum class NvItemId : uint16_t {
   ZCD_NV_SAPI_ENDPOINT = 0x00A1,
   ZCD_NV_RF_TEST_PARAMS = 0x0F07
 };
+class BindTarget {
+ public:
+  BindTarget();
+  AddrMode GetMode() const;
+  uint16_t GetGroupId() const;
+  ShortAddress GetShortAddress() const;
+  IEEEAddress GetIEEEAddress() const;
+  uint8_t GetEndpoint() const;
+  void SetNotPresent();
+  void SetGroupId(uint16_t GroupId);
+  void SetShortAddress(ShortAddress Address);
+  void SetIEEEAddress(IEEEAddress Address, uint8_t Endpoint);
+  void SetBroadcast();
+
+ private:
+  AddrMode mode_;
+  uint64_t address_;
+  uint8_t endpoint_;
+
+  friend std::ostream& operator<<(std::ostream& stream, BindTarget target);
+};
 }  // namespace znp
+BOOST_FUSION_DEFINE_STRUCT((znp), BindTableEntry,
+                           (znp::IEEEAddress, SrcAddr)(uint8_t, SrcEndpoint)(
+                               uint16_t, ClusterId)(znp::BindTarget, Target))
+namespace znp {
+std::ostream& operator<<(std::ostream& stream, BindTableEntry entry);
+}
 #endif  //_ZNP_H_

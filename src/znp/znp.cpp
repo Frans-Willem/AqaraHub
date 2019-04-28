@@ -193,6 +193,18 @@ std::ostream& operator<<(std::ostream& stream, ZdoCommand command) {
       return stream << "STARTUP_FROM_APP";
     case ZdoCommand::AUTO_FIND_DESTINATION:
       return stream << "AUTO_FIND_DESTINATION";
+    case ZdoCommand::EXT_REMOVE_GROUP:
+      return stream << "EXT_REMOVE_GROUP";
+    case ZdoCommand::EXT_REMOVE_ALL_GROUP:
+      return stream << "EXT_REMOVE_ALL_GROUP";
+    case ZdoCommand::EXT_FIND_ALL_GROUPS_ENDPOINT:
+      return stream << "EXT_FIND_ALL_GROUPS_ENDPOINT";
+    case ZdoCommand::EXT_FIND_GROUP:
+      return stream << "EXT_FIND_GROUP";
+    case ZdoCommand::EXT_ADD_GROUP:
+      return stream << "EXT_ADD_GROUP";
+    case ZdoCommand::EXT_COUNT_ALL_GROUPS:
+      return stream << "EXT_COUNT_ALL_GROUPS";
     case ZdoCommand::NWK_ADDR_RSP:
       return stream << "NWK_ADDR_RSP";
     case ZdoCommand::IEEE_ADDR_RSP:
@@ -463,6 +475,68 @@ std::ostream& operator<<(std::ostream& stream, const ResetInfo& info) {
                 << (unsigned int)info.MajorRel << "."
                 << (unsigned int)info.MinorRel << "."
                 << (unsigned int)info.HwRev << "]";
+}
+
+BindTarget::BindTarget() : mode_(AddrMode::NotPresent) {}
+AddrMode BindTarget::GetMode() const { return mode_; }
+uint16_t BindTarget::GetGroupId() const {
+  if (mode_ != AddrMode::Group) return 0;
+  return (uint16_t)(address_ & 0xFFFF);
+}
+ShortAddress BindTarget::GetShortAddress() const {
+  if (mode_ != AddrMode::ShortAddress) return 0;
+  return (ShortAddress)(address_ & 0xFFFF);
+}
+IEEEAddress BindTarget::GetIEEEAddress() const {
+  if (mode_ != AddrMode::IEEEAddress) return 0;
+  return address_;
+}
+uint8_t BindTarget::GetEndpoint() const {
+  if (mode_ != AddrMode::IEEEAddress) return 0;
+  return endpoint_;
+}
+void BindTarget::SetNotPresent() { mode_ = AddrMode::NotPresent; }
+void BindTarget::SetGroupId(uint16_t GroupId) {
+  mode_ = AddrMode::Group;
+  address_ = GroupId;
+}
+void BindTarget::SetShortAddress(ShortAddress Address) {
+  mode_ = AddrMode::ShortAddress;
+  address_ = Address;
+}
+void BindTarget::SetIEEEAddress(IEEEAddress Address, uint8_t Endpoint) {
+  mode_ = AddrMode::IEEEAddress;
+  address_ = Address;
+  endpoint_ = Endpoint;
+}
+void BindTarget::SetBroadcast() { mode_ = AddrMode::Broadcast; }
+
+std::ostream& operator<<(std::ostream& stream, BindTarget target) {
+  switch (target.GetMode()) {
+    case AddrMode::NotPresent:
+      return stream << "[NotPresent]";
+    case AddrMode::Group:
+      return stream << "[Group " << std::hex
+                    << (unsigned int)target.GetGroupId() << "]";
+    case AddrMode::ShortAddress:
+      return stream << "[Short " << std::hex
+                    << (unsigned int)target.GetShortAddress() << "]";
+    case AddrMode::IEEEAddress:
+      return stream << "[IEEE " << std::hex << std::hex
+                    << target.GetIEEEAddress() << " Endpoint " << std::dec
+                    << (unsigned int)target.GetEndpoint() << "]";
+    case AddrMode::Broadcast:
+      return stream << "[Broadcast]";
+    default:
+      return stream << "[Unknown " << std::hex << (unsigned int)target.GetMode()
+                    << "]";
+  }
+}
+std::ostream& operator<<(std::ostream& stream, BindTableEntry entry) {
+  return stream << "[Src [IEEE " << std::hex << entry.SrcAddr << " Endpoint "
+                << std::dec << (unsigned int)entry.SrcEndpoint << "] Cluster "
+                << std::hex << entry.ClusterId << " Dst " << entry.Target
+                << "]";
 }
 
 }  // namespace znp

@@ -63,7 +63,7 @@ void EncodeTyped(const Context& ctx, const ObjectType& object,
                  const tao::json::value& value, std::vector<uint8_t>& target);
 void EncodeTyped(const Context& ctx, const zcl::DataType& datatype,
                  const tao::json::value& value, std::vector<uint8_t>& target);
-void EncodeTyped(const Context& ctx, const GreedyRepeatedType& type,
+void EncodeTyped(const Context& ctx, const ArrayType& type,
                  const tao::json::value& value, std::vector<uint8_t>& target);
 
 void EncodeTyped(const Context& ctx, const VariantType& type,
@@ -346,9 +346,12 @@ void EncodeTyped(const Context& ctx, const zcl::DataType& datatype,
   }
 }
 
-void EncodeTyped(const Context& ctx, const GreedyRepeatedType& type,
+void EncodeTyped(const Context& ctx, const ArrayType& type,
                  const tao::json::value& value, std::vector<uint8_t>& target) {
   const tao::json::value::array_t& array_value = value.get_array();
+  if (type.length_size > 0) {
+	  EncodeInteger(array_value.size(), type.length_size, target);
+  }
   for (const auto& item : array_value) {
     Encode(ctx, type.element_type, item, target);
   }

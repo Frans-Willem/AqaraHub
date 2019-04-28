@@ -49,7 +49,28 @@ bool ParseTypeFromPTree(dynamic_encoding::AnyType& type,
                         const boost::property_tree::ptree& tree,
                         std::function<std::string(std::string)> name_mangler) {
   if (auto rest_type_name = stringStartsWith(type_name, "repeated:")) {
-    auto parsed_type = dynamic_encoding::GreedyRepeatedType{};
+    auto parsed_type = dynamic_encoding::ArrayType{};
+    parsed_type.length_size = 0;
+    if (!ParseTypeFromPTree(parsed_type.element_type, *rest_type_name, tree,
+                            name_mangler)) {
+      return false;
+    }
+    type = parsed_type;
+    return true;
+  }
+  if (auto rest_type_name = stringStartsWith(type_name, "arr8:")) {
+    auto parsed_type = dynamic_encoding::ArrayType{};
+    parsed_type.length_size = 1;
+    if (!ParseTypeFromPTree(parsed_type.element_type, *rest_type_name, tree,
+                            name_mangler)) {
+      return false;
+    }
+    type = parsed_type;
+    return true;
+  }
+  if (auto rest_type_name = stringStartsWith(type_name, "arr16:")) {
+    auto parsed_type = dynamic_encoding::ArrayType{};
+    parsed_type.length_size = 2;
     if (!ParseTypeFromPTree(parsed_type.element_type, *rest_type_name, tree,
                             name_mangler)) {
       return false;
@@ -173,13 +194,13 @@ bool ParseClusterInfoFromPTree(
         return false;
       }
     } else if (entry.first == "commands") {
-      if (entry.second.data() == "in") {
-        if (!ParseCommandListFromPTree(cluster.commands_in, false, entry.second,
-                                       name_mangler)) {
+      if (entry.second.data() == "serverToClient") {
+        if (!ParseCommandListFromPTree(cluster.commands_serverToClient, false,
+                                       entry.second, name_mangler)) {
           return false;
         }
-      } else if (entry.second.data() == "out") {
-        if (!ParseCommandListFromPTree(cluster.commands_out, false,
+      } else if (entry.second.data() == "clientToServer") {
+        if (!ParseCommandListFromPTree(cluster.commands_clientToServer, false,
                                        entry.second, name_mangler)) {
           return false;
         }
@@ -263,8 +284,9 @@ boost::optional<const CommandInfo&> ClusterDb::GlobalCommandById(
   return ctx_->global_commands.FindById(id);
 }
 
-boost::optional<const CommandInfo&> ClusterDb::CommandOutByName(
-    const zcl::ZclClusterId& cluster_id, const std::string& name) {
+boost::optional<const CommandInfo&> ClusterDb::CommandByName(
+    const zcl::ZclClusterId& cluster_id, zcl::ZclDirection direction,
+    const std::string& name) const {
   auto global_found = GlobalCommandByName(name);
   if (global_found) {
     return global_found;
@@ -273,7 +295,34 @@ boost::optional<const CommandInfo&> ClusterDb::CommandOutByName(
   if (!cluster_found) {
     return boost::none;
   }
-  return cluster_found->commands_out.FindByName(name);
+  switch (direction) {
+    case zcl::ZclDirection::ServerToClient:
+      return cluster_found->commands_serverToClient.FindByName(name);
+    case zcl::ZclDirection::ClientToServer:
+      return cluster_found->commands_clientToServer.FindByName(name);
+    default:
+      return boost::none;
+  }
+}
+
+boost::optional<const CommandInfo&> ClusterDb::CommandById(
+    const zcl::ZclClusterId& cluster_id, const zcl::ZclCommandId& id,
+    bool is_global, zcl::ZclDirection direction) const {
+  if (is_global) {
+    return GlobalCommandById(id);
+  }
+  auto cluster_found = ClusterById(cluster_id);
+  if (!cluster_found) {
+    return boost::none;
+  }
+  switch (direction) {
+    case zcl::ZclDirection::ServerToClient:
+      return cluster_found->commands_serverToClient.FindById(id);
+    case zcl::ZclDirection::ClientToServer:
+      return cluster_found->commands_clientToServer.FindById(id);
+    default:
+      return boost::none;
+  }
 }
 
 bool ClusterDb::ParseFromFile(

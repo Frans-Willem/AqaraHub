@@ -41,8 +41,7 @@ struct FullConfiguration {
 
   bool operator==(const FullConfiguration& other) const {
     return this->startup_option == other.startup_option &&
-           (this->pan_id == other.pan_id ||
-            this->pan_id == 0xFFFF ||
+           (this->pan_id == other.pan_id || this->pan_id == 0xFFFF ||
             other.pan_id == 0xFFFF) &&
            this->extended_pan_id == other.extended_pan_id &&
            this->chan_list == other.chan_list &&
@@ -179,6 +178,7 @@ void SendCommand(std::shared_ptr<znp::ZnpApi> api,
                                  << (unsigned int)short_address;
         return endpoint->SendCommand(short_address, destination_endpoint,
                                      cluster_info->id, command_info->is_global,
+                                     zcl::ZclDirection::ClientToServer,
                                      command_info->id, payload);
       })
       .recover([](auto f) {
@@ -212,8 +212,8 @@ void OnPublishCommandLong(std::shared_ptr<znp::ZnpApi> api,
         << "Unable to look up cluster info for '" << cluster_name << "'";
     return;
   }
-  auto command_info =
-      cluster_db->CommandOutByName(cluster_info->id, command_name);
+  auto command_info = cluster_db->CommandByName(
+      cluster_info->id, zcl::ZclDirection::ClientToServer, command_name);
   if (!command_info) {
     LOG("OnPublishCommandLong", warning)
         << "Unable to look up command info for '" << command_name
@@ -272,8 +272,9 @@ void OnPublishCommandShort(std::shared_ptr<znp::ZnpApi> api,
         << "JSON object did not contain a 'command' property";
     return;
   }
-  auto command_info = cluster_db->CommandOutByName(
-      cluster_info->id, found_command->second.get_string());
+  auto command_info = cluster_db->CommandByName(
+      cluster_info->id, zcl::ZclDirection::ClientToServer,
+      found_command->second.get_string());
   if (!command_info) {
     LOG("OnPublishCommandShort", error)
         << "Command with name '" << found_command->second.get_string()
@@ -318,7 +319,6 @@ void OnPublish(std::shared_ptr<znp::ZnpApi> api,
       OnPublishDirectJoin(api, std::stoull(match[1], 0, 16));
       return;
     }
-
 
     static std::regex re_command_short("([0-9a-fA-F]+)/([0-9]+)/out/([^/]+)");
     if (std::regex_match(topic, match, re_command_short)) {
@@ -421,8 +421,9 @@ stlab::future<void> PublishValue(std::shared_ptr<MqttWrapper> mqtt_wrapper,
   if (futures.size() == 1) {
     return futures[0];
   } else {
-    return stlab::when_all(stlab::immediate_executor, []() {},
-                           std::make_pair(futures.begin(), futures.end()));
+    return stlab::when_all(
+        stlab::immediate_executor, []() {},
+        std::make_pair(futures.begin(), futures.end()));
   }
 }
 
@@ -479,7 +480,7 @@ void OnZclCommand(std::shared_ptr<MqttWrapper> mqtt_wrapper,
   // Is this a repeated object type, with attribId as first property?
   if (command_info->data.properties.size() > 0) {
     if (const auto* repeated_type =
-            boost::relaxed_get<dynamic_encoding::GreedyRepeatedType>(
+            boost::relaxed_get<dynamic_encoding::ArrayType>(
                 &command_info->data.properties[0].type)) {
       if (const auto* repeated_object_type =
               boost::relaxed_get<dynamic_encoding::ObjectType>(
@@ -519,8 +520,9 @@ void OnZclCommand(std::shared_ptr<MqttWrapper> mqtt_wrapper,
   if (futures.size() == 1) {
     futures[0].detach();
   } else {
-    stlab::when_all(stlab::immediate_executor, []() {},
-                    std::make_pair(futures.begin(), futures.end()))
+    stlab::when_all(
+        stlab::immediate_executor, []() {},
+        std::make_pair(futures.begin(), futures.end()))
         .detach();
   }
 }
@@ -531,7 +533,8 @@ void OnZclCommand(std::shared_ptr<clusterdb::ClusterDb> cluster_db,
                   std::string mqtt_prefix, bool mqtt_recursive_publish,
                   znp::ShortAddress source_address, uint8_t source_endpoint,
                   zcl::ZclClusterId cluster_id, bool is_global_command,
-                  zcl::ZclCommandId command_id, std::vector<uint8_t> payload) {
+                  zcl::ZclDirection direction, zcl::ZclCommandId command_id,
+                  std::vector<uint8_t> payload) {
   auto cluster_info = cluster_db->ClusterById(cluster_id);
   if (!cluster_info) {
     LOG("OnZclCommand", warning)
@@ -539,12 +542,8 @@ void OnZclCommand(std::shared_ptr<clusterdb::ClusterDb> cluster_db,
                       (unsigned int)cluster_id);
     return;
   }
-  boost::optional<const clusterdb::CommandInfo&> command_info;
-  if (is_global_command) {
-    command_info = cluster_db->GlobalCommandById(command_id);
-  } else {
-    command_info = cluster_info->commands_in.FindById(command_id);
-  }
+  boost::optional<const clusterdb::CommandInfo&> command_info =
+      cluster_db->CommandById(cluster_id, command_id, is_global_command, direction);
   if (!command_info) {
     LOG("OnZclCommand", warning) << boost::str(
         boost::format("Unknown command ID 0x%02X in cluster '%s', ignoring") %
@@ -577,8 +576,7 @@ void OnZclCommand(std::shared_ptr<clusterdb::ClusterDb> cluster_db,
 }
 
 std::shared_ptr<zcl::ZclEndpoint> Initialize(
-    coro::Await await, std::shared_ptr<znp::ZnpApi> api,
-    uint16_t pan_id,
+    coro::Await await, std::shared_ptr<znp::ZnpApi> api, uint16_t pan_id,
     std::array<uint8_t, 16> presharedkey,
     std::shared_ptr<MqttWrapper> mqtt_wrapper, std::string mqtt_prefix,
     bool mqtt_recursive_publish,
@@ -637,11 +635,12 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
       [cluster_db, weak_api, mqtt_wrapper, mqtt_prefix, mqtt_recursive_publish](
           znp::ShortAddress source_address, uint8_t source_endpoint,
           zcl::ZclClusterId cluster_id, bool is_global_command,
-          zcl::ZclCommandId command_id, std::vector<uint8_t> payload) {
+          zcl::ZclDirection direction, zcl::ZclCommandId command_id,
+          std::vector<uint8_t> payload) {
         if (auto api = weak_api.lock()) {
           OnZclCommand(cluster_db, api, mqtt_wrapper, mqtt_prefix,
                        mqtt_recursive_publish, source_address, source_endpoint,
-                       cluster_id, is_global_command, command_id,
+                       cluster_id, is_global_command, direction, command_id,
                        std::move(payload));
         }
       });
@@ -759,7 +758,7 @@ int main(int argc, const char** argv) {
   port->on_sent_.connect(std::bind(OnFrameDebug, ">>", std::placeholders::_1,
                                    std::placeholders::_2,
                                    std::placeholders::_3));
-  auto api = std::make_shared<znp::ZnpApi>(port);
+  auto api = std::make_shared<znp::ZnpApi>(io_service, port);
 
   LOG("Main", info) << "Setting up MQTT connection";
 
@@ -831,8 +830,8 @@ int main(int argc, const char** argv) {
   int exit_code = EXIT_SUCCESS;
   auto endpoint =
       coro::Run(AsioExecutor(io_service), Initialize, api,
-                variables["panid"].as<uint16_t>(), presharedkey,
-                mqtt_wrapper, mqtt_prefix, mqtt_recursive_publish, cluster_db)
+                variables["panid"].as<uint16_t>(), presharedkey, mqtt_wrapper,
+                mqtt_prefix, mqtt_recursive_publish, cluster_db)
           .then([](auto r) {
             LOG("Main", info) << "Initialization complete!";
             return r;

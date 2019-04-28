@@ -28,13 +28,14 @@ class ZclEndpoint : public std::enable_shared_from_this<ZclEndpoint> {
   stlab::future<void> SendCommand(znp::ShortAddress address, uint8_t endpoint,
                                   ZclClusterId cluster_id,
                                   bool is_global_command,
+                                  ZclDirection direction,
                                   ZclCommandId command_id,
                                   std::vector<uint8_t> payload);
 
-  boost::signals2::signal<void(znp::ShortAddress source_address,
-                               uint8_t source_endpoint, ZclClusterId cluster_id,
-                               bool is_global_command, ZclCommandId command_id,
-                               std::vector<uint8_t> payload)>
+  boost::signals2::signal<void(
+      znp::ShortAddress source_address, uint8_t source_endpoint,
+      ZclClusterId cluster_id, bool is_global_command, ZclDirection direction,
+      ZclCommandId command_id, std::vector<uint8_t> payload)>
       on_command_;
 
  private:

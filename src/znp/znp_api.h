@@ -1,6 +1,7 @@
 #ifndef _ZNP_API_H_
 #define _ZNP_API_H_
 #include <bitset>
+#include <boost/asio/io_service.hpp>
 #include <boost/signals2/signal.hpp>
 #include <map>
 #include <queue>
@@ -16,7 +17,8 @@
 namespace znp {
 class ZnpApi {
  public:
-  ZnpApi(std::shared_ptr<ZnpRawInterface> interface);
+  ZnpApi(boost::asio::io_service& io_service,
+         std::shared_ptr<ZnpRawInterface> interface);
   ~ZnpApi() = default;
 
   // SYS commands
@@ -65,6 +67,24 @@ class ZnpApi {
   stlab::future<StartupFromAppResponse> ZdoStartupFromApp(
       uint16_t start_delay_ms);
 
+  stlab::future<void> ZdoBind(ShortAddress DstAddr, IEEEAddress SrcAddress,
+                              uint8_t SrcEndpoint, uint16_t ClusterId,
+                              BindTarget target);
+  stlab::future<void> ZdoUnbind(ShortAddress DstAddr, IEEEAddress SrcAddress,
+                                uint8_t SrcEndpoint, uint16_t ClusterId,
+                                BindTarget target);
+  stlab::future<std::tuple<uint8_t, uint8_t, std::vector<BindTableEntry>>>
+  ZdoMgmtBindReq(ShortAddress DstAddr, uint8_t StartIndex);
+  stlab::future<void> ZdoExtRemoveGroup(uint8_t Endpoint, uint16_t GroupID);
+  stlab::future<void> ZdoExtRemoveAllGroup(uint8_t Endpoint);
+  stlab::future<std::vector<uint16_t>> ZdoExtFindAllGroupsEndpoint(
+      uint8_t Endpoint);
+  stlab::future<std::string> ZdoExtFindGroup(uint8_t Endpoint,
+                                             uint16_t GroupID);
+  stlab::future<void> ZdoExtAddGroup(uint8_t Endpoint, uint16_t GroupID,
+                                     std::string GroupName);
+  stlab::future<uint8_t> ZdoExtCountAllGroups();
+
   // ZDO events
   boost::signals2::signal<void(DeviceState)> zdo_on_state_change_;
   boost::signals2::signal<void(uint8_t)> zdo_on_permit_join_;
@@ -107,6 +127,7 @@ class ZnpApi {
                                           std::set<DeviceState> allowed_states);
 
  private:
+  boost::asio::io_service& io_service_;
   std::shared_ptr<ZnpRawInterface> raw_;
   boost::signals2::scoped_connection on_frame_connection_;
 
@@ -123,15 +144,23 @@ class ZnpApi {
 
   void OnFrame(ZnpCommandType type, ZnpCommand command,
                const std::vector<uint8_t>& payload);
-  stlab::future<std::vector<uint8_t>> WaitFor(ZnpCommandType type,
-                                              ZnpCommand command);
+  stlab::future<std::vector<uint8_t>> WaitFor(
+      ZnpCommandType type, ZnpCommand command, int timeout_in_seconds = 0,
+      std::vector<uint8_t> data_prefix = std::vector<uint8_t>());
   stlab::future<std::vector<uint8_t>> WaitAfter(
       stlab::future<void> first_request, ZnpCommandType type,
-      ZnpCommand command);
+      ZnpCommand command, int timeout_in_seconds = 0,
+      std::vector<uint8_t> data_prefix = std::vector<uint8_t>());
   stlab::future<std::vector<uint8_t>> RawSReq(
       ZnpCommand command, const std::vector<uint8_t>& payload);
+  stlab::future<std::vector<uint8_t>> RawSReq(
+      ZnpCommand command, std::set<ZnpCommand> possible_responses,
+      const std::vector<uint8_t>& payload);
   static std::vector<uint8_t> CheckStatus(const std::vector<uint8_t>& response);
   static void CheckOnlyStatus(const std::vector<uint8_t>& response);
+  typedef std::function<void()> TimeoutHandler;
+  void AddHandlerWithTimeout(int timeout_in_seconds, FrameHandler handler,
+                             TimeoutHandler timeout_handler);
 
   template <typename... Args>
   void AddSimpleEventHandler(ZnpCommandType type, ZnpCommand command,

@@ -15,12 +15,12 @@ struct Context {
 struct XiaomiFF01Type {};
 struct VariantType {};
 struct ObjectType;
-struct GreedyRepeatedType;
+struct ArrayType;
 struct ErrorOrType;
 
 typedef boost::variant<VariantType, XiaomiFF01Type, zcl::DataType,
                        boost::recursive_wrapper<ObjectType>,
-                       boost::recursive_wrapper<GreedyRepeatedType>,
+                       boost::recursive_wrapper<ArrayType>,
                        boost::recursive_wrapper<ErrorOrType>>
     AnyType;
 
@@ -31,7 +31,9 @@ struct ObjectEntry {
 struct ObjectType {
   std::vector<ObjectEntry> properties;
 };
-struct GreedyRepeatedType {
+struct ArrayType {
+  std::size_t length_size;  // Number of bytes used for length, if 0, greedily
+                            // takes until end of buffer.
   AnyType element_type;
 };
 struct ErrorOrType {
@@ -42,7 +44,7 @@ bool operator==(const VariantType& a, const VariantType& b);
 bool operator==(const XiaomiFF01Type& a, const XiaomiFF01Type& b);
 bool operator==(const ObjectEntry& a, const ObjectEntry& b);
 bool operator==(const ObjectType& a, const ObjectType& b);
-bool operator==(const GreedyRepeatedType& a, const GreedyRepeatedType& b);
+bool operator==(const ArrayType& a, const ArrayType& b);
 bool operator==(const ErrorOrType& a, const ErrorOrType& b);
 }  // namespace dynamic_encoding
 #endif  // _DYNAMIC_ENCODING_COMMON_H_

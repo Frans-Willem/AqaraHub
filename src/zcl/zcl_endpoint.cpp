@@ -50,11 +50,11 @@ void ZclEndpoint::OnIncomingMsg(const znp::IncomingMsg& message) {
   auto frame = znp::Decode<ZclFrame>(message.Data);
   if (frame.frame_type == ZclFrameType::Global) {
     on_command_(message.SrcAddr, message.SrcEndpoint,
-                (ZclClusterId)message.ClusterId, true, frame.command_identifier,
-                frame.payload);
+                (ZclClusterId)message.ClusterId, true, frame.direction,
+                frame.command_identifier, frame.payload);
   } else if (frame.frame_type == ZclFrameType::Local) {
     on_command_(message.SrcAddr, message.SrcEndpoint,
-                (ZclClusterId)message.ClusterId, false,
+                (ZclClusterId)message.ClusterId, false, frame.direction,
                 frame.command_identifier, frame.payload);
   } else {
     LOG("ZclEndpoint", debug) << "Unknown command type";
@@ -65,12 +65,13 @@ stlab::future<void> ZclEndpoint::SendCommand(znp::ShortAddress address,
                                              uint8_t endpoint,
                                              ZclClusterId cluster_id,
                                              bool is_global_command,
+											 ZclDirection direction,
                                              ZclCommandId command_id,
                                              std::vector<uint8_t> payload) {
   ZclFrame frame;
   frame.frame_type =
       is_global_command ? ZclFrameType::Global : ZclFrameType::Local;
-  frame.direction = ZclDirection::ClientToServer;
+  frame.direction = direction;
   frame.disable_default_response = false;
   frame.reserved = 0;
   frame.transaction_sequence_number = NextTransSeqNumFor(address);

@@ -1,4 +1,5 @@
 #include "znp/znp_api.h"
+#include <boost/asio/deadline_timer.hpp>
 #include <sstream>
 #include <stlab/concurrency/immediate_executor.hpp>
 #include <stlab/concurrency/utility.hpp>
@@ -6,8 +7,10 @@
 #include "znp/encoding.h"
 
 namespace znp {
-ZnpApi::ZnpApi(std::shared_ptr<ZnpRawInterface> interface)
-    : raw_(std::move(interface)),
+ZnpApi::ZnpApi(boost::asio::io_service& io_service,
+               std::shared_ptr<ZnpRawInterface> interface)
+    : io_service_(io_service),
+      raw_(std::move(interface)),
       on_frame_connection_(raw_->on_frame_.connect(
           std::bind(&ZnpApi::OnFrame, this, std::placeholders::_1,
                     std::placeholders::_2, std::placeholders::_3))) {
@@ -185,6 +188,96 @@ ZnpApi::ZdoGetLinkKey(IEEEAddress IEEEAddr) {
       .then(&znp::Decode<std::tuple<IEEEAddress, std::array<uint8_t, 16>>>);
 }
 
+stlab::future<void> ZnpApi::ZdoBind(ShortAddress DstAddr,
+                                    IEEEAddress SrcAddress, uint8_t SrcEndpoint,
+                                    uint16_t ClusterId, BindTarget Dst) {
+  return WaitAfter(RawSReq(ZdoCommand::BIND_REQ,
+                           znp::EncodeT(DstAddr, SrcAddress, SrcEndpoint,
+                                        ClusterId, Dst))
+                       .then(&ZnpApi::CheckOnlyStatus),
+                   ZnpCommandType::AREQ, ZdoCommand::BIND_RSP, 15,
+                   znp::Encode(DstAddr))
+      .then(&ZnpApi::CheckOnlyStatus);
+}
+
+stlab::future<void> ZnpApi::ZdoUnbind(ShortAddress DstAddr,
+                                      IEEEAddress SrcAddress,
+                                      uint8_t SrcEndpoint, uint16_t ClusterId,
+                                      BindTarget Dst) {
+  return WaitAfter(RawSReq(ZdoCommand::UNBIND_REQ,
+                           znp::EncodeT(DstAddr, SrcAddress, SrcEndpoint,
+                                        ClusterId, Dst))
+                       .then(&ZnpApi::CheckOnlyStatus),
+                   ZnpCommandType::AREQ, ZdoCommand::UNBIND_RSP, 15,
+                   znp::Encode(DstAddr))
+      .then(&ZnpApi::CheckOnlyStatus);
+}
+
+stlab::future<std::tuple<uint8_t, uint8_t, std::vector<BindTableEntry>>>
+ZnpApi::ZdoMgmtBindReq(ShortAddress DstAddr, uint8_t StartIndex) {
+  return WaitAfter(RawSReq(ZdoCommand::MGMT_BIND_REQ,
+                           znp::EncodeT(DstAddr, StartIndex))
+                       .then(&ZnpApi::CheckOnlyStatus),
+                   ZnpCommandType::AREQ, ZdoCommand::MGMT_BIND_RSP, 15,
+                   znp::Encode(DstAddr))
+      .then(&ZnpApi::CheckStatus)
+      .then(&znp::DecodeT<uint8_t, uint8_t, std::vector<BindTableEntry>>);
+}
+
+stlab::future<void> ZnpApi::ZdoExtRemoveGroup(uint8_t Endpoint,
+                                              uint16_t GroupID) {
+  return RawSReq(ZdoCommand::EXT_REMOVE_GROUP, znp::EncodeT(Endpoint, GroupID))
+      .then(&ZnpApi::CheckOnlyStatus);
+}
+
+stlab::future<void> ZnpApi::ZdoExtRemoveAllGroup(uint8_t Endpoint) {
+  return RawSReq(ZdoCommand::EXT_REMOVE_ALL_GROUP,
+                 std::set<ZnpCommand>{ZdoCommand::EXT_REMOVE_ALL_GROUP,
+                                      ZdoCommand::EXT_REMOVE_GROUP},
+                 znp::EncodeT(Endpoint))
+      .then(&ZnpApi::CheckOnlyStatus);
+}
+
+stlab::future<std::vector<uint16_t>> ZnpApi::ZdoExtFindAllGroupsEndpoint(
+    uint8_t Endpoint) {
+  return RawSReq(ZdoCommand::EXT_FIND_ALL_GROUPS_ENDPOINT,
+                 znp::EncodeT(Endpoint, (uint8_t)0))
+      .then(&znp::Decode<std::vector<uint16_t>>);
+}
+
+stlab::future<std::string> ZnpApi::ZdoExtFindGroup(uint8_t Endpoint,
+                                                   uint16_t GroupID) {
+  return RawSReq(ZdoCommand::EXT_FIND_GROUP, znp::EncodeT(Endpoint, GroupID))
+      .then(&ZnpApi::CheckStatus)
+      .then([GroupID](const std::vector<uint8_t>& result) -> std::string {
+        uint16_t ReceiveGroupId;
+        std::vector<uint8_t> GroupName;
+        std::tie(ReceiveGroupId, GroupName) =
+            znp::DecodePartialT<uint16_t, std::vector<uint8_t>>(result);
+        if (ReceiveGroupId != GroupID) {
+          throw std::runtime_error(
+              "Received GroupID did not match requested GroupID");
+        }
+        return std::string(GroupName.begin(), GroupName.end());
+      });
+}
+
+stlab::future<void> ZnpApi::ZdoExtAddGroup(uint8_t Endpoint, uint16_t GroupID,
+                                           std::string GroupName) {
+  std::vector<uint8_t> GroupNameVec(GroupName.begin(), GroupName.end());
+  if (GroupNameVec.size() > 16) {
+    throw std::runtime_error("Group name is too long");
+  }
+  return RawSReq(ZdoCommand::EXT_ADD_GROUP,
+                 znp::EncodeT(Endpoint, GroupID, GroupNameVec))
+      .then(&ZnpApi::CheckOnlyStatus);
+}
+
+stlab::future<uint8_t> ZnpApi::ZdoExtCountAllGroups() {
+  return RawSReq(ZdoCommand::EXT_COUNT_ALL_GROUPS, std::vector<uint8_t>())
+      .then(&znp::Decode<uint8_t>);
+}
+
 stlab::future<std::vector<uint8_t>> ZnpApi::SapiReadConfigurationRaw(
     ConfigurationOption option) {
   return RawSReq(SapiCommand::READ_CONFIGURATION, znp::Encode(option))
@@ -297,8 +390,9 @@ stlab::future<DeviceState> ZnpApi::WaitForState(
       });
 }
 
-stlab::future<std::vector<uint8_t>> ZnpApi::WaitFor(ZnpCommandType type,
-                                                    ZnpCommand command) {
+stlab::future<std::vector<uint8_t>> ZnpApi::WaitFor(
+    ZnpCommandType type, ZnpCommand command, int timeout_in_seconds,
+    std::vector<uint8_t> data_prefix) {
   auto package = stlab::package<std::vector<uint8_t>(std::exception_ptr,
                                                      std::vector<uint8_t>)>(
       stlab::immediate_executor,
@@ -308,31 +402,54 @@ stlab::future<std::vector<uint8_t>> ZnpApi::WaitFor(ZnpCommandType type,
         }
         return retval;
       });
-  handlers_.push_back(
-      [package, type, command](
+  AddHandlerWithTimeout(
+      timeout_in_seconds,
+      [promise{package.first}, type, command,
+       data_prefix{std::move(data_prefix)}](
           const ZnpCommandType& recvd_type, const ZnpCommand& recvd_command,
           const std::vector<uint8_t>& data) -> FrameHandlerAction {
-        if (recvd_type == type && recvd_command == command) {
-          package.first(nullptr, data);
+        if (recvd_type == type && recvd_command == command &&
+            data.size() >= data_prefix.size() &&
+            memcmp(&data[0], &data_prefix[0], data_prefix.size()) == 0) {
+          if (data_prefix.size() == 0) {
+            promise(nullptr, data);
+          } else {
+            promise(nullptr,
+                    std::vector<uint8_t>(data.cbegin() + data_prefix.size(),
+                                         data.cend()));
+          }
           return {true, true};
         }
         return {false, false};
+      },
+      [promise{package.first}]() {
+        promise(std::make_exception_ptr(std::runtime_error("Timeout")),
+                std::vector<uint8_t>());
       });
   return package.second;
 }
 
 stlab::future<std::vector<uint8_t>> ZnpApi::WaitAfter(
-    stlab::future<void> first_request, ZnpCommandType type,
-    ZnpCommand command) {
+    stlab::future<void> first_request, ZnpCommandType type, ZnpCommand command,
+    int timeout_in_seconds, std::vector<uint8_t> data_prefix) {
   // TODO: Fix lifetime issues here!
-  auto f = first_request.then(
-      [this, type, command]() { return this->WaitFor(type, command); });
+  auto f = first_request.then([this, type, command, timeout_in_seconds,
+                               data_prefix{std::move(data_prefix)}]() {
+    return this->WaitFor(type, command, timeout_in_seconds,
+                         std::move(data_prefix));
+  });
   f.detach();
   return f;
 }
 
 stlab::future<std::vector<uint8_t>> ZnpApi::RawSReq(
     ZnpCommand command, const std::vector<uint8_t>& payload) {
+  return RawSReq(command, std::set<ZnpCommand>{command}, payload);
+}
+
+stlab::future<std::vector<uint8_t>> ZnpApi::RawSReq(
+    ZnpCommand command, std::set<ZnpCommand> possible_responses,
+    const std::vector<uint8_t>& payload) {
   auto package = stlab::package<std::vector<uint8_t>(std::exception_ptr,
                                                      std::vector<uint8_t>)>(
       stlab::immediate_executor,
@@ -342,39 +459,87 @@ stlab::future<std::vector<uint8_t>> ZnpApi::RawSReq(
         }
         return data;
       });
-  handlers_.push_back(
-      [package, command](
-          const ZnpCommandType& type, const ZnpCommand& recvd_command,
-          const std::vector<uint8_t>& data) -> FrameHandlerAction {
-        // Normal response
-        if (type == ZnpCommandType::SRSP && recvd_command == command) {
-          package.first(nullptr, data);
+  handlers_.push_back([package, possible_responses](
+                          const ZnpCommandType& type,
+                          const ZnpCommand& recvd_command,
+                          const std::vector<uint8_t>& data)
+                          -> FrameHandlerAction {
+    // Normal response
+    if (type == ZnpCommandType::SRSP &&
+        possible_responses.find(recvd_command) != possible_responses.end()) {
+      package.first(nullptr, data);
+      return {true, true};
+    }
+    // Possible RPC_Error response
+    if (type == ZnpCommandType::SRSP &&
+        recvd_command == ZnpCommand(ZnpSubsystem::RPC_Error, 0)) {
+      try {
+        auto info = znp::DecodeT<uint8_t, uint8_t, uint8_t>(data);
+        ZnpCommand err_command((ZnpSubsystem)(std::get<1>(info) & 0xF),
+                               std::get<2>(info));
+        ZnpCommandType err_type = (ZnpCommandType)(std::get<1>(info) >> 4);
+        if (err_type == ZnpCommandType::SREQ &&
+            possible_responses.find(err_command) != possible_responses.end()) {
+          std::stringstream ss;
+          ss << "RPC Error: " << (unsigned int)std::get<0>(info);
+          package.first(std::make_exception_ptr(std::runtime_error(ss.str())),
+                        std::vector<uint8_t>());
           return {true, true};
         }
-        // Possible RPC_Error response
-        if (type == ZnpCommandType::SRSP &&
-            recvd_command == ZnpCommand(ZnpSubsystem::RPC_Error, 0)) {
-          try {
-            auto info = znp::DecodeT<uint8_t, uint8_t, uint8_t>(data);
-            ZnpCommand err_command((ZnpSubsystem)(std::get<1>(info) & 0xF),
-                                   std::get<2>(info));
-            ZnpCommandType err_type = (ZnpCommandType)(std::get<1>(info) >> 4);
-            if (err_type == ZnpCommandType::SREQ && err_command == command) {
-              std::stringstream ss;
-              ss << "RPC Error: " << (unsigned int)std::get<0>(info);
-              package.first(
-                  std::make_exception_ptr(std::runtime_error(ss.str())),
-                  std::vector<uint8_t>());
-              return {true, true};
-            }
-          } catch (const std::exception& exc) {
-            LOG("ZnpApi", debug) << "Unable to parse RPCError";
-          }
-        }
-        return {false, false};
-      });
+      } catch (const std::exception& exc) {
+        LOG("ZnpApi", debug) << "Unable to parse RPCError";
+      }
+    }
+    return {false, false};
+  });
   raw_->SendFrame(ZnpCommandType::SREQ, command, payload);
   return package.second;
+}
+
+/**
+ * Handler will be called like normal, until the timeout expires, or if it
+ * returns it should be removed. Timeout handler will be called when the timeout
+ * expires, and the handler hasn't been removed yet.
+ */
+void ZnpApi::AddHandlerWithTimeout(int timeout_in_seconds, FrameHandler handler,
+                                   TimeoutHandler timeout_handler) {
+  if (timeout_in_seconds <= 0) {
+    handlers_.push_back(handler);
+    return;
+  }
+  struct HandlerTimeoutInfo {
+    bool active;
+    boost::asio::deadline_timer timer;
+
+    HandlerTimeoutInfo(boost::asio::io_service& io_service)
+        : timer(io_service) {
+      active = true;
+    }
+  };
+  auto shared_info = std::make_shared<HandlerTimeoutInfo>(io_service_);
+  shared_info->timer.expires_from_now(
+      boost::posix_time::seconds(timeout_in_seconds));
+  shared_info->timer.async_wait(
+      [shared_info, timeout_handler](const boost::system::error_code& ec) {
+        if (!shared_info->active) {
+          return;
+        }
+        shared_info->active = false;
+        timeout_handler();
+      });
+  handlers_.push_back(
+      [shared_info, handler](
+          const ZnpCommandType& type, const ZnpCommand& cmd,
+          const std::vector<uint8_t>& data) -> FrameHandlerAction {
+        if (!shared_info->active) {
+          return {false, true};
+        }
+        FrameHandlerAction action = handler(type, cmd, data);
+        if (action.remove_me) {
+          shared_info->active = false;
+        }
+        return action;
+      });
 }
 
 std::vector<uint8_t> ZnpApi::CheckStatus(const std::vector<uint8_t>& response) {

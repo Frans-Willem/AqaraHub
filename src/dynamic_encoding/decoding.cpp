@@ -237,10 +237,18 @@ struct Decoder {
     return ret;
   }
 
-  tao::json::value operator()(const GreedyRepeatedType& repeated) {
+  tao::json::value operator()(const ArrayType& repeated) {
     tao::json::value::array_t ret;
-    while (begin != end) {
-      ret.push_back(repeated.element_type.apply_visitor(*this));
+    if (repeated.length_size == 0) {
+      while (begin != end) {
+        ret.push_back(repeated.element_type.apply_visitor(*this));
+      }
+    } else {
+      std::size_t length =
+          DecodeInteger<std::size_t>(repeated.length_size, begin, end);
+      while (length--) {
+        ret.push_back(repeated.element_type.apply_visitor(*this));
+      }
     }
     return ret;
   }
