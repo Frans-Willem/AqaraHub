@@ -577,7 +577,7 @@ void OnZclCommand(std::shared_ptr<clusterdb::ClusterDb> cluster_db,
 
 std::shared_ptr<zcl::ZclEndpoint> Initialize(
     coro::Await await, std::shared_ptr<znp::ZnpApi> api, uint16_t pan_id,
-    std::array<uint8_t, 16> presharedkey,
+    uint32_t chan_list, std::array<uint8_t, 16> presharedkey,
     std::shared_ptr<MqttWrapper> mqtt_wrapper, std::string mqtt_prefix,
     bool mqtt_recursive_publish,
     std::shared_ptr<clusterdb::ClusterDb> cluster_db) {
@@ -593,8 +593,7 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
   desired_config.startup_option = znp::StartupOption::None;
   desired_config.pan_id = pan_id;
   desired_config.extended_pan_id = coord_ieee_addr;
-  // TODO: Not entirely sure how to pick a right value for this.
-  desired_config.chan_list = 0x0800;
+  desired_config.chan_list = chan_list;
   desired_config.logical_type = znp::LogicalType::Coordinator;
   desired_config.presharedkey = presharedkey;
   desired_config.precfgkeys_enable = false;
@@ -687,6 +686,8 @@ int main(int argc, const char** argv) {
   boost::program_options::options_description description(
       "Open-source Xiaomi Aqara Zigbee Hub");
 
+  const uint32_t CHANNEL_ALL_MASK = 0x07FFF800;
+  
   // clang-format off
   description.add_options()
     ("help,h",
@@ -714,6 +715,9 @@ int main(int argc, const char** argv) {
      "Boost property-tree info file containing cluster, attribute, and command information")
     ("recursive-publish",
      "Recursively publish object properties and array elements to sub-topics")
+    ("channelmask,c",
+     boost::program_options::value<std::string>()->default_value("0x0800"),
+     "Allowed channel mask. Bit 0 channel 1 to bit 31 channel 32, i.e. channel 11 - 0x0800, channel 26 = 0x04000000")
     ;
   // clang-format on
   boost::program_options::variables_map variables;
@@ -830,7 +834,9 @@ int main(int argc, const char** argv) {
   int exit_code = EXIT_SUCCESS;
   auto endpoint =
       coro::Run(AsioExecutor(io_service), Initialize, api,
-                variables["panid"].as<uint16_t>(), presharedkey, mqtt_wrapper,
+                variables["panid"].as<uint16_t>(),
+		std::stoul(variables["channelmask"].as<std::string>(), nullptr, 0) & CHANNEL_ALL_MASK,
+		presharedkey, mqtt_wrapper,
                 mqtt_prefix, mqtt_recursive_publish, cluster_db)
           .then([](auto r) {
             LOG("Main", info) << "Initialization complete!";
