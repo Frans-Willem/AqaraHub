@@ -84,6 +84,15 @@
         "infra",
         "code"
       ]
+    },
+    {
+      "login": "michlv",
+      "name": "michlv",
+      "avatar_url": "https://avatars1.githubusercontent.com/u/2380381?v=4",
+      "profile": "https://github.com/michlv",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7
