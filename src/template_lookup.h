@@ -28,7 +28,7 @@ template <typename E, E EMIN, E EMAX, typename Base, template <E> class Impl>
 std::map<E, std::unique_ptr<Base>> CreateEnumLookup() {
   std::map<E, std::unique_ptr<Base>> m;
   detail::EnumLookupCreater<E, EMIN, EMAX>::template Insert<Base, Impl>(m);
-  return std::move(m);
+  return m;
 }
 }  // namespace template_lookup
 #endif  // _TEMPLATE_LOOKUP_H_

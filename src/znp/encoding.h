@@ -497,7 +497,7 @@ T DecodePartial(const std::vector<uint8_t>& data) {
   T retval;
   EncodeTarget::const_iterator current = data.begin();
   EncodeHelper<T>::Decode(retval, current, data.end());
-  return std::move(retval);
+  return retval;
 }
 template <typename T>
 T Decode(const std::vector<uint8_t>& data) {
@@ -507,7 +507,7 @@ T Decode(const std::vector<uint8_t>& data) {
   if (current != data.end()) {
     throw std::runtime_error("Decoding failure: Not all bytes parsed");
   }
-  return std::move(retval);
+  return retval;
 }
 
 template <>
