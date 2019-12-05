@@ -107,7 +107,8 @@ Code formatting wise, I try to stick to the [Google C++ Style Guide](https://goo
 Thanks goes to these wonderful people ([emoji key](https://github.com/kentcdodds/all-contributors#emoji-key)):
 
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
-<!-- prettier-ignore -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
 <table>
   <tr>
     <td align="center"><a href="https://github.com/Frans-Willem"><img src="https://avatars3.githubusercontent.com/u/346213?v=4" width="px;" alt="Frans-Willem Hardijzer"/><br /><sub><b>Frans-Willem Hardijzer</b></sub></a><br /><a href="https://github.com/Frans-Willem/AqaraHub/commits?author=Frans-Willem" title="Code">💻</a> <a href="https://github.com/Frans-Willem/AqaraHub/commits?author=Frans-Willem" title="Documentation">📖</a></td>
@@ -121,9 +122,12 @@ Thanks goes to these wonderful people ([emoji key](https://github.com/kentcdodds
   <tr>
     <td align="center"><a href="http://blog.voltagex.org"><img src="https://avatars3.githubusercontent.com/u/159567?v=4" width="px;" alt="Adam Baxter"/><br /><sub><b>Adam Baxter</b></sub></a><br /><a href="#infra-voltagex" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/Frans-Willem/AqaraHub/commits?author=voltagex" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/michlv"><img src="https://avatars1.githubusercontent.com/u/2380381?v=4" width="px;" alt="michlv"/><br /><sub><b>michlv</b></sub></a><br /><a href="https://github.com/Frans-Willem/AqaraHub/commits?author=michlv" title="Code">💻</a></td>
+    <td align="center"><a href="https://github.com/phaethon"><img src="https://avatars1.githubusercontent.com/u/1088890?v=4" width="px;" alt="Eriks Dobelis"/><br /><sub><b>Eriks Dobelis</b></sub></a><br /><a href="https://github.com/Frans-Willem/AqaraHub/commits?author=phaethon" title="Code">💻</a></td>
   </tr>
 </table>
 
+<!-- markdownlint-enable -->
+<!-- prettier-ignore-end -->
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
 This project follows the [all-contributors](https://github.com/kentcdodds/all-contributors) specification. Contributions of any kind welcome!
