@@ -8,12 +8,14 @@ enum class Numbers { One, Two, Three };
 
 class IHandler {
  public:
+  virtual ~IHandler() = default;
   virtual int GetNumber() = 0;
 };
 
 template <Numbers N>
 class CHandler : public IHandler {
  public:
+  virtual ~CHandler() = default;
   virtual int GetNumber() override {
     throw std::runtime_error("Number not implemented");
   }
@@ -22,17 +24,20 @@ class CHandler : public IHandler {
 template <>
 class CHandler<Numbers::One> : public IHandler {
  public:
+  virtual ~CHandler() = default;
   virtual int GetNumber() override { return 1; }
 };
 
 template <>
 class CHandler<Numbers::Two> : public IHandler {
  public:
+  virtual ~CHandler() = default;
   virtual int GetNumber() override { return 2; }
 };
 template <>
 class CHandler<Numbers::Three> : public IHandler {
  public:
+  virtual ~CHandler() = default;
   virtual int GetNumber() override { return 3; }
 };
 

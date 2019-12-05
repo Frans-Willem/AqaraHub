@@ -9,6 +9,7 @@ namespace zcl {
 namespace {
 // Interface all encoding helpers should implement
 struct VariantEncodeHelper {
+  virtual ~VariantEncodeHelper() = default;
   virtual std::size_t GetSize(const zcl::ZclVariant& variant) = 0;
   virtual void Encode(const zcl::ZclVariant& variant,
                       znp::EncodeTarget::iterator& begin,
