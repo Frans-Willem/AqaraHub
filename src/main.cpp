@@ -13,6 +13,7 @@
 #include <stlab/concurrency/future.hpp>
 #include <stlab/concurrency/immediate_executor.hpp>
 #include <stlab/concurrency/utility.hpp>
+
 #include "asio_executor.h"
 #include "clusterdb/cluster_db.h"
 #include "coro.h"
@@ -600,7 +601,8 @@ void OnZclCommand(std::shared_ptr<clusterdb::ClusterDb> cluster_db,
     return;
   }
   boost::optional<const clusterdb::CommandInfo&> command_info =
-      cluster_db->CommandById(cluster_id, command_id, is_global_command, direction);
+      cluster_db->CommandById(cluster_id, command_id, is_global_command,
+                              direction);
   if (!command_info) {
     LOG("OnZclCommand", warning) << boost::str(
         boost::format("Unknown command ID 0x%02X in cluster '%s', ignoring") %
@@ -750,7 +752,7 @@ int main(int argc, const char** argv) {
       "Open-source Xiaomi Aqara Zigbee Hub");
 
   const uint32_t CHANNEL_ALL_MASK = 0x07FFF800;
-  
+
   // clang-format off
   description.add_options()
     ("help,h",
@@ -896,11 +898,13 @@ int main(int argc, const char** argv) {
   // Initializing
   int exit_code = EXIT_SUCCESS;
   auto endpoint =
-      coro::Run(AsioExecutor(io_service), Initialize, api,
-                variables["panid"].as<uint16_t>(),
-		std::stoul(variables["channelmask"].as<std::string>(), nullptr, 0) & CHANNEL_ALL_MASK,
-		presharedkey, mqtt_wrapper,
-                mqtt_prefix, mqtt_recursive_publish, cluster_db)
+      coro::Run(
+          AsioExecutor(io_service), Initialize, api,
+          variables["panid"].as<uint16_t>(),
+          std::stoul(variables["channelmask"].as<std::string>(), nullptr, 0) &
+              CHANNEL_ALL_MASK,
+          presharedkey, mqtt_wrapper, mqtt_prefix, mqtt_recursive_publish,
+          cluster_db)
           .then([](auto r) {
             LOG("Main", info) << "Initialization complete!";
             return r;
