@@ -18,6 +18,10 @@ ZnpApi::ZnpApi(boost::asio::io_service& io_service,
                         sys_on_reset_, false);
   AddSimpleEventHandler(ZnpCommandType::AREQ, ZdoCommand::STATE_CHANGE_IND,
                         zdo_on_state_change_, false);
+  AddSimpleEventHandler(ZnpCommandType::AREQ, ZdoCommand::END_DEVICE_ANNCE_IND,
+                        zdo_on_end_device_announce_, false);
+  AddSimpleEventHandler(ZnpCommandType::AREQ, ZdoCommand::TC_DEV_IND,
+                        zdo_on_trustcenter_device_, false);
   AddSimpleEventHandler(ZnpCommandType::AREQ, ZdoCommand::PERMIT_JOIN_IND,
                         zdo_on_permit_join_, false);
   // NOTE: INCOMING_MSG sometimes has 3 extra trailing bytes, so allow a partial

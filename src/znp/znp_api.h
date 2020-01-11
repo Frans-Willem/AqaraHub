@@ -87,6 +87,11 @@ class ZnpApi {
 
   // ZDO events
   boost::signals2::signal<void(DeviceState)> zdo_on_state_change_;
+  boost::signals2::signal<void(ShortAddress, IEEEAddress, ShortAddress)>
+      zdo_on_trustcenter_device_;
+  boost::signals2::signal<void(ShortAddress, ShortAddress, IEEEAddress,
+                               uint8_t)>
+      zdo_on_end_device_announce_;
   boost::signals2::signal<void(uint8_t)> zdo_on_permit_join_;
 
   // SAPI commands
