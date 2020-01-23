@@ -13,6 +13,7 @@
 #include <stlab/concurrency/future.hpp>
 #include <stlab/concurrency/immediate_executor.hpp>
 #include <stlab/concurrency/utility.hpp>
+
 #include "asio_executor.h"
 #include "clusterdb/cluster_db.h"
 #include "coro.h"
@@ -360,6 +361,63 @@ void OnPermitJoin(std::shared_ptr<MqttWrapper> mqtt_wrapper,
       .detach();
 }
 
+void OnTcDevice(std::shared_ptr<MqttWrapper> mqtt_wrapper,
+                std::string mqtt_prefix, znp::ShortAddress network_address,
+                znp::IEEEAddress ieee_address,
+                znp::ShortAddress parent_address) {
+  const tao::json::value information = {
+      {"network_address", network_address},
+      {"ieee_address", boost::str(boost::format("%016X") % ieee_address)},
+      {"parent_address", parent_address}};
+
+  LOG("OnTcDevice", info) << "Device added to trustcenter: "
+                          << boost::str(boost::format("%016X") % ieee_address);
+
+  mqtt_wrapper
+      ->Publish(mqtt_prefix + "report/trustcenter_device",
+                tao::json::to_string(information), mqtt::qos::at_least_once,
+                false)
+      .recover([](auto f) {
+        try {
+          f.get_try();
+          LOG("OnTcDevice", debug) << "Published OK";
+        } catch (const std::exception& ex) {
+          LOG("OnTcDevice", debug) << "Publish failure: " << ex.what();
+        }
+      })
+      .detach();
+}
+
+void OnEndDeviceAnnounce(std::shared_ptr<MqttWrapper> mqtt_wrapper,
+                         std::string mqtt_prefix,
+                         znp::ShortAddress source_address,
+                         znp::ShortAddress network_address,
+                         znp::IEEEAddress ieee_address, uint8_t capabilities) {
+  const tao::json::value information = {
+      {"source", source_address},
+      {"network_address", network_address},
+      {"ieee_address", boost::str(boost::format("%016X") % ieee_address)},
+      {"capabilities", (int)capabilities}};
+
+  LOG("OnEndDeviceAnnounce", info)
+      << "End device announced: "
+      << boost::str(boost::format("%016X") % ieee_address);
+
+  mqtt_wrapper
+      ->Publish(mqtt_prefix + "report/end_device_announce",
+                tao::json::to_string(information), mqtt::qos::at_least_once,
+                false)
+      .recover([](auto f) {
+        try {
+          f.get_try();
+          LOG("OnEndDeviceAnnounce", debug) << "Published OK";
+        } catch (const std::exception& ex) {
+          LOG("OnEndDeviceAnnounce", debug) << "Publish failure: " << ex.what();
+        }
+      })
+      .detach();
+}
+
 void OnIncomingMsg(std::shared_ptr<znp::ZnpApi> api,
                    std::shared_ptr<MqttWrapper> mqtt_wrapper,
                    std::string mqtt_prefix, const znp::IncomingMsg& message) {
@@ -543,7 +601,8 @@ void OnZclCommand(std::shared_ptr<clusterdb::ClusterDb> cluster_db,
     return;
   }
   boost::optional<const clusterdb::CommandInfo&> command_info =
-      cluster_db->CommandById(cluster_id, command_id, is_global_command, direction);
+      cluster_db->CommandById(cluster_id, command_id, is_global_command,
+                              direction);
   if (!command_info) {
     LOG("OnZclCommand", warning) << boost::str(
         boost::format("Unknown command ID 0x%02X in cluster '%s', ignoring") %
@@ -648,6 +707,12 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
       &OnPermitJoin, mqtt_wrapper, mqtt_prefix, std::placeholders::_1));
   api->af_on_incoming_msg_.connect(std::bind(
       &OnIncomingMsg, api, mqtt_wrapper, mqtt_prefix, std::placeholders::_1));
+  api->zdo_on_trustcenter_device_.connect(
+      std::bind(&OnTcDevice, mqtt_wrapper, mqtt_prefix, std::placeholders::_1,
+                std::placeholders::_2, std::placeholders::_3));
+  api->zdo_on_end_device_announce_.connect(std::bind(
+      &OnEndDeviceAnnounce, mqtt_wrapper, mqtt_prefix, std::placeholders::_1,
+      std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
 
   mqtt_wrapper->on_publish_.connect(std::bind(
       &OnPublish, api, endpoint, mqtt_prefix, cluster_db, std::placeholders::_1,
@@ -687,7 +752,7 @@ int main(int argc, const char** argv) {
       "Open-source Xiaomi Aqara Zigbee Hub");
 
   const uint32_t CHANNEL_ALL_MASK = 0x07FFF800;
-  
+
   // clang-format off
   description.add_options()
     ("help,h",
@@ -833,11 +898,13 @@ int main(int argc, const char** argv) {
   // Initializing
   int exit_code = EXIT_SUCCESS;
   auto endpoint =
-      coro::Run(AsioExecutor(io_service), Initialize, api,
-                variables["panid"].as<uint16_t>(),
-		std::stoul(variables["channelmask"].as<std::string>(), nullptr, 0) & CHANNEL_ALL_MASK,
-		presharedkey, mqtt_wrapper,
-                mqtt_prefix, mqtt_recursive_publish, cluster_db)
+      coro::Run(
+          AsioExecutor(io_service), Initialize, api,
+          variables["panid"].as<uint16_t>(),
+          std::stoul(variables["channelmask"].as<std::string>(), nullptr, 0) &
+              CHANNEL_ALL_MASK,
+          presharedkey, mqtt_wrapper, mqtt_prefix, mqtt_recursive_publish,
+          cluster_db)
           .then([](auto r) {
             LOG("Main", info) << "Initialization complete!";
             return r;
