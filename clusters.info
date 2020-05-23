@@ -1040,6 +1040,552 @@ global commands
 0x0B02 "EN50523 Appliance Events and Alerts"
 0x0B03 "EN50523 Appliance Statistics"
 0x0B04 "Electrical Measurement"
+{
+  attributes
+  {
+    0x0000 "Basic Information"
+    {
+      type map32
+    }
+    0x0100 "DCVoltage"
+    {
+      type int16
+    }
+    0x0101 "DCVoltageMin"
+    {
+      type int16
+    }
+    0x0102 "DCVoltageMax"
+    {
+      type int16
+    }
+    0x0103 "DCCurrent"
+    {
+      type int16
+    }
+    0x0104 "DCCurrentMin"
+    {
+      type int16
+    }
+    0x0105 "DCCurrentMax"
+    {
+      type int16
+    }
+    0x0106 "DCPower"
+    {
+      type int16
+    }
+    0x0107 "DCPowerMin"
+    {
+      type int16
+    }
+    0x0108 "DCPowerMax"
+    {
+      type int16
+    }
+    0x0200 "DCVoltageMultiplier"
+    {
+      type uint16
+    }
+    0x0201 "DCVoltageDivisor"
+    {
+      type uint16
+    }
+    0x0202 "DCCurrentMultiplier"
+    {
+      type uint16
+    }
+    0x0203 "DCCurrentDivisor"
+    {
+      type uint16
+    }
+    0x0204 "DCPowerMultiplier"
+    {
+      type uint16
+    }
+    0x0205 "DCPowerDivisor"
+    {
+      type uint16
+    }
+    0x0300 "ACFrequency"
+    {
+      type uint16
+    }
+    0x0301 "ACFrequencyMin"
+    {
+      type uint16
+    }
+    0x0302 "ACFrequencyMax"
+    {
+      type uint16
+    }
+    0x0303 "NeutralCurrent"
+    {
+      type uint16
+    }
+    0x0304 "TotalActivePower"
+    {
+      type int32
+    }
+    0x0305 "TotalReactivePower"
+    {
+      type int32
+    }
+    0x0306 "TotalApparentPower"
+    {
+      type uint32
+    }
+    0x0307 "Measured1stHarmonicCurrent"
+    {
+      type int16
+    }
+    0x0308 "Measured3rdHarmonicCurrent"
+    {
+      type int16
+    }
+    0x0309 "Measured5thHarmonicCurrent"
+    {
+      type int16
+    }
+    0x030A "Measured7thHarmonicCurrent"
+    {
+      type int16
+    }
+    0x030B "Measured9thHarmonicCurrent"
+    {
+      type int16
+    }
+    0x030C "Measured11thHarmonicCurrent"
+    {
+      type int16
+    }
+    0x030D "MeasuredPhase1stHarmonicCurrent"
+    {
+      type int16
+    }
+    0x030E "MeasuredPhase3rdHarmonicCurrent"
+    {
+      type int16
+    }
+    0x030F "MeasuredPhase5thHarmonicCurrent"
+    {
+      type int16
+    }
+    0x0310 "MeasuredPhase7thHarmonicCurrent"
+    {
+      type int16
+    }
+    0x0311 "MeasuredPhase9thHarmonicCurrent"
+    {
+      type int16
+    }
+    0x0312 "MeasuredPhase11thHarmonicCurrent"
+    {
+      type int16
+    }
+    0x0400 "ACFrequencyMultiplier"
+    {
+      type uint16
+    }
+    0x0401 "ACFrequencyDivisor"
+    {
+      type uint16
+    }
+    0x0402 "PowerMultiplier"
+    {
+      type uint32
+    }
+    0x0403 "PowerDivisor"
+    {
+      type uint32
+    }
+    0x0404 "HarmonicCurrentMultiplier"
+    {
+      type int8
+    }
+    0x0405 "PhaseHarmonicCurrentMultiplier"
+    {
+      type int8
+    }
+    0x0500 "Reserved"
+    {
+      type int16
+    }
+    0x0501 "LineCurrent"
+    {
+      type uint16
+    }
+    0x0502 "ActiveCurrent"
+    {
+      type int16
+    }
+    0x0503 "ReactiveCurrent"
+    {
+      type int16
+    }
+    0x0505 "RMSVoltage"
+    {
+      type uint16
+    }
+    0x0506 "RMSVoltageMin"
+    {
+      type uint16
+    }
+    0x0507 "RMSVoltageMax"
+    {
+      type uint16
+    }
+    0x0508 "RMSCurrent"
+    {
+      type uint16
+    }
+    0x0509 "RMSCurrentMin"
+    {
+      type uint16
+    }
+    0x050A "RMSCurrentMax"
+    {
+      type uint16
+    }
+    0x050B "ActivePower"
+    {
+      type int16
+    }
+    0x050C "ActivePowerMin"
+    {
+      type int16
+    }
+    0x050D "ActivePowerMax"
+    {
+      type int16
+    }
+    0x050E "ReactivePower"
+    {
+      type int16
+    }
+    0x050F "ApparentPower"
+    {
+      type uint16
+    }
+    0x0510 "PowerFactor"
+    {
+      type int8
+    }
+    0x0511 "AverageRMSVoltageMeasurementPeriod"
+    {
+      type uint16
+    }
+    0x0512 "AverageRMSOverVoltageCounter"
+    {
+      type uint16
+    }
+    0x0513 "AverageRMSUnderVoltageCounter"
+    {
+      type uint16
+    }
+    0x0514 "RMSExtremeOverVoltagePeriod"
+    {
+      type uint16
+    }
+    0x0515 "RMSExtremeUnderVoltagePeriod"
+    {
+      type uint16
+    }
+    0x0516 "RMSVoltageSagPeriod"
+    {
+      type uint16
+    }
+    0x0517 "RMSVoltageSwellPeriod"
+    {
+      type uint16
+    }
+    0x0600 "ACVoltageMultiplier"
+    {
+      type uint16
+    }
+    0x0601 "ACVoltageDivisor"
+    {
+      type uint16
+    }
+    0x0602 "ACCurrentMultiplier"
+    {
+      type uint16
+    }
+    0x0603 "ACCurrentDivisor"
+    {
+      type uint16
+    }
+    0x0604 "ACPowerMultiplier"
+    {
+      type uint16
+    }
+    0x0605 "ACPowerDivisor"
+    {
+      type uint16
+    }
+    0x0700 "DCOverloadAlarmsMask"
+    {
+      type map8
+    }
+    0x0701 "DCVoltageOverload"
+    {
+      type int16
+    }
+    0x0702 "DCCurrentOverload"
+    {
+      type int16
+    }
+    0x0800 "ACAlarmsMask"
+    {
+      type map16
+    }
+    0x0801 "ACVoltageOverload"
+    {
+      type int16
+    }
+    0x0802 "ACCurrentOverload"
+    {
+      type int16
+    }
+    0x0803 "ACActivePowerOverload"
+    {
+      type int16
+    }
+    0x0804 "ACReactivePowerOverload"
+    {
+      type int16
+    }
+    0x0805 "AverageRMSOverVoltage"
+    {
+      type int16
+    }
+    0x0806 "AverageRMSUnderVoltage"
+    {
+      type int16
+    }
+    0x0807 "RMSExtremeOverVoltage"
+    {
+      type int16
+    }
+    0x0808 "RMSExtremeUnderVoltage"
+    {
+      type int16
+    }
+    0x0809 "RMSVoltageSag"
+    {
+      type int16
+    }
+    0x080A "RMSVoltageSwell"
+    {
+      type int16
+    }
+    0x0901 "LineCurrentPhB"
+    {
+      type uint16
+    }
+    0x0902 "ActiveCurrentPhB"
+    {
+      type int16
+    }
+    0x0903 "ReactiveCurrentPhB"
+    {
+      type int16
+    }
+    0x0905 "RMSVoltagePhB"
+    {
+      type uint16
+    }
+    0x0906 "RMSVoltageMinPhB"
+    {
+      type uint16
+    }
+    0x0907 "RMSVoltageMaxPhB"
+    {
+      type uint16
+    }
+    0x0908 "RMSCurrentPhB"
+    {
+      type uint16
+    }
+    0x0909 "RMSCurrentMinPhB"
+    {
+      type uint16
+    }
+    0x090A "RMSCurrentMaxPhB"
+    {
+      type int16
+    }
+    0x090B "ActivePowerPhB"
+    {
+      type int16
+    }
+    0x090C "ActivePowerMinPhB"
+    {
+      type int16
+    }
+    0x090D "ActivePowerMaxPhB"
+    {
+      type int16
+    }
+    0x090E "ReactivePowerPhB"
+    {
+      type int16
+    }
+    0x090F "ApparentPowerPhB"
+    {
+      type uint16
+    }
+    0x0910 "PowerFactorPhB"
+    {
+      type int8
+    }
+    0x0911 "AverageRMSVoltageMeasurementPeriodPhB"
+    {
+      type uint16
+    }
+    0x0912 "AverageRMSOverVoltageCounterPhB"
+    {
+      type uint16
+    }
+    0x0913 "AverageRMSUnderVoltageCounterPhB"
+    {
+      type uint16
+    }
+    0x0914 "RMSExtremeOverVoltagePeriodPhB"
+    {
+      type uint16
+    }
+    0x0915 "RMSExtremeUnderVoltagePeriodPhB"
+    {
+      type uint16
+    }
+    0x0916 "RMSVoltageSagPeriodPhB"
+    {
+      type uint16
+    }
+    0x0917 "RMSVoltageSwellPeriodPhB"
+    {
+      type uint16
+    }
+    0x0A01 "LineCurrentPhC"
+    {
+      type uint16
+    }
+    0x0A02 "ActiveCurrentPhC"
+    {
+      type int16
+    }
+    0x0A03 "ReactiveCurrentPhC"
+    {
+      type int16
+    }
+    0x0A05 "RMSVoltagePhC"
+    {
+      type uint16
+    }
+    0x0A06 "RMSVoltageMinPhC"
+    {
+      type uint16
+    }
+    0x0A07 "RMSVoltageMaxPhC"
+    {
+      type uint16
+    }
+    0x0A08 "RMSCurrentPhC"
+    {
+      type uint16
+    }
+    0x0A09 "RMSCurrentMinPhC"
+    {
+      type uint16
+    }
+    0x0A0A "RMSCurrentMaxPhC"
+    {
+      type uint16
+    }
+    0x0A0B "ActivePowerPhC"
+    {
+      type int16
+    }
+    0x0A0C "ActivePowerMinPhC"
+    {
+      type int16
+    }
+    0x0A0D "ActivePowerMaxPhC"
+    {
+      type int16
+    }
+    0x0A0E "ReactivePowerPhC"
+    {
+      type int16
+    }
+    0x0A0F "ApparentPowerPhC"
+    {
+      type uint16
+    }
+    0x0A10 "PowerFactorPhC"
+    {
+      type int8
+    }
+    0x0A11 "AverageRMSVoltageMeasurementPeriodPhC"
+    {
+      type uint16
+    }
+    0x0A12 "AverageRMSOverVoltageCounterPhC"
+    {
+      type uint16
+    }
+    0x0A13 "AverageRMSUnderVoltageCounterPhC"
+    {
+      type uint16
+    }
+    0x0A14 "RMSExtremeOverVoltagePeriodPhC"
+    {
+      type uint16
+    }
+    0x0A15 "RMSExtremeUnderVoltagePeriodPhC"
+    {
+      type uint16
+    }
+    0x0A16 "RMSVoltageSagPeriodPhC"
+    {
+      type uint16
+    }
+    0x0A17 "RMSVoltageSwellPeriodPhC"
+    {
+      type uint16
+    }
+  }
+  commands serverToClient
+  {
+    0x00 "Get Profile Info Response Command"
+    {
+      uint8 "ProfileCount"
+      enum8 "ProfileIntervalPeriod"
+      uint8 "MaxNumberOfIntervals"
+      uint16 "ListOfAttributes"
+    }
+    0x01 "Get Measurement Profile Response Command"
+    {
+      uint32 "StartTime"
+      enum8 "Status"
+      enum8 "ProfileIntervalPeriod"
+      uint8 "NumberOfIntervalsDelivered"
+      uint16 "AttributeId"
+      uint16 "Intervals"
+    }
+  }
+  commands clientToServer
+  {
+    0x00 "Get Profile Info Command"
+    0x01 "Get Measurement Profile Command"
+    {
+      uint16 "Attribute ID"
+      uint32 "StartTime"
+      uint8 "NumberOfIntervals" 
+    }
+  }
+}
 0x0B05 "Diagnostics"
 0x1000 "Touchlink Commissioning"
 {
