@@ -297,48 +297,49 @@ void OnPublishCommandShort(std::shared_ptr<znp::ZnpApi> api,
 
 void OnPublish(std::shared_ptr<znp::ZnpApi> api,
                std::shared_ptr<zcl::ZclEndpoint> endpoint,
-               std::string mqtt_prefix,
+               std::string mqtt_prefix, std::string mqtt_prefix_write,
                std::shared_ptr<clusterdb::ClusterDb> cluster_db,
-               std::string topic, std::string message, std::uint8_t qos,
+               std::string atopic, std::string message, std::uint8_t qos,
                bool retain) {
   try {
-    if (!boost::starts_with(topic, mqtt_prefix)) {
+    std::smatch match;
+    if (boost::starts_with(atopic, mqtt_prefix_write)) {
+      std::string topic = atopic.substr(mqtt_prefix_write.size());
+   
+      static std::regex re_write_permitjoin("write/permitjoin");
+      if (std::regex_match(topic, re_write_permitjoin)) {
+        OnPublishPermitJoin(api, message);
+        return;
+      }
+      static std::regex re_write_directjoin("write/directjoin/([0-9a-fA-F]+)");
+      if (std::regex_match(topic, match, re_write_directjoin)) {
+        OnPublishDirectJoin(api, std::stoull(match[1], 0, 16));
+        return;
+      }
+      LOG("OnPublish", debug) << "Unhandled MQTT publish to " << topic << " in prefix " << mqtt_prefix_write;
+    } else if (boost::starts_with(atopic, mqtt_prefix)) {
+      std::string topic = atopic.substr(mqtt_prefix.size());
+      static std::regex re_command_short("([0-9a-fA-F]+)/([0-9]+)/out/([^/]+)");
+      if (std::regex_match(topic, match, re_command_short)) {
+        OnPublishCommandShort(api, endpoint, cluster_db,
+                              std::stoull(match[1], 0, 16),
+                              std::stoul(match[2], 0, 10), match[3], message);
+        return;
+      }
+
+      static std::regex re_command_long(
+          "([0-9a-fA-F]+)/([0-9]+)/out/([^/]+)/([^/]+)");
+      if (std::regex_match(topic, match, re_command_long)) {
+        OnPublishCommandLong(
+            api, endpoint, cluster_db, std::stoull(match[1], 0, 16),
+            std::stoul(match[2], 0, 10), match[3], match[4], message);
+        return;
+      }
+      LOG("OnPublish", debug) << "Unhandled MQTT publish to " << topic << " in prefix " << mqtt_prefix;
+    } else {
       LOG("OnPublish", debug)
           << "Ignoring publish not starting with our prefix";
-      return;
     }
-    topic = topic.substr(mqtt_prefix.size());
-
-    std::smatch match;
-    static std::regex re_write_permitjoin("write/permitjoin");
-    if (std::regex_match(topic, re_write_permitjoin)) {
-      OnPublishPermitJoin(api, message);
-      return;
-    }
-    static std::regex re_write_directjoin("write/directjoin/([0-9a-fA-F]+)");
-    if (std::regex_match(topic, match, re_write_directjoin)) {
-      OnPublishDirectJoin(api, std::stoull(match[1], 0, 16));
-      return;
-    }
-
-    static std::regex re_command_short("([0-9a-fA-F]+)/([0-9]+)/out/([^/]+)");
-    if (std::regex_match(topic, match, re_command_short)) {
-      OnPublishCommandShort(api, endpoint, cluster_db,
-                            std::stoull(match[1], 0, 16),
-                            std::stoul(match[2], 0, 10), match[3], message);
-      return;
-    }
-
-    static std::regex re_command_long(
-        "([0-9a-fA-F]+)/([0-9]+)/out/([^/]+)/([^/]+)");
-    if (std::regex_match(topic, match, re_command_long)) {
-      OnPublishCommandLong(
-          api, endpoint, cluster_db, std::stoull(match[1], 0, 16),
-          std::stoul(match[2], 0, 10), match[3], match[4], message);
-      return;
-    }
-
-    LOG("OnPublish", debug) << "Unhandled MQTT publish to " << topic;
   } catch (const std::exception& ex) {
     LOG("OnPublish", debug) << "Exception: " << ex.what();
   }
@@ -637,7 +638,8 @@ void OnZclCommand(std::shared_ptr<clusterdb::ClusterDb> cluster_db,
 std::shared_ptr<zcl::ZclEndpoint> Initialize(
     coro::Await await, std::shared_ptr<znp::ZnpApi> api, uint16_t pan_id,
     uint32_t chan_list, std::array<uint8_t, 16> presharedkey,
-    std::shared_ptr<MqttWrapper> mqtt_wrapper, std::string mqtt_prefix,
+    std::shared_ptr<MqttWrapper> mqtt_wrapper,
+    std::string mqtt_prefix, std::string mqtt_prefix_write, 
     bool mqtt_recursive_publish,
     std::shared_ptr<clusterdb::ClusterDb> cluster_db) {
   LOG("Initialize", debug) << "Doing initial reset (this may take up to a full "
@@ -715,10 +717,10 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
       std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
 
   mqtt_wrapper->on_publish_.connect(std::bind(
-      &OnPublish, api, endpoint, mqtt_prefix, cluster_db, std::placeholders::_1,
+      &OnPublish, api, endpoint, mqtt_prefix, mqtt_prefix_write, cluster_db, std::placeholders::_1,
       std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
   await(mqtt_wrapper->Subscribe({
-      {mqtt_prefix + "write/#", mqtt::qos::at_least_once},
+      {mqtt_prefix_write + "write/#", mqtt::qos::at_least_once},
       {mqtt_prefix + "+/+/out/#", mqtt::qos::at_least_once},
   }));
   return endpoint;
@@ -734,6 +736,12 @@ void OnFrameDebug(std::string prefix, znp::ZnpCommandType cmdtype,
 std::string MakeNameSafeForMqtt(std::string name) {
   auto new_end = std::remove(name.begin(), name.end(), '/');
   return std::string(name.begin(), new_end);
+}
+
+void MakePrefixEndWithSlash(std::string &mqtt_prefix) {
+  if (mqtt_prefix.size() > 0 && mqtt_prefix[mqtt_prefix.size() - 1] != '/') {
+    mqtt_prefix += "/";
+  }
 }
 
 int main(int argc, const char** argv) {
@@ -766,6 +774,8 @@ int main(int argc, const char** argv) {
     ("topic,t",
      boost::program_options::value<std::string>()->default_value("AqaraHub"),
      "MQTT Root topic, e.g. AqaraHub")
+    ("topic-write,w",
+     "Put write topic under different MQTT Root. This is useful for machines with multiple sticks, but wanting to publish as one.")
     ("panid",
      boost::program_options::value<uint16_t>()->default_value(0xFFFF),
      "Zigbee PAN ID")
@@ -841,10 +851,14 @@ int main(int argc, const char** argv) {
   }
 
   std::string mqtt_prefix = variables["topic"].as<std::string>();
-  if (mqtt_prefix.size() > 0 && mqtt_prefix[mqtt_prefix.size() - 1] != '/') {
-    mqtt_prefix += "/";
-  }
+  MakePrefixEndWithSlash(mqtt_prefix);
   LOG("Main", info) << "Using MQTT prefix '" << mqtt_prefix << "'";
+  std::string mqtt_prefix_write = mqtt_prefix;
+  if (variables.count("topic-write") > 0) {
+     mqtt_prefix_write = variables["topic-write"].as<std::string>();
+  }
+  MakePrefixEndWithSlash(mqtt_prefix_write);
+  LOG("Main", info) << "Using MQTT prefix write '" << mqtt_prefix_write << "'";
   bool mqtt_recursive_publish = (variables.count("recursive-publish") > 0);
   LOG("Main", info) << "Recursively publishing object and array properties";
 
@@ -903,7 +917,9 @@ int main(int argc, const char** argv) {
           variables["panid"].as<uint16_t>(),
           std::stoul(variables["channelmask"].as<std::string>(), nullptr, 0) &
               CHANNEL_ALL_MASK,
-          presharedkey, mqtt_wrapper, mqtt_prefix, mqtt_recursive_publish,
+          presharedkey, mqtt_wrapper,
+          mqtt_prefix, mqtt_prefix_write,
+          mqtt_recursive_publish,
           cluster_db)
           .then([](auto r) {
             LOG("Main", info) << "Initialization complete!";
