@@ -706,7 +706,7 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
       });
 
   api->zdo_on_permit_join_.connect(std::bind(
-      &OnPermitJoin, mqtt_wrapper, mqtt_prefix, std::placeholders::_1));
+      &OnPermitJoin, mqtt_wrapper, mqtt_prefix_write, std::placeholders::_1));
   api->af_on_incoming_msg_.connect(std::bind(
       &OnIncomingMsg, api, mqtt_wrapper, mqtt_prefix, std::placeholders::_1));
   api->zdo_on_trustcenter_device_.connect(
