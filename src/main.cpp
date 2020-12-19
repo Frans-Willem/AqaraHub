@@ -782,7 +782,8 @@ int main(int argc, const char** argv) {
     ("topic,t",
      boost::program_options::value<std::string>()->default_value("AqaraHub"),
      "MQTT Root topic, e.g. AqaraHub")
-    ("topic-write,w",
+    ("write-topic,w",
+     boost::program_options::value<std::string>(),
      "Put write topic under different MQTT Root. This is useful for machines with multiple sticks, but wanting to publish as one.")
     ("panid",
      boost::program_options::value<uint16_t>()->default_value(0xFFFF),
@@ -862,8 +863,8 @@ int main(int argc, const char** argv) {
   MakePrefixEndWithSlash(mqtt_prefix);
   LOG("Main", info) << "Using MQTT prefix '" << mqtt_prefix << "'";
   std::string mqtt_prefix_write = mqtt_prefix;
-  if (variables.count("topic-write") > 0) {
-     mqtt_prefix_write = variables["topic-write"].as<std::string>();
+  if (variables.count("write-topic") > 0) {
+     mqtt_prefix_write = variables["write-topic"].as<std::string>();
   }
   MakePrefixEndWithSlash(mqtt_prefix_write);
   LOG("Main", info) << "Using MQTT prefix write '" << mqtt_prefix_write << "'";
