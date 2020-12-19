@@ -1,9 +1,6 @@
 #include "mqtt_wrapper.h"
 #include <boost/optional/optional_io.hpp>
-#include <boost/lexical_cast.hpp>
 #include <regex>
-#include <limits>
-#include <cstdlib>
 #include "mqtt_wrapper_impl.h"
 #include "uri_parser.h"
 
@@ -96,8 +93,7 @@ std::shared_ptr<MqttWrapper> MqttWrapper::FromParameters(
     MqttWrapper::Parameters params,
     std::string mqtt_prefix_write) {
   params.port = params.port ? *params.port : "1883";
-  params.client_id = params.client_id ? *params.client_id
-         : "AqaraHub-"+mqtt_prefix_write+"-"+boost::lexical_cast<std::string>(rand());
+  params.client_id = params.client_id ? *params.client_id : "AqaraHub-"+mqtt_prefix_write;
 
   LOG("MqttWrapper", info)
         << "Params: " << params;
