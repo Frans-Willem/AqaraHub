@@ -345,8 +345,8 @@ void OnPublish(std::shared_ptr<znp::ZnpApi> api,
   }
 }
 
-void OnPermitJoin(std::shared_ptr<MqttWrapper> mqtt_wrapper,
-                  std::string mqtt_prefix, uint8_t duration) {
+void OnPermitJoinHelper(std::shared_ptr<MqttWrapper> mqtt_wrapper,
+                        std::string mqtt_prefix, uint8_t duration) {
   mqtt_wrapper
       ->Publish(mqtt_prefix + "report/permitjoin",
                 boost::str(boost::format("%d") % (unsigned int)duration),
@@ -360,6 +360,14 @@ void OnPermitJoin(std::shared_ptr<MqttWrapper> mqtt_wrapper,
         }
       })
       .detach();
+}
+
+void OnPermitJoin(std::shared_ptr<MqttWrapper> mqtt_wrapper,
+                  std::string mqtt_prefix, std::string mqtt_prefix_write, uint8_t duration) {
+  OnPermitJoinHelper(mqtt_wrapper, mqtt_prefix_write, duration);
+  if (mqtt_prefix != mqtt_prefix_write) {
+    OnPermitJoinHelper(mqtt_wrapper, mqtt_prefix, duration);
+  }
 }
 
 void OnTcDevice(std::shared_ptr<MqttWrapper> mqtt_wrapper,
@@ -706,7 +714,7 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
       });
 
   api->zdo_on_permit_join_.connect(std::bind(
-      &OnPermitJoin, mqtt_wrapper, mqtt_prefix_write, std::placeholders::_1));
+      &OnPermitJoin, mqtt_wrapper, mqtt_prefix, mqtt_prefix_write, std::placeholders::_1));
   api->af_on_incoming_msg_.connect(std::bind(
       &OnIncomingMsg, api, mqtt_wrapper, mqtt_prefix, std::placeholders::_1));
   api->zdo_on_trustcenter_device_.connect(
