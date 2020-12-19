@@ -32,9 +32,9 @@ class MqttWrapper {
 
   static boost::optional<Parameters> ParseUrl(const std::string& url);
   static std::shared_ptr<MqttWrapper> FromUrl(
-      boost::asio::io_service& io_service, std::string url);
+      boost::asio::io_service& io_service, std::string url, std::string mqtt_prefix_write);
   static std::shared_ptr<MqttWrapper> FromParameters(
-      boost::asio::io_service& io_service, const Parameters& params);
+      boost::asio::io_service& io_service, Parameters params, std::string mqtt_prefix_write);
 };
 
 std::ostream& operator<<(std::ostream& s,

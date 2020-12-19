@@ -848,28 +848,29 @@ int main(int argc, const char** argv) {
                                    std::placeholders::_3));
   auto api = std::make_shared<znp::ZnpApi>(io_service, port);
 
-  LOG("Main", info) << "Setting up MQTT connection";
-
-  std::shared_ptr<MqttWrapper> mqtt_wrapper;
-  try {
-    mqtt_wrapper =
-        MqttWrapper::FromUrl(io_service, variables["mqtt"].as<std::string>());
-  } catch (const std::exception& ex) {
-    std::cerr << ex.what() << std::endl;
-    return EXIT_FAILURE;
-  }
-
   std::string mqtt_prefix = variables["topic"].as<std::string>();
   MakePrefixEndWithSlash(mqtt_prefix);
   LOG("Main", info) << "Using MQTT prefix '" << mqtt_prefix << "'";
   std::string mqtt_prefix_write = mqtt_prefix;
+
+  bool mqtt_recursive_publish = (variables.count("recursive-publish") > 0);
+  LOG("Main", info) << "Recursively publishing object and array properties";
+
   if (variables.count("write-topic") > 0) {
      mqtt_prefix_write = variables["write-topic"].as<std::string>();
   }
   MakePrefixEndWithSlash(mqtt_prefix_write);
   LOG("Main", info) << "Using MQTT prefix write '" << mqtt_prefix_write << "'";
-  bool mqtt_recursive_publish = (variables.count("recursive-publish") > 0);
-  LOG("Main", info) << "Recursively publishing object and array properties";
+
+  LOG("Main", info) << "Setting up MQTT connection";
+  std::shared_ptr<MqttWrapper> mqtt_wrapper;
+  try {
+    mqtt_wrapper =
+        MqttWrapper::FromUrl(io_service, variables["mqtt"].as<std::string>(), mqtt_prefix_write);
+  } catch (const std::exception& ex) {
+    std::cerr << ex.what() << std::endl;
+    return EXIT_FAILURE;
+  }
 
   // Creating pre-shared-key
   std::array<uint8_t, 16> presharedkey;
