@@ -91,6 +91,8 @@ boost::optional<MqttWrapper::Parameters> MqttWrapper::ParseUrl(
 std::shared_ptr<MqttWrapper> MqttWrapper::FromParameters(
     boost::asio::io_service& io_service,
     const MqttWrapper::Parameters& params) {
+  std::string aport = params.port ? *params.port : "1883";
+  std::string aclient_id = params.client_id ? *params.client_id : "AqaraHub";
   if (params.use_ws) {
 #if defined(MQTT_USE_WS)
     if (params.use_tls) {
@@ -105,8 +107,8 @@ std::shared_ptr<MqttWrapper> MqttWrapper::FromParameters(
             if (password) client->set_password(*password);
             return client;
           },
-          io_service, params.hostname, (params.port ? *params.port : "1883"),
-          (params.client_id ? *params.client_id : "AqaraHub"), params.username,
+          io_service, params.hostname, aport,
+          aclient_id, params.username,
           params.password);
     } else {
       return CreateMqttWrapperImpl(
@@ -120,8 +122,8 @@ std::shared_ptr<MqttWrapper> MqttWrapper::FromParameters(
             if (password) client->set_password(*password);
             return client;
           },
-          io_service, params.hostname, (params.port ? *params.port : "1883"),
-          (params.client_id ? *params.client_id : "AqaraHub"), params.username,
+          io_service, params.hostname, aport,
+          aclient_id, params.username,
           params.password);
     }
 #else
@@ -141,8 +143,8 @@ std::shared_ptr<MqttWrapper> MqttWrapper::FromParameters(
             if (password) client->set_password(*password);
             return client;
           },
-          io_service, params.hostname, (params.port ? *params.port : "1883"),
-          (params.client_id ? *params.client_id : "AqaraHub"), params.username,
+          io_service, params.hostname, aport,
+          aclient_id, params.username,
           params.password);
     } else {
       return CreateMqttWrapperImpl(
@@ -156,8 +158,8 @@ std::shared_ptr<MqttWrapper> MqttWrapper::FromParameters(
             if (password) client->set_password(*password);
             return client;
           },
-          io_service, params.hostname, (params.port ? *params.port : "1883"),
-          (params.client_id ? *params.client_id : "AqaraHub"), params.username,
+          io_service, params.hostname, aport,
+          aclient_id, params.username,
           params.password);
     }
   }
