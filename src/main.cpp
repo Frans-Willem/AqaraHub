@@ -870,7 +870,8 @@ int main(int argc, const char** argv) {
     std::cerr << ex.what() << std::endl;
     return EXIT_FAILURE;
   }
-  LOG("Main", info) << "Instance id '" << instance_id << "'";
+  if (instance_id.size() > 0)
+    LOG("Main", info) << "Instance id '" << instance_id << "'";
 
   std::string mqtt_prefix = variables["topic"].as<std::string>();
   MakePrefixEndWithSlash(mqtt_prefix);
