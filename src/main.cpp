@@ -301,6 +301,8 @@ void MakePrefixEndWithSlash(std::string &mqtt_prefix) {
   }
 }
 
+const std::string controlTopic = "control/";
+
 void OnPublish(std::shared_ptr<znp::ZnpApi> api,
                std::shared_ptr<zcl::ZclEndpoint> endpoint,
                std::string mqtt_prefix, std::string instance_id,
@@ -315,9 +317,8 @@ void OnPublish(std::shared_ptr<znp::ZnpApi> api,
     }
     topic = topic.substr(mqtt_prefix.size());
     std::smatch match;
-    std::string ctopic = "control/";
-    if (boost::starts_with(topic, ctopic)) {
-      topic = topic.substr(ctopic.size());
+    if (boost::starts_with(topic, controlTopic)) {
+      topic = topic.substr(controlTopic.size());
       MakePrefixEndWithSlash(instance_id);
      
       static std::regex re_write_permitjoin_g("permitjoin");
@@ -335,7 +336,8 @@ void OnPublish(std::shared_ptr<znp::ZnpApi> api,
         OnPublishDirectJoin(api, std::stoull(match[1], 0, 16));
         return;
       }
-      LOG("OnPublish", debug) << "Unhandled MQTT publish to " << topic << " in prefix " << mqtt_prefix + ctopic;
+      LOG("OnPublish", debug) << "Unhandled MQTT publish to " << topic << " in prefix " << mqtt_prefix + controlTopic;
+      return;
     }
     static std::regex re_command_short("([0-9a-fA-F]+)/([0-9]+)/out/([^/]+)");
     if (std::regex_match(topic, match, re_command_short)) {
@@ -743,7 +745,7 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
       &OnPublish, api, endpoint, mqtt_prefix, instance_id, cluster_db, std::placeholders::_1,
       std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
   await(mqtt_wrapper->Subscribe({
-      {mqtt_prefix + "write/#", mqtt::qos::at_least_once},
+      {mqtt_prefix + controlTopic + "#", mqtt::qos::at_least_once},
       {mqtt_prefix + "+/+/out/#", mqtt::qos::at_least_once},
   }));
   return endpoint;
