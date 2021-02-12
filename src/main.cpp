@@ -794,7 +794,7 @@ int main(int argc, const char** argv) {
      boost::program_options::value<std::string>()->default_value("AqaraHub"),
      "MQTT Root topic, e.g. AqaraHub")
     ("instance-id,i",
-     boost::program_options::value<std::string>(),
+     boost::program_options::value<std::string>()->default_value(""),
      "Allows multiple sticks to share the same MQTT Root topic by separating only the control commands, but leaving publishing as if one stick.")
     ("panid",
      boost::program_options::value<uint16_t>()->default_value(0xFFFF),
