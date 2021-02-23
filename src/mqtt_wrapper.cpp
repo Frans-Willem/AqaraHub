@@ -90,7 +90,19 @@ boost::optional<MqttWrapper::Parameters> MqttWrapper::ParseUrl(
 
 std::shared_ptr<MqttWrapper> MqttWrapper::FromParameters(
     boost::asio::io_service& io_service,
-    const MqttWrapper::Parameters& params) {
+    MqttWrapper::Parameters params,
+    std::string instance_id) {
+  if (!params.port)
+    params.port  = "1883";
+  if (!params.client_id) {
+    params.client_id = "AqaraHub";
+    if (instance_id.size() > 0)
+      params.client_id = *params.client_id + "-" + instance_id;
+  }
+
+  LOG("MqttWrapper", info)
+        << "Params: " << params;
+
   if (params.use_ws) {
 #if defined(MQTT_USE_WS)
     if (params.use_tls) {
@@ -105,8 +117,8 @@ std::shared_ptr<MqttWrapper> MqttWrapper::FromParameters(
             if (password) client->set_password(*password);
             return client;
           },
-          io_service, params.hostname, (params.port ? *params.port : "1883"),
-          (params.client_id ? *params.client_id : "AqaraHub"), params.username,
+          io_service, params.hostname, *params.port,
+          *params.client_id, params.username,
           params.password);
     } else {
       return CreateMqttWrapperImpl(
@@ -120,8 +132,8 @@ std::shared_ptr<MqttWrapper> MqttWrapper::FromParameters(
             if (password) client->set_password(*password);
             return client;
           },
-          io_service, params.hostname, (params.port ? *params.port : "1883"),
-          (params.client_id ? *params.client_id : "AqaraHub"), params.username,
+          io_service, params.hostname, *params.port,
+          *params.client_id, params.username,
           params.password);
     }
 #else
@@ -141,8 +153,8 @@ std::shared_ptr<MqttWrapper> MqttWrapper::FromParameters(
             if (password) client->set_password(*password);
             return client;
           },
-          io_service, params.hostname, (params.port ? *params.port : "1883"),
-          (params.client_id ? *params.client_id : "AqaraHub"), params.username,
+          io_service, params.hostname, *params.port,
+          *params.client_id, params.username,
           params.password);
     } else {
       return CreateMqttWrapperImpl(
@@ -156,18 +168,18 @@ std::shared_ptr<MqttWrapper> MqttWrapper::FromParameters(
             if (password) client->set_password(*password);
             return client;
           },
-          io_service, params.hostname, (params.port ? *params.port : "1883"),
-          (params.client_id ? *params.client_id : "AqaraHub"), params.username,
+          io_service, params.hostname, *params.port,
+          *params.client_id, params.username,
           params.password);
     }
   }
 }
 
 std::shared_ptr<MqttWrapper> MqttWrapper::FromUrl(
-    boost::asio::io_service& io_service, std::string url) {
+    boost::asio::io_service& io_service, std::string url, std::string instance_id) {
   auto params = ParseUrl(url);
   if (!params) {
     throw std::runtime_error("MQTT URI Parse error");
   }
-  return FromParameters(io_service, *params);
+  return FromParameters(io_service, *params, instance_id);
 }

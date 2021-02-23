@@ -295,9 +295,17 @@ void OnPublishCommandShort(std::shared_ptr<znp::ZnpApi> api,
               arguments);
 }
 
+void MakePrefixEndWithSlash(std::string &mqtt_prefix) {
+  if (mqtt_prefix.size() > 0 && mqtt_prefix[mqtt_prefix.size() - 1] != '/') {
+    mqtt_prefix += "/";
+  }
+}
+
+const std::string controlTopic = "control/";
+
 void OnPublish(std::shared_ptr<znp::ZnpApi> api,
                std::shared_ptr<zcl::ZclEndpoint> endpoint,
-               std::string mqtt_prefix,
+               std::string mqtt_prefix, std::string instance_id,
                std::shared_ptr<clusterdb::ClusterDb> cluster_db,
                std::string topic, std::string message, std::uint8_t qos,
                bool retain) {
@@ -308,19 +316,29 @@ void OnPublish(std::shared_ptr<znp::ZnpApi> api,
       return;
     }
     topic = topic.substr(mqtt_prefix.size());
-
     std::smatch match;
-    static std::regex re_write_permitjoin("write/permitjoin");
-    if (std::regex_match(topic, re_write_permitjoin)) {
-      OnPublishPermitJoin(api, message);
+    if (boost::starts_with(topic, controlTopic)) {
+      topic = topic.substr(controlTopic.size());
+      MakePrefixEndWithSlash(instance_id);
+     
+      static std::regex re_write_permitjoin_g("permitjoin");
+      if (std::regex_match(topic, re_write_permitjoin_g)) {
+        OnPublishPermitJoin(api, message);
+        return;
+      }
+      static std::regex re_write_permitjoin(instance_id+"permitjoin");
+      if (std::regex_match(topic, re_write_permitjoin)) {
+        OnPublishPermitJoin(api, message);
+        return;
+      }
+      static std::regex re_write_directjoin(instance_id+"directjoin/([0-9a-fA-F]+)");
+      if (std::regex_match(topic, match, re_write_directjoin)) {
+        OnPublishDirectJoin(api, std::stoull(match[1], 0, 16));
+        return;
+      }
+      LOG("OnPublish", debug) << "Unhandled MQTT publish to " << topic << " in prefix " << mqtt_prefix + controlTopic;
       return;
     }
-    static std::regex re_write_directjoin("write/directjoin/([0-9a-fA-F]+)");
-    if (std::regex_match(topic, match, re_write_directjoin)) {
-      OnPublishDirectJoin(api, std::stoull(match[1], 0, 16));
-      return;
-    }
-
     static std::regex re_command_short("([0-9a-fA-F]+)/([0-9]+)/out/([^/]+)");
     if (std::regex_match(topic, match, re_command_short)) {
       OnPublishCommandShort(api, endpoint, cluster_db,
@@ -337,17 +355,17 @@ void OnPublish(std::shared_ptr<znp::ZnpApi> api,
           std::stoul(match[2], 0, 10), match[3], match[4], message);
       return;
     }
-
-    LOG("OnPublish", debug) << "Unhandled MQTT publish to " << topic;
+    LOG("OnPublish", debug) << "Unhandled MQTT publish to " << topic << " in prefix " << mqtt_prefix;
   } catch (const std::exception& ex) {
     LOG("OnPublish", debug) << "Exception: " << ex.what();
   }
 }
 
-void OnPermitJoin(std::shared_ptr<MqttWrapper> mqtt_wrapper,
-                  std::string mqtt_prefix, uint8_t duration) {
+void OnPermitJoinHelper(std::shared_ptr<MqttWrapper> mqtt_wrapper,
+                        std::string mqtt_prefix, std::string instance_id, uint8_t duration) {
+  MakePrefixEndWithSlash(instance_id);
   mqtt_wrapper
-      ->Publish(mqtt_prefix + "report/permitjoin",
+      ->Publish(mqtt_prefix + "report/"+instance_id+"permitjoin",
                 boost::str(boost::format("%d") % (unsigned int)duration),
                 mqtt::qos::at_least_once, false)
       .recover([](auto f) {
@@ -359,6 +377,14 @@ void OnPermitJoin(std::shared_ptr<MqttWrapper> mqtt_wrapper,
         }
       })
       .detach();
+}
+
+void OnPermitJoin(std::shared_ptr<MqttWrapper> mqtt_wrapper,
+                  std::string mqtt_prefix, std::string instance_id, uint8_t duration) {
+  OnPermitJoinHelper(mqtt_wrapper, mqtt_prefix, "", duration);
+  if (instance_id.size() > 0) {
+    OnPermitJoinHelper(mqtt_wrapper, mqtt_prefix, instance_id, duration);
+  }
 }
 
 void OnTcDevice(std::shared_ptr<MqttWrapper> mqtt_wrapper,
@@ -637,7 +663,8 @@ void OnZclCommand(std::shared_ptr<clusterdb::ClusterDb> cluster_db,
 std::shared_ptr<zcl::ZclEndpoint> Initialize(
     coro::Await await, std::shared_ptr<znp::ZnpApi> api, uint16_t pan_id,
     uint32_t chan_list, std::array<uint8_t, 16> presharedkey,
-    std::shared_ptr<MqttWrapper> mqtt_wrapper, std::string mqtt_prefix,
+    std::shared_ptr<MqttWrapper> mqtt_wrapper,
+    std::string mqtt_prefix, std::string instance_id, 
     bool mqtt_recursive_publish,
     std::shared_ptr<clusterdb::ClusterDb> cluster_db) {
   LOG("Initialize", debug) << "Doing initial reset (this may take up to a full "
@@ -704,7 +731,7 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
       });
 
   api->zdo_on_permit_join_.connect(std::bind(
-      &OnPermitJoin, mqtt_wrapper, mqtt_prefix, std::placeholders::_1));
+      &OnPermitJoin, mqtt_wrapper, mqtt_prefix, instance_id, std::placeholders::_1));
   api->af_on_incoming_msg_.connect(std::bind(
       &OnIncomingMsg, api, mqtt_wrapper, mqtt_prefix, std::placeholders::_1));
   api->zdo_on_trustcenter_device_.connect(
@@ -715,10 +742,10 @@ std::shared_ptr<zcl::ZclEndpoint> Initialize(
       std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
 
   mqtt_wrapper->on_publish_.connect(std::bind(
-      &OnPublish, api, endpoint, mqtt_prefix, cluster_db, std::placeholders::_1,
+      &OnPublish, api, endpoint, mqtt_prefix, instance_id, cluster_db, std::placeholders::_1,
       std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
   await(mqtt_wrapper->Subscribe({
-      {mqtt_prefix + "write/#", mqtt::qos::at_least_once},
+      {mqtt_prefix + controlTopic + "#", mqtt::qos::at_least_once},
       {mqtt_prefix + "+/+/out/#", mqtt::qos::at_least_once},
   }));
   return endpoint;
@@ -766,6 +793,9 @@ int main(int argc, const char** argv) {
     ("topic,t",
      boost::program_options::value<std::string>()->default_value("AqaraHub"),
      "MQTT Root topic, e.g. AqaraHub")
+    ("instance-id,i",
+     boost::program_options::value<std::string>()->default_value(""),
+     "Allows multiple sticks to share the same MQTT Root topic by separating only the control commands, but leaving publishing as if one stick.")
     ("panid",
      boost::program_options::value<uint16_t>()->default_value(0xFFFF),
      "Zigbee PAN ID")
@@ -829,22 +859,24 @@ int main(int argc, const char** argv) {
                                    std::placeholders::_3));
   auto api = std::make_shared<znp::ZnpApi>(io_service, port);
 
-  LOG("Main", info) << "Setting up MQTT connection";
+  std::string instance_id = variables["instance-id"].as<std::string>();
 
+  LOG("Main", info) << "Setting up MQTT connection";
   std::shared_ptr<MqttWrapper> mqtt_wrapper;
   try {
     mqtt_wrapper =
-        MqttWrapper::FromUrl(io_service, variables["mqtt"].as<std::string>());
+        MqttWrapper::FromUrl(io_service, variables["mqtt"].as<std::string>(), instance_id);
   } catch (const std::exception& ex) {
     std::cerr << ex.what() << std::endl;
     return EXIT_FAILURE;
   }
+  if (instance_id.size() > 0)
+    LOG("Main", info) << "Instance id '" << instance_id << "'";
 
   std::string mqtt_prefix = variables["topic"].as<std::string>();
-  if (mqtt_prefix.size() > 0 && mqtt_prefix[mqtt_prefix.size() - 1] != '/') {
-    mqtt_prefix += "/";
-  }
+  MakePrefixEndWithSlash(mqtt_prefix);
   LOG("Main", info) << "Using MQTT prefix '" << mqtt_prefix << "'";
+
   bool mqtt_recursive_publish = (variables.count("recursive-publish") > 0);
   LOG("Main", info) << "Recursively publishing object and array properties";
 
@@ -903,7 +935,9 @@ int main(int argc, const char** argv) {
           variables["panid"].as<uint16_t>(),
           std::stoul(variables["channelmask"].as<std::string>(), nullptr, 0) &
               CHANNEL_ALL_MASK,
-          presharedkey, mqtt_wrapper, mqtt_prefix, mqtt_recursive_publish,
+          presharedkey, mqtt_wrapper,
+          mqtt_prefix, instance_id,
+          mqtt_recursive_publish,
           cluster_db)
           .then([](auto r) {
             LOG("Main", info) << "Initialization complete!";
