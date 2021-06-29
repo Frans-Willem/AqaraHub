@@ -88,9 +88,9 @@ Running AqaraHub is relatively simple. Simply instruct it to which serial port t
 ```
 
 ### Pairing Xiaomi zigbee Devices
-At first start the CC2531 does not know your Xiaomi zigbee devices. You have to pair them by activating pairing mode manually. Over MQTT send a number, e.g. 60, to the AqaraHub/write/permitjoin topic:
+At first start the CC2531 does not know your Xiaomi zigbee devices. You have to pair them by activating pairing mode manually. Over MQTT send a number, e.g. 60, to the AqaraHub/control/permitjoin topic:
 ```
-mosquitto_pub -h ArchServer -t AqaraHub/write/permitjoin -m 60
+mosquitto_pub -h ArchServer -t AqaraHub/control/permitjoin -m 60
 ```
 AqaraHub should respond on the AqaraHub/report/permitjoin topic, with the same number, and at that point you have 60 seconds (depending on what you sent) to pair devices. Once the 60 seconds elapse, you'll get another message to AqaraHub/report/permitjoin with the content "0".
 
