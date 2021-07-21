@@ -7,7 +7,7 @@ RUN mkdir -p /usr/src/
 WORKDIR /usr/src
 
 RUN curl -kL https://www.openssl.org/source/openssl-1.1.1a.tar.gz | tar -zxf -
-RUN curl -kL https://dl.bintray.com/boostorg/release/1.69.0/source/boost_1_69_0.tar.bz2 | tar -jxf -
+RUN curl -kL https://boostorg.jfrog.io/artifactory/main/release/1.69.0/source/boost_1_69_0.tar.bz2 | tar -jxf -
 RUN GIT_SSL_NO_VERIFY=1 git clone --recursive https://github.com/Frans-Willem/AqaraHub
 
 WORKDIR /usr/src/openssl-1.1.1a
