@@ -102,6 +102,15 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "gmiraval",
+      "name": "Guillermo Miravalles",
+      "avatar_url": "https://avatars.githubusercontent.com/u/3603763?v=4",
+      "profile": "https://github.com/gmiraval",
+      "contributions": [
+        "doc"
+      ]
     }
   ],
   "contributorsPerLine": 7,
